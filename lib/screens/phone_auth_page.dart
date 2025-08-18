@@ -1,0 +1,226 @@
+import 'package:flutter/material.dart';
+import 'package:flutter_bloc/flutter_bloc.dart';
+import 'package:go_router/go_router.dart';
+import 'package:phone_authentication/screens/custom_text_field.dart';
+import '../bloc/phone_auth_cubit.dart';
+
+class PhoneAuthPage extends StatefulWidget {
+  const PhoneAuthPage({super.key});
+
+  @override
+  _PhoneAuthPageState createState() => _PhoneAuthPageState();
+}
+
+class _PhoneAuthPageState extends State<PhoneAuthPage> {
+  final _controllers = {
+    'name': TextEditingController(),
+    'phone': TextEditingController(),
+    'address': TextEditingController(),
+    'age': TextEditingController(),
+    'vehicle': TextEditingController(),
+  };
+
+  @override
+  void initState() {
+    super.initState();
+    _controllers['phone']!.selection = TextSelection.fromPosition(
+      const TextPosition(offset: 0),
+    );
+  }
+
+  // Build text field with common properties
+  Widget _buildTextField({
+    required String key,
+    required String label,
+    required TextInputType keyboardType,
+    IconData? prefixIcon,
+    String? prefixText,
+    String? errorText,
+    required BuildContext context, // Pass context for Cubit access
+  }) {
+    // Sync controller with Cubit state
+    _controllers[key]!.text = context.read<PhoneAuthCubit>().state.fields[key] ?? '';
+    // Add listener to update Cubit on text change
+    _controllers[key]!.addListener(() {
+      context.read<PhoneAuthCubit>().updateField(key, _controllers[key]!.text);
+    });
+
+    return Padding(
+      padding: const EdgeInsets.only(bottom: 16.0),
+      child: CustomTextField(
+        controller: _controllers[key]!,
+        labelText: label,
+        prefixIcon: prefixIcon,
+        keyboardType: keyboardType,
+        prefixText: prefixText,
+        errorText: errorText,
+      ),
+    );
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return BlocProvider(
+      create: (context) => PhoneAuthCubit(),
+      child: BlocListener<PhoneAuthCubit, PhoneAuthState>(
+        listener: (context, state) {
+          if (state.isCodeSent && state.phoneNumber != null) {
+            debugPrint('Navigating with phone number: ${state.phoneNumber}');
+            context.push('/otp', extra: {'phoneNumber': state.phoneNumber});
+          }
+        },
+        child: Scaffold(
+          appBar: AppBar(
+            title: const Text(
+              'Phone Authentication',
+              style: TextStyle(fontWeight: FontWeight.bold, color: Colors.white),
+            ),
+            backgroundColor: Colors.blueAccent,
+            elevation: 0,
+          ),
+          body: Container(
+            decoration: const BoxDecoration(
+              gradient: LinearGradient(
+                begin: Alignment.topCenter,
+                end: Alignment.bottomCenter,
+                colors: [Colors.blueAccent, Colors.white],
+              ),
+            ),
+            child: Center(
+              child: SingleChildScrollView(
+                child: Padding(
+                  padding: const EdgeInsets.symmetric(horizontal: 24.0),
+                  child: Card(
+                    elevation: 8.0,
+                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16.0)),
+                    child: Padding(
+                      padding: const EdgeInsets.all(24.0),
+                      child: BlocBuilder<PhoneAuthCubit, PhoneAuthState>(
+                        builder: (context, state) {
+                          return Column(
+                            mainAxisSize: MainAxisSize.min,
+                            children: [
+                              ClipRRect(
+                                borderRadius: BorderRadius.circular(12.0),
+                                child: Image.network(
+                                  'https://img.freepik.com/free-vector/mobile-login-concept-illustration_114360-135.jpg',
+                                  height: 150,
+                                  width: 150,
+                                  fit: BoxFit.cover,
+                                ),
+                              ),
+                              const SizedBox(height: 24.0),
+                              _buildTextField(
+                                key: 'name',
+                                label: 'Enter name',
+                                keyboardType: TextInputType.name,
+                                prefixIcon: Icons.person,
+                                errorText: state.errors['name'],
+                                context: context,
+                              ),
+                              _buildTextField(
+                                key: 'phone',
+                                label: 'Enter phone number',
+                                keyboardType: TextInputType.phone,
+                                prefixIcon: Icons.phone,
+                                prefixText: '+91 ',
+                                errorText: state.errors['phone'],
+                                context: context,
+                              ),
+                              _buildTextField(
+                                key: 'address',
+                                label: 'Enter address',
+                                keyboardType: TextInputType.streetAddress,
+                                prefixIcon: Icons.location_on,
+                                errorText: state.errors['address'],
+                                context: context,
+                              ),
+                              _buildTextField(
+                                key: 'age',
+                                label: 'Enter age',
+                                keyboardType: TextInputType.number,
+                                prefixIcon: Icons.cake,
+                                errorText: state.errors['age'],
+                                context: context,
+                              ),
+                              _buildTextField(
+                                key: 'vehicle',
+                                label: 'Enter vehicle number',
+                                keyboardType: TextInputType.text,
+                                prefixIcon: Icons.directions_car,
+                                errorText: state.errors['vehicle'],
+                                context: context,
+                              ),
+                              const SizedBox(height: 8.0),
+                              Container(
+                                decoration: BoxDecoration(
+                                  gradient: const LinearGradient(
+                                    colors: [Colors.blueAccent, Colors.cyan],
+                                    begin: Alignment.topLeft,
+                                    end: Alignment.bottomRight,
+                                  ),
+                                  borderRadius: BorderRadius.circular(12.0),
+                                  boxShadow: const [
+                                    BoxShadow(
+                                      color: Colors.black26,
+                                      blurRadius: 8.0,
+                                      offset: Offset(0, 4),
+                                    ),
+                                  ],
+                                ),
+                                child: ElevatedButton(
+                                  onPressed: state.isCodeSent
+                                      ? null
+                                      : () => context.read<PhoneAuthCubit>().submitForm(),
+                                  style: ElevatedButton.styleFrom(
+                                    padding: const EdgeInsets.symmetric(horizontal: 32.0, vertical: 16.0),
+                                    backgroundColor: Colors.transparent,
+                                    shadowColor: Colors.transparent,
+                                    shape: RoundedRectangleBorder(
+                                      borderRadius: BorderRadius.circular(12.0),
+                                    ),
+                                  ),
+                                  child: const Text(
+                                    'Send Verification Code',
+                                    style: TextStyle(
+                                      fontSize: 16.0,
+                                      fontWeight: FontWeight.bold,
+                                      color: Colors.white,
+                                    ),
+                                  ),
+                                ),
+                              ),
+                              const SizedBox(height: 24.0),
+                              Text(
+                                state.statusMessage,
+                                style: TextStyle(
+                                  fontSize: 16.0,
+                                  color: state.statusMessage.contains('Error') ? Colors.red : Colors.green,
+                                  fontWeight: FontWeight.w500,
+                                ),
+                                textAlign: TextAlign.center,
+                              ),
+                            ],
+                          );
+                        },
+                      ),
+                    ),
+                  ),
+                ),
+              ),
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+
+  @override
+  void dispose() {
+    _controllers.forEach((_, controller) {
+      controller.removeListener(() {}); // Clean up listeners
+      controller.dispose();
+    });
+    super.dispose();
+  }
+}

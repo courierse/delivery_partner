@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
+import 'package:go_router/go_router.dart';
 import 'package:phone_authentication/bloc/phone_auth_cubit.dart';
 
 class OtpScreen extends StatefulWidget {
@@ -41,8 +42,7 @@ class _OtpScreenState extends State<OtpScreen> {
       listener: (context, state) {
         setState(() => _statusMessage = state.statusMessage);
         if (state.statusMessage.contains('Authentication successful')) {
-          // Optional: Navigate to a new screen (e.g., home) after successful auth
-          // context.push('/home');
+          context.pushReplacement('/home'); // Navigate to HomeScreen after successful auth
         }
       },
       child: Scaffold(

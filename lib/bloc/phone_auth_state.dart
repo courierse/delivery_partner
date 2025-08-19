@@ -6,17 +6,11 @@ class PhoneAuthState extends Equatable {
   final String statusMessage;
   final bool isCodeSent;
   final String? phoneNumber;
-  final String? verificationId; // Added for Firebase OTP verification
+  final String? verificationId;
 
   const PhoneAuthState({
-    this.fields = const {
-      'name': '',
-      'phone': '',
-      'address': '',
-      'age': '',
-      'vehicle': '',
-    },
-    this.errors = const {},
+    this.fields = const {'name': '', 'phone': '', 'address': '', 'age': '', 'vehicle': ''},
+    this.errors = const {'name': null, 'phone': null, 'address': null, 'age': null, 'vehicle': null},
     this.statusMessage = '',
     this.isCodeSent = false,
     this.phoneNumber,

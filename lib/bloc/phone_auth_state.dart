@@ -6,6 +6,7 @@ class PhoneAuthState extends Equatable {
   final String statusMessage;
   final bool isCodeSent;
   final String? phoneNumber;
+  final String? verificationId; // Added for Firebase OTP verification
 
   const PhoneAuthState({
     this.fields = const {
@@ -19,6 +20,7 @@ class PhoneAuthState extends Equatable {
     this.statusMessage = '',
     this.isCodeSent = false,
     this.phoneNumber,
+    this.verificationId,
   });
 
   PhoneAuthState copyWith({
@@ -27,6 +29,7 @@ class PhoneAuthState extends Equatable {
     String? statusMessage,
     bool? isCodeSent,
     String? phoneNumber,
+    String? verificationId,
   }) {
     return PhoneAuthState(
       fields: fields ?? this.fields,
@@ -34,9 +37,10 @@ class PhoneAuthState extends Equatable {
       statusMessage: statusMessage ?? this.statusMessage,
       isCodeSent: isCodeSent ?? this.isCodeSent,
       phoneNumber: phoneNumber ?? this.phoneNumber,
+      verificationId: verificationId ?? this.verificationId,
     );
   }
 
   @override
-  List<Object?> get props => [fields, errors, statusMessage, isCodeSent, phoneNumber];
+  List<Object?> get props => [fields, errors, statusMessage, isCodeSent, phoneNumber, verificationId];
 }

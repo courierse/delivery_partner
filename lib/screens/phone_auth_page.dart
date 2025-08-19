@@ -64,9 +64,19 @@ class _PhoneAuthPageState extends State<PhoneAuthPage> {
       create: (context) => PhoneAuthCubit(),
       child: BlocListener<PhoneAuthCubit, PhoneAuthState>(
         listener: (context, state) {
-          if (state.isCodeSent && state.phoneNumber != null) {
-            debugPrint('Navigating with phone number: ${state.phoneNumber}');
-            context.push('/otp', extra: {'phoneNumber': state.phoneNumber});
+          if (state.isCodeSent && state.phoneNumber != null && state.verificationId != null) {
+            debugPrint('Navigating with phone number: ${state.phoneNumber}, verificationId: ${state.verificationId}');
+            try {
+              context.push('/otp', extra: {
+                'phoneNumber': state.phoneNumber,
+                'verificationId': state.verificationId,
+              });
+            } catch (e) {
+              debugPrint('Navigation error: $e');
+              ScaffoldMessenger.of(context).showSnackBar(
+                SnackBar(content: Text('Navigation failed: $e')),
+              );
+            }
           }
         },
         child: Scaffold(

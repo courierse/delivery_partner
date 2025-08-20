@@ -1,4 +1,6 @@
 import 'package:flutter/material.dart';
+import 'package:go_router/go_router.dart';
+import 'package:phone_authentication/screens/profile_screen.dart';
 
 class HomeScreen extends StatefulWidget {
   const HomeScreen({super.key});
@@ -17,9 +19,17 @@ class _HomeScreenState extends State<HomeScreen> {
     ProfileScreen(),
   ];
 
+  // List of routes for each tab
+  static const List<String> _routes = [
+    '/home/alert',
+    '/home/history',
+    '/home/profile',
+  ];
+
   void _onItemTapped(int index) {
     setState(() {
       _selectedIndex = index;
+      context.go(_routes[index]); // Navigate to the corresponding route
     });
   }
 
@@ -37,7 +47,7 @@ class _HomeScreenState extends State<HomeScreen> {
         backgroundColor: Colors.blueAccent,
         elevation: 0,
       ),
-      body: _screens[_selectedIndex],
+      body: _screens[_selectedIndex], // Display the selected screen
       bottomNavigationBar: BottomNavigationBar(
         items: const <BottomNavigationBarItem>[
           BottomNavigationBarItem(
@@ -114,36 +124,6 @@ class HistoryScreen extends StatelessWidget {
           SizedBox(height: 8),
           Text(
             'Display authentication or activity history here.',
-            style: TextStyle(fontSize: 16, color: Colors.grey),
-          ),
-        ],
-      ),
-    );
-  }
-}
-
-// Placeholder screen for Profile tab
-class ProfileScreen extends StatelessWidget {
-  const ProfileScreen({super.key});
-
-  @override
-  Widget build(BuildContext context) {
-    return const Center(
-      child: Column(
-        mainAxisAlignment: MainAxisAlignment.center,
-        children: [
-          Icon(Icons.person, size: 48, color: Colors.blueAccent),
-          SizedBox(height: 16),
-          Text(
-            'Profile Screen',
-            style: TextStyle(
-              fontSize: 24,
-              fontWeight: FontWeight.bold,
-            ),
-          ),
-          SizedBox(height: 8),
-          Text(
-            'Display user profile information here.',
             style: TextStyle(fontSize: 16, color: Colors.grey),
           ),
         ],

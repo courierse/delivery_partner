@@ -1,279 +1,593 @@
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter_screenutil/flutter_screenutil.dart';
 import 'package:go_router/go_router.dart';
+import 'package:flutter_bloc/flutter_bloc.dart';
+import 'package:phone_authentication/bloc/phone_auth_cubit.dart';
+import 'package:phone_authentication/core/validators.dart';
 
-class ProfileScreen extends StatelessWidget {
+class ProfileScreen extends StatefulWidget {
   const ProfileScreen({super.key});
 
   @override
+  _ProfileScreenState createState() => _ProfileScreenState();
+}
+
+class _ProfileScreenState extends State<ProfileScreen> {
+  bool _isEditing = false;
+  final _formKey = GlobalKey<FormState>();
+  late TextEditingController _nameController;
+  late TextEditingController _phoneController;
+  late TextEditingController _addressController;
+  late TextEditingController _ageController;
+  late TextEditingController _vehicleController;
+
+  @override
+  void initState() {
+    super.initState();
+    _nameController = TextEditingController();
+    _phoneController = TextEditingController();
+    _addressController = TextEditingController();
+    _ageController = TextEditingController();
+    _vehicleController = TextEditingController();
+  }
+
+  @override
+  void dispose() {
+    _nameController.dispose();
+    _phoneController.dispose();
+    _addressController.dispose();
+    _ageController.dispose();
+    _vehicleController.dispose();
+    super.dispose();
+  }
+
+  Future<Map<String, dynamic>?> _fetchUserData() async {
+    final user = FirebaseAuth.instance.currentUser;
+    if (user == null) return null;
+
+    final doc = await FirebaseFirestore.instance
+        .collection('drivers')
+        .doc(user.uid)
+        .get();
+    return doc.exists ? doc.data() as Map<String, dynamic> : null;
+  }
+
+  void _toggleEditMode() {
+    setState(() {
+      _isEditing = !_isEditing;
+      if (!_isEditing) {
+        _formKey.currentState?.reset();
+      }
+    });
+  }
+
+  void _saveProfile(BuildContext context) async {
+    if (_formKey.currentState!.validate()) {
+      final cubit = context.read<PhoneAuthCubit>();
+      final fields = {
+        'name': _nameController.text,
+        'address': _addressController.text,
+        'age': _ageController.text,
+        'vehicle': _vehicleController.text,
+        'phone': _phoneController.text,
+      };
+
+      fields.forEach((key, value) {
+        cubit.updateField(key, value);
+      });
+
+      try {
+        final user = FirebaseAuth.instance.currentUser;
+        if (user != null) {
+          await FirebaseFirestore.instance.collection('drivers').doc(user.uid).set({
+            'name': _nameController.text,
+            'address': _addressController.text,
+            'age': _ageController.text,
+            'vehicle': _vehicleController.text,
+            'phone': _phoneController.text,
+            'updatedAt': FieldValue.serverTimestamp(),
+          }, SetOptions(merge: true));
+
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(
+              content: Row(
+                children: [
+                  Icon(Icons.check_circle, color: Colors.white, size: 18.r),
+                  SizedBox(width: 8.w),
+                  Text('Profile updated!', style: TextStyle(fontSize: 14.sp)),
+                ],
+              ),
+              backgroundColor: Colors.green,
+              behavior: SnackBarBehavior.floating,
+              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8.r)),
+              margin: EdgeInsets.all(10.w),
+              duration: const Duration(seconds: 2),
+            ),
+          );
+          _toggleEditMode();
+        }
+      } catch (e) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Row(
+              children: [
+                Icon(Icons.error, color: Colors.white, size: 18.r),
+                SizedBox(width: 8.w),
+                Expanded(child: Text('Error: $e', style: TextStyle(fontSize: 14.sp))),
+              ],
+            ),
+            backgroundColor: Colors.red,
+            behavior: SnackBarBehavior.floating,
+            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8.r)),
+            margin: EdgeInsets.all(10.w),
+            duration: const Duration(seconds: 3),
+          ),
+        );
+      }
+    }
+  }
+
+  @override
   Widget build(BuildContext context) {
+    ScreenUtil.init(context, designSize: const Size(360, 640), minTextAdapt: true);
     final user = FirebaseAuth.instance.currentUser;
 
-    return Container(
-      decoration: const BoxDecoration(
-        gradient: LinearGradient(
-          begin: Alignment.topCenter,
-          end: Alignment.bottomCenter,
-          colors: [Colors.blueAccent, Colors.white],
+    return Scaffold(
+      backgroundColor: Colors.grey[50],
+      appBar: AppBar(
+        title: Text(
+          'Driver Profile',
+          style: TextStyle(color: Colors.white, fontWeight: FontWeight.w600, fontSize: 18.sp),
+        ),
+        backgroundColor: const Color(0xFF1565C0),
+        elevation: 0,
+        centerTitle: true,
+        toolbarHeight: 44.h,
+        actions: [
+          if (user != null && !_isEditing)
+            IconButton(
+              onPressed: _toggleEditMode,
+              icon: Icon(Icons.edit, color: Colors.white, size: 20.r),
+              tooltip: 'Edit Profile',
+              padding: EdgeInsets.all(6.w),
+            ),
+        ],
+      ),
+      body: user == null
+          ? _buildLoginPrompt(context)
+          : FutureBuilder<Map<String, dynamic>?>(
+              future: _fetchUserData(),
+              builder: (context, snapshot) {
+                if (snapshot.connectionState == ConnectionState.waiting) {
+                  return Center(
+                    child: CircularProgressIndicator(
+                      valueColor: const AlwaysStoppedAnimation<Color>(Color(0xFF1565C0)),
+                      strokeWidth: 2.w,
+                    ),
+                  );
+                }
+                if (snapshot.hasError) {
+                  return _buildErrorState();
+                }
+                if (!snapshot.hasData || snapshot.data == null) {
+                  return _buildNoDataState();
+                }
+
+                final data = snapshot.data!;
+                _nameController.text = data['name'] ?? '';
+                _phoneController.text = data['phone'] ?? '';
+                _addressController.text = data['address'] ?? '';
+                _ageController.text = data['age'] ?? '';
+                _vehicleController.text = data['vehicle'] ?? '';
+
+                return _buildProfileContent();
+              },
+            ),
+    );
+  }
+
+  Widget _buildLoginPrompt(BuildContext context) {
+    return Center(
+      child: Padding(
+        padding: EdgeInsets.symmetric(horizontal: 12.w, vertical: 8.h),
+        child: Column(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            Container(
+              padding: EdgeInsets.all(10.w),
+              decoration: BoxDecoration(
+                color: Colors.red.withOpacity(0.1),
+                shape: BoxShape.circle,
+              ),
+              child: Icon(Icons.person_off, size: 40.r, color: Colors.red),
+            ),
+            SizedBox(height: 10.h),
+            Text(
+              'Authentication Required',
+              style: TextStyle(fontSize: 16.sp, fontWeight: FontWeight.bold, color: const Color(0xFF1565C0)),
+            ),
+            SizedBox(height: 8.h),
+            Text(
+              'Please log in to access your profile.',
+              textAlign: TextAlign.center,
+              style: TextStyle(fontSize: 12.sp, color: Colors.grey[600], height: 1.2),
+            ),
+            SizedBox(height: 14.h),
+            SizedBox(
+              width: 180.w,
+              child: ElevatedButton(
+                onPressed: () => context.go('/'),
+                style: ElevatedButton.styleFrom(
+                  backgroundColor: const Color(0xFF1565C0),
+                  foregroundColor: Colors.white,
+                  padding: EdgeInsets.symmetric(vertical: 10.h),
+                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8.r)),
+                  elevation: 1,
+                ),
+                child: Text('Go to Login', style: TextStyle(fontSize: 14.sp, fontWeight: FontWeight.w600)),
+              ),
+            ),
+          ],
         ),
       ),
-      child: Center(
-        child: SingleChildScrollView(
-          child: Padding(
-            padding: const EdgeInsets.symmetric(horizontal: 24.0, vertical: 16.0),
-            child: user == null
-                ? Column(
-                    mainAxisAlignment: MainAxisAlignment.center,
-                    children: [
-                      const Text(
-                        'Please log in to view your profile.',
-                        style: TextStyle(
-                          fontSize: 18,
-                          fontWeight: FontWeight.w500,
-                          color: Colors.redAccent,
-                        ),
-                      ),
-                      const SizedBox(height: 16),
-                      ElevatedButton(
-                        onPressed: () {
-                          context.go('/'); // Navigate to PhoneAuthPage
-                        },
-                        style: ElevatedButton.styleFrom(
-                          padding: const EdgeInsets.symmetric(horizontal: 32.0, vertical: 16.0),
-                          backgroundColor: Colors.blueAccent,
-                          shape: RoundedRectangleBorder(
-                            borderRadius: BorderRadius.circular(12.0),
-                          ),
-                        ),
-                        child: const Text(
-                          'Go to Login',
-                          style: TextStyle(
-                            fontSize: 16.0,
-                            fontWeight: FontWeight.bold,
-                            color: Colors.white,
-                          ),
-                        ),
-                      ),
-                    ],
+    );
+  }
+
+  Widget _buildErrorState() {
+    return Center(
+      child: Padding(
+        padding: EdgeInsets.symmetric(horizontal: 12.w, vertical: 8.h),
+        child: Column(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            Container(
+              padding: EdgeInsets.all(10.w),
+              decoration: BoxDecoration(
+                color: Colors.red.withOpacity(0.1),
+                shape: BoxShape.circle,
+              ),
+              child: Icon(Icons.error_outline, size: 40.r, color: Colors.red),
+            ),
+            SizedBox(height: 10.h),
+            Text(
+              'Something went wrong',
+              style: TextStyle(fontSize: 16.sp, fontWeight: FontWeight.bold, color: Colors.red),
+            ),
+            SizedBox(height: 8.h),
+            Text(
+              'Unable to load profile data.',
+              textAlign: TextAlign.center,
+              style: TextStyle(fontSize: 12.sp, color: Colors.grey[600]),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _buildNoDataState() {
+    return Center(
+      child: Padding(
+        padding: EdgeInsets.symmetric(horizontal: 12.w, vertical: 8.h),
+        child: Column(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            Container(
+              padding: EdgeInsets.all(10.w),
+              decoration: BoxDecoration(
+                color: Colors.orange.withOpacity(0.1),
+                shape: BoxShape.circle,
+              ),
+              child: Icon(Icons.person_search, size: 40.r, color: Colors.orange),
+            ),
+            SizedBox(height: 10.h),
+            Text(
+              'Profile Not Found',
+              style: TextStyle(fontSize: 16.sp, fontWeight: FontWeight.bold, color: Colors.orange),
+            ),
+            SizedBox(height: 8.h),
+            Text(
+              'Please complete your profile setup.',
+              textAlign: TextAlign.center,
+              style: TextStyle(fontSize: 12.sp, color: Colors.grey[600]),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _buildProfileContent() {
+  return LayoutBuilder(
+    builder: (context, constraints) {
+      final availableHeight = constraints.maxHeight;
+      final isKeyboardOpen = MediaQuery.of(context).viewInsets.bottom > 0;
+      final baseFontSize = isKeyboardOpen ? 0.85 : 1.0;
+
+      return SingleChildScrollView(
+        child: Padding(
+          padding: EdgeInsets.symmetric(horizontal: 10.w, vertical: 6.h),
+          child: ConstrainedBox(
+            constraints: BoxConstraints(minHeight: availableHeight),
+            child: Column(
+              mainAxisAlignment: MainAxisAlignment.start,
+              crossAxisAlignment: CrossAxisAlignment.stretch,
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                _buildProfileHeader(baseFontSize),
+                SizedBox(height: 6.h),
+                _buildProfileDetailsCard(baseFontSize),
+                if (_isEditing) Padding(padding: EdgeInsets.only(top: 6.h), child: _buildActionButtons(baseFontSize)),
+              ],
+            ),
+          ),
+        ),
+      );
+    },
+  );
+}
+  Widget _buildProfileHeader(double fontScale) {
+    return Container(
+      padding: EdgeInsets.all(8.w),
+      decoration: BoxDecoration(
+        gradient: const LinearGradient(
+          colors: [Color(0xFF1565C0), Color(0xFF1976D2)],
+          begin: Alignment.topLeft,
+          end: Alignment.bottomRight,
+        ),
+        borderRadius: BorderRadius.circular(10.r),
+        boxShadow: [
+          BoxShadow(color: const Color(0xFF1565C0).withOpacity(0.2), blurRadius: 4.r, offset: Offset(0, 1.h)),
+        ],
+      ),
+      child: Row(
+        children: [
+          Container(
+            width: 48.w,
+            height: 48.h,
+            decoration: BoxDecoration(
+              color: Colors.white,
+              shape: BoxShape.circle,
+              boxShadow: [BoxShadow(color: Colors.black.withOpacity(0.1), blurRadius: 3.r, offset: Offset(0, 1.h))],
+            ),
+            child: Center(
+              child: Text(
+                _nameController.text.isNotEmpty ? _nameController.text[0].toUpperCase() : 'D',
+                style: TextStyle(fontSize: 20.sp * fontScale, fontWeight: FontWeight.bold, color: const Color(0xFF1565C0)),
+              ),
+            ),
+          ),
+          SizedBox(width: 8.w),
+          Expanded(
+            child: _isEditing
+                ? TextFormField(
+                    controller: _nameController,
+                    decoration: _buildInputDecoration('Full Name', fontScale),
+                    validator: (value) => validateField('name', value ?? ''),
+                    style: TextStyle(fontSize: 16.sp * fontScale, fontWeight: FontWeight.w600),
                   )
-                : FutureBuilder<DocumentSnapshot>(
-                    future: FirebaseFirestore.instance
-                        .collection('drivers')
-                        .doc(user.uid)
-                        .get(),
-                    builder: (context, snapshot) {
-                      if (snapshot.connectionState == ConnectionState.waiting) {
-                        return const Center(child: CircularProgressIndicator());
-                      }
-                      if (snapshot.hasError) {
-                        return const Center(
-                          child: Text(
-                            'Error loading profile data.',
-                            style: TextStyle(
-                              fontSize: 18,
-                              fontWeight: FontWeight.w500,
-                              color: Colors.redAccent,
-                            ),
-                          ),
-                        );
-                      }
-                      if (!snapshot.hasData || !snapshot.data!.exists) {
-                        return const Center(
-                          child: Text(
-                            'No profile data found.',
-                            style: TextStyle(
-                              fontSize: 18,
-                              fontWeight: FontWeight.w500,
-                              color: Colors.grey,
-                            ),
-                          ),
-                        );
-                      }
-
-                      final data = snapshot.data!.data() as Map<String, dynamic>;
-                      final name = data['name'] ?? 'N/A';
-                      final phone = data['phone'] ?? 'N/A';
-                      final address = data['address'] ?? 'N/A';
-                      final age = data['age'] ?? 'N/A';
-                      final vehicle = data['vehicle'] ?? 'N/A';
-
-                      return Card(
-                        elevation: 8.0,
-                        shape: RoundedRectangleBorder(
-                          borderRadius: BorderRadius.circular(16.0),
-                        ),
-                        child: Padding(
-                          padding: const EdgeInsets.all(24.0),
-                          child: Column(
-                            mainAxisSize: MainAxisSize.min,
-                            crossAxisAlignment: CrossAxisAlignment.start,
-                            children: [
-                              // Profile Header
-                              Row(
-                                children: [
-                                  CircleAvatar(
-                                    radius: 40,
-                                    backgroundColor: Colors.blueAccent,
-                                    child: Text(
-                                      name.isNotEmpty ? name[0].toUpperCase() : '?',
-                                      style: const TextStyle(
-                                        fontSize: 32,
-                                        color: Colors.white,
-                                        fontWeight: FontWeight.bold,
-                                      ),
-                                    ),
-                                  ),
-                                  const SizedBox(width: 16),
-                                  Expanded(
-                                    child: Column(
-                                      crossAxisAlignment: CrossAxisAlignment.start,
-                                      children: [
-                                        Text(
-                                          name,
-                                          style: const TextStyle(
-                                            fontSize: 24,
-                                            fontWeight: FontWeight.bold,
-                                            color: Colors.blueAccent,
-                                          ),
-                                        ),
-                                        const SizedBox(height: 4),
-                                        Text(
-                                          'Driver Profile',
-                                          style: TextStyle(
-                                            fontSize: 16,
-                                            color: Colors.grey[600],
-                                          ),
-                                        ),
-                                      ],
-                                    ),
-                                  ),
-                                ],
-                              ),
-                              const SizedBox(height: 24),
-                              // Profile Details
-                              _buildProfileField(
-                                icon: Icons.phone,
-                                label: 'Phone Number',
-                                value: phone,
-                              ),
-                              const SizedBox(height: 16),
-                              _buildProfileField(
-                                icon: Icons.location_on,
-                                label: 'Address',
-                                value: address,
-                              ),
-                              const SizedBox(height: 16),
-                              _buildProfileField(
-                                icon: Icons.cake,
-                                label: 'Age',
-                                value: age,
-                              ),
-                              const SizedBox(height: 16),
-                              _buildProfileField(
-                                icon: Icons.directions_car,
-                                label: 'Vehicle Number',
-                                value: vehicle,
-                              ),
-                              const SizedBox(height: 24),
-                              // Edit Button
-                              Center(
-                                child: Container(
-                                  decoration: BoxDecoration(
-                                    gradient: const LinearGradient(
-                                      colors: [Colors.blueAccent, Colors.cyan],
-                                      begin: Alignment.topLeft,
-                                      end: Alignment.bottomRight,
-                                    ),
-                                    borderRadius: BorderRadius.circular(12.0),
-                                    boxShadow: const [
-                                      BoxShadow(
-                                        color: Colors.black26,
-                                        blurRadius: 8.0,
-                                        offset: Offset(0, 4),
-                                      ),
-                                    ],
-                                  ),
-                                  child: ElevatedButton(
-                                    onPressed: () {
-                                      ScaffoldMessenger.of(context).showSnackBar(
-                                        const SnackBar(
-                                          content: Text('Edit profile functionality coming soon!'),
-                                        ),
-                                      );
-                                    },
-                                    style: ElevatedButton.styleFrom(
-                                      padding: const EdgeInsets.symmetric(
-                                        horizontal: 32.0,
-                                        vertical: 16.0,
-                                      ),
-                                      backgroundColor: Colors.transparent,
-                                      shadowColor: Colors.transparent,
-                                      shape: RoundedRectangleBorder(
-                                        borderRadius: BorderRadius.circular(12.0),
-                                      ),
-                                    ),
-                                    child: const Text(
-                                      'Edit Profile',
-                                      style: TextStyle(
-                                        fontSize: 16.0,
-                                        fontWeight: FontWeight.bold,
-                                        color: Colors.white,
-                                      ),
-                                    ),
-                                  ),
-                                ),
-                              ),
-                            ],
-                          ),
-                        ),
-                      );
-                    },
+                : Text(
+                    _nameController.text.isNotEmpty ? _nameController.text : 'Driver Name',
+                    style: TextStyle(fontSize: 16.sp * fontScale, fontWeight: FontWeight.bold, color: Colors.white),
+                    overflow: TextOverflow.ellipsis,
                   ),
+          ),
+          Container(
+            padding: EdgeInsets.symmetric(horizontal: 8.w, vertical: 4.h),
+            decoration: BoxDecoration(
+              color: Colors.white.withOpacity(0.2),
+              borderRadius: BorderRadius.circular(10.r),
+            ),
+            child: Text(
+              'Driver',
+              style: TextStyle(fontSize: 10.sp * fontScale, color: Colors.white, fontWeight: FontWeight.w500),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildProfileDetailsCard(double fontScale) {
+    return Container(
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(10.r),
+        boxShadow: [BoxShadow(color: Colors.grey.withOpacity(0.1), blurRadius: 4.r, offset: Offset(0, 1.h))],
+      ),
+      child: Padding(
+        padding: EdgeInsets.all(10.w),
+        child: Form(
+          key: _formKey,
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Text(
+                'Personal Information',
+                style: TextStyle(fontSize: 14.sp * fontScale, fontWeight: FontWeight.bold, color: const Color(0xFF1565C0)),
+              ),
+              SizedBox(height: 6.h),
+              _buildModernProfileField(
+                icon: Icons.phone,
+                label: 'Phone',
+                value: _phoneController.text,
+                controller: _phoneController,
+                enabled: false,
+                fontScale: fontScale,
+              ),
+              SizedBox(height: 6.h),
+              _buildModernProfileField(
+                icon: Icons.location_on,
+                label: 'Address',
+                value: _addressController.text,
+                controller: _addressController,
+                enabled: _isEditing,
+                validator: (value) => validateField('address', value ?? ''),
+                fontScale: fontScale,
+              ),
+              SizedBox(height: 6.h),
+              Row(
+                children: [
+                  Expanded(
+                    child: _buildModernProfileField(
+                      icon: Icons.cake,
+                      label: 'Age',
+                      value: _ageController.text,
+                      controller: _ageController,
+                      enabled: _isEditing,
+                      validator: (value) => validateField('age', value ?? ''),
+                      keyboardType: TextInputType.number,
+                      fontScale: fontScale,
+                    ),
+                  ),
+                  SizedBox(width: 8.w),
+                  Expanded(
+                    child: _buildModernProfileField(
+                      icon: Icons.directions_car,
+                      label: 'Vehicle',
+                      value: _vehicleController.text,
+                      controller: _vehicleController,
+                      enabled: _isEditing,
+                      validator: (value) => validateField('vehicle', value ?? ''),
+                      fontScale: fontScale,
+                    ),
+                  ),
+                ],
+              ),
+            ],
           ),
         ),
       ),
     );
   }
 
-  Widget _buildProfileField({
+  Widget _buildActionButtons(double fontScale) {
+    return Row(
+      children: [
+        Expanded(
+          child: OutlinedButton(
+            onPressed: _toggleEditMode,
+            style: OutlinedButton.styleFrom(
+              foregroundColor: const Color(0xFF1565C0),
+              side: const BorderSide(color: Color(0xFF1565C0)),
+              padding: EdgeInsets.symmetric(vertical: 8.h),
+              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8.r)),
+            ),
+            child: Text('Cancel', style: TextStyle(fontSize: 12.sp * fontScale, fontWeight: FontWeight.w600)),
+          ),
+        ),
+        SizedBox(width: 8.w),
+        Expanded(
+          child: ElevatedButton(
+            onPressed: () => _saveProfile(context),
+            style: ElevatedButton.styleFrom(
+              backgroundColor: const Color(0xFF1565C0),
+              foregroundColor: Colors.white,
+              padding: EdgeInsets.symmetric(vertical: 8.h),
+              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8.r)),
+              elevation: 1,
+            ),
+            child: Text('Save', style: TextStyle(fontSize: 12.sp * fontScale, fontWeight: FontWeight.w600)),
+          ),
+        ),
+      ],
+    );
+  }
+
+  InputDecoration _buildInputDecoration(String label, double fontScale) {
+    return InputDecoration(
+      labelText: label,
+      labelStyle: TextStyle(color: Colors.grey[600], fontSize: 10.sp * fontScale),
+      border: OutlineInputBorder(
+        borderRadius: BorderRadius.circular(8.r),
+        borderSide: BorderSide(color: Colors.grey[300]!),
+      ),
+      enabledBorder: OutlineInputBorder(
+        borderRadius: BorderRadius.circular(8.r),
+        borderSide: BorderSide(color: Colors.grey[300]!),
+      ),
+      focusedBorder: OutlineInputBorder(
+        borderRadius: BorderRadius.circular(8.r),
+        borderSide: BorderSide(color: const Color(0xFF1565C0), width: 1.w),
+      ),
+      errorBorder: OutlineInputBorder(
+        borderRadius: BorderRadius.circular(8.r),
+        borderSide: const BorderSide(color: Colors.red),
+      ),
+      focusedErrorBorder: OutlineInputBorder(
+        borderRadius: BorderRadius.circular(8.r),
+        borderSide: BorderSide(color: Colors.red, width: 1.w),
+      ),
+       
+      filled: true,
+      fillColor: _isEditing ? Colors.grey[50] : Colors.grey[100],
+      contentPadding: EdgeInsets.symmetric(horizontal: 10.w, vertical: 8.h),
+    );
+  }
+
+  Widget _buildModernProfileField({
     required IconData icon,
     required String label,
     required String value,
+    TextEditingController? controller,
+    bool enabled = true,
+    String? Function(String?)? validator,
+    TextInputType? keyboardType,
+    required double fontScale,
+
   }) {
-    return Row(
+    return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        Icon(
-          icon,
-          color: Colors.blueAccent,
-          size: 24,
+        Row(
+          children: [
+            Container(
+              padding: EdgeInsets.all(4.w),
+              decoration: BoxDecoration(
+                color: const Color(0xFF1565C0).withOpacity(0.1),
+                borderRadius: BorderRadius.circular(6.r),
+              ),
+              child: Icon(icon, color: const Color(0xFF1565C0), size: 18.r),
+            ),
+            SizedBox(width: 6.w),
+            Text(
+              label,
+              style: TextStyle(fontSize: 10.sp * fontScale, fontWeight: FontWeight.w600, color: Colors.grey[700]),
+              overflow: TextOverflow.ellipsis,
+            ),
+          ],
         ),
-        const SizedBox(width: 16),
-        Expanded(
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Text(
-                label,
-                style: TextStyle(
-                  fontSize: 14,
-                  color: Colors.grey[600],
-                  fontWeight: FontWeight.w500,
+        SizedBox(height: 4.h),
+        _isEditing && enabled
+            ? TextFormField(
+                controller: controller,
+                decoration: _buildInputDecoration(label, fontScale),
+                validator: validator,
+                keyboardType: keyboardType,
+                enabled: enabled,
+                style: TextStyle(fontSize: 14.sp * fontScale),
+              )
+            : Container(
+                width: double.infinity,
+                padding: EdgeInsets.symmetric(horizontal: 10.w, vertical: 8.h),
+                decoration: BoxDecoration(
+                  color: Colors.grey[50],
+                  borderRadius: BorderRadius.circular(8.r),
+                  border: Border.all(color: Colors.grey[200]!),
+                ),
+                child: Text(
+                  value.isNotEmpty ? value : 'Not specified',
+                  style: TextStyle(
+                    fontSize: 14.sp * fontScale,
+                    fontWeight: FontWeight.w500,
+                    color: value.isNotEmpty ? Colors.black87 : Colors.grey[500],
+                  ),
+                  overflow: TextOverflow.ellipsis,
                 ),
               ),
-              const SizedBox(height: 4),
-              Text(
-                value,
-                style: const TextStyle(
-                  fontSize: 16,
-                  fontWeight: FontWeight.w600,
-                  color: Colors.black87,
-                ),
-              ),
-            ],
-          ),
-        ),
       ],
     );
   }

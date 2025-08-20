@@ -1,9 +1,10 @@
 import 'package:flutter/material.dart';
 import 'package:firebase_core/firebase_core.dart';
+import 'package:flutter_screenutil/flutter_screenutil.dart';
 import 'package:phone_authentication/core/navigation.dart';
-import 'firebase_options.dart';
+import 'package:phone_authentication/firebase_options.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
-import 'bloc/phone_auth_cubit.dart';
+import 'package:phone_authentication/bloc/phone_auth_cubit.dart';
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
@@ -18,16 +19,23 @@ class MyApp extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return BlocProvider(
-      create: (context) => PhoneAuthCubit(),
-      child: MaterialApp.router(
-        title: 'Phone Auth UI Demo',
-        debugShowCheckedModeBanner: false,
-        theme: ThemeData(
-          primarySwatch: Colors.blue,
-        ),
-        routerConfig: router,
-      ),
+    return ScreenUtilInit(
+      designSize: const Size(360, 690), // Reference design size for scaling
+      minTextAdapt: true, // Adapt text for small/large screens
+      splitScreenMode: true, // Support split-screen or foldable devices
+      builder: (context, child) {
+        return BlocProvider(
+          create: (context) => PhoneAuthCubit(),
+          child: MaterialApp.router(
+            title: 'Phone Auth UI Demo',
+            debugShowCheckedModeBanner: false,
+            theme: ThemeData(
+              primarySwatch: Colors.blue,
+            ),
+            routerConfig: router,
+          ),
+        );
+      },
     );
   }
 }

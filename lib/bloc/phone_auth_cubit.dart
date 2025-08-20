@@ -2,7 +2,9 @@ import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:equatable/equatable.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/foundation.dart';
+import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
+import 'package:go_router/go_router.dart';
 import 'package:phone_authentication/core/validators.dart';
 
 part 'phone_auth_state.dart';
@@ -83,7 +85,7 @@ class PhoneAuthCubit extends Cubit<PhoneAuthState> {
     }
   }
 
-  void verifyOtp(String smsCode, String verificationId) async {
+  void verifyOtp(String smsCode, String verificationId, BuildContext context) async {
     try {
       emit(state.copyWith(statusMessage: 'Verifying OTP...'));
 
@@ -103,6 +105,8 @@ class PhoneAuthCubit extends Cubit<PhoneAuthState> {
           phoneNumber: null,
           verificationId: null,
         ));
+        // Navigate to HomeScreen
+        context.go('/home');
       } else {
         emit(state.copyWith(statusMessage: 'Error: Authentication failed'));
       }

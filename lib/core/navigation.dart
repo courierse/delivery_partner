@@ -3,7 +3,6 @@ import 'package:go_router/go_router.dart';
 import 'package:phone_authentication/screens/phone_auth_page.dart';
 import 'package:phone_authentication/screens/otp_screen.dart';
 import 'package:phone_authentication/screens/home_screen.dart';
-import 'package:phone_authentication/screens/profile_screen.dart';
 
 final GoRouter router = GoRouter(
   routes: [
@@ -27,20 +26,6 @@ final GoRouter router = GoRouter(
     GoRoute(
       path: '/home',
       builder: (context, state) => const HomeScreen(),
-      routes: [
-        GoRoute(
-          path: 'alert',
-          builder: (context, state) => const AlertScreen(),
-        ),
-        GoRoute(
-          path: 'history',
-          builder: (context, state) => const HistoryScreen(),
-        ),
-        GoRoute(
-          path: 'profile',
-          builder: (context, state) => const ProfileScreen(),
-        ),
-      ],
     ),
   ],
 );

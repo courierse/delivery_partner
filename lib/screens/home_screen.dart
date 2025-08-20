@@ -1,5 +1,4 @@
 import 'package:flutter/material.dart';
-import 'package:go_router/go_router.dart';
 import 'package:phone_authentication/screens/profile_screen.dart';
 
 class HomeScreen extends StatefulWidget {
@@ -19,17 +18,9 @@ class _HomeScreenState extends State<HomeScreen> {
     ProfileScreen(),
   ];
 
-  // List of routes for each tab
-  static const List<String> _routes = [
-    '/home/alert',
-    '/home/history',
-    '/home/profile',
-  ];
-
   void _onItemTapped(int index) {
     setState(() {
-      _selectedIndex = index;
-      context.go(_routes[index]); // Navigate to the corresponding route
+      _selectedIndex = index; // Update selected tab
     });
   }
 

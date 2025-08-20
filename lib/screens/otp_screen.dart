@@ -27,7 +27,8 @@ class _OtpScreenState extends State<OtpScreen> {
       setState(() => _statusMessage = 'Please enter OTP');
       return;
     }
-    context.read<PhoneAuthCubit>().verifyOtp(smsCode, widget.verificationId);
+    // Pass context to verifyOtp
+    context.read<PhoneAuthCubit>().verifyOtp(smsCode, widget.verificationId, context);
   }
 
   @override
@@ -41,9 +42,7 @@ class _OtpScreenState extends State<OtpScreen> {
     return BlocListener<PhoneAuthCubit, PhoneAuthState>(
       listener: (context, state) {
         setState(() => _statusMessage = state.statusMessage);
-        if (state.statusMessage.contains('Authentication successful')) {
-          context.pushReplacement('/home'); // Navigate to HomeScreen after successful auth
-        }
+        // Navigation is handled in PhoneAuthCubit, so no need for context.pushReplacement here
       },
       child: Scaffold(
         appBar: AppBar(

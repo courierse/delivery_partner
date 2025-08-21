@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
+import 'package:flutter_screenutil/flutter_screenutil.dart';
 import 'package:go_router/go_router.dart';
 import 'package:phone_authentication/bloc/phone_auth_cubit.dart';
 
@@ -46,15 +47,17 @@ class _OtpScreenState extends State<OtpScreen> {
       },
       child: Scaffold(
         appBar: AppBar(
-          title: const Text(
+          title: Text(
             'Verify OTP',
             style: TextStyle(
               fontWeight: FontWeight.bold,
               color: Colors.white,
+              fontSize: 20.sp,
             ),
           ),
           backgroundColor: Colors.blueAccent,
           elevation: 0,
+          toolbarHeight: 60.h,
         ),
         body: Container(
           decoration: const BoxDecoration(
@@ -67,61 +70,62 @@ class _OtpScreenState extends State<OtpScreen> {
           child: Center(
             child: SingleChildScrollView(
               child: Padding(
-                padding: const EdgeInsets.symmetric(horizontal: 24.0),
+                padding: EdgeInsets.symmetric(horizontal: 24.w),
                 child: Card(
                   elevation: 8.0,
                   shape: RoundedRectangleBorder(
-                    borderRadius: BorderRadius.circular(16.0),
+                    borderRadius: BorderRadius.circular(16.r),
                   ),
                   child: Padding(
-                    padding: const EdgeInsets.all(24.0),
+                    padding: EdgeInsets.all(24.w),
                     child: Column(
                       mainAxisSize: MainAxisSize.min,
                       children: [
                         ClipRRect(
-                          borderRadius: BorderRadius.circular(12.0),
+                          borderRadius: BorderRadius.circular(12.r),
                           child: Image.network(
                             'https://img.freepik.com/free-vector/mobile-login-concept-illustration_114360-135.jpg',
-                            height: 150,
-                            width: 150,
+                            height: 150.h,
+                            width: 150.w,
                             fit: BoxFit.cover,
                           ),
                         ),
-                        const SizedBox(height: 24.0),
+                        SizedBox(height: 24.h),
                         Text(
                           'Enter the OTP sent to ${widget.phoneNumber.isEmpty ? "Not provided" : widget.phoneNumber}',
-                          style: const TextStyle(
-                            fontSize: 16.0,
+                          style: TextStyle(
+                            fontSize: 16.sp,
                             color: Colors.black87,
                             fontWeight: FontWeight.w500,
                           ),
                           textAlign: TextAlign.center,
                         ),
-                        const SizedBox(height: 16.0),
+                        SizedBox(height: 16.h),
                         TextField(
                           controller: _otpController,
-                          decoration: const InputDecoration(
+                          decoration: InputDecoration(
                             labelText: 'Enter OTP',
-                            labelStyle: TextStyle(color: Colors.blueAccent),
-                            prefixIcon: Icon(Icons.lock, color: Colors.blueAccent),
+                            labelStyle: TextStyle(color: Colors.blueAccent, fontSize: 14.sp),
+                            prefixIcon: Icon(Icons.lock, color: Colors.blueAccent, size: 24.r),
                             border: OutlineInputBorder(
-                              borderRadius: BorderRadius.all(Radius.circular(12.0)),
-                              borderSide: BorderSide(color: Colors.black, width: 2.0),
+                              borderRadius: BorderRadius.all(Radius.circular(12.r)),
+                              borderSide: BorderSide(color: Colors.black, width: 2.w),
                             ),
                             enabledBorder: OutlineInputBorder(
-                              borderRadius: BorderRadius.all(Radius.circular(12.0)),
-                              borderSide: BorderSide(color: Colors.black, width: 2.0),
+                              borderRadius: BorderRadius.all(Radius.circular(12.r)),
+                              borderSide: BorderSide(color: Colors.black, width: 2.w),
                             ),
                             focusedBorder: OutlineInputBorder(
-                              borderRadius: BorderRadius.all(Radius.circular(12.0)),
-                              borderSide: BorderSide(color: Colors.black, width: 2.5),
+                              borderRadius: BorderRadius.all(Radius.circular(12.r)),
+                              borderSide: BorderSide(color: Colors.black, width: 2.5.w),
                             ),
                             filled: true,
                             fillColor: Colors.white,
+                            contentPadding: EdgeInsets.symmetric(horizontal: 16.w, vertical: 16.h),
                           ),
                           keyboardType: TextInputType.number,
                         ),
-                        const SizedBox(height: 24.0),
+                        SizedBox(height: 24.h),
                         Container(
                           decoration: BoxDecoration(
                             gradient: const LinearGradient(
@@ -129,40 +133,40 @@ class _OtpScreenState extends State<OtpScreen> {
                               begin: Alignment.topLeft,
                               end: Alignment.bottomRight,
                             ),
-                            borderRadius: BorderRadius.circular(12.0),
-                            boxShadow: const [
+                            borderRadius: BorderRadius.circular(12.r),
+                            boxShadow: [
                               BoxShadow(
                                 color: Colors.black26,
-                                blurRadius: 8.0,
-                                offset: Offset(0, 4),
+                                blurRadius: 8.r,
+                                offset: Offset(0, 4.h),
                               ),
                             ],
                           ),
                           child: ElevatedButton(
                             onPressed: _verifyOTP,
                             style: ElevatedButton.styleFrom(
-                              padding: const EdgeInsets.symmetric(horizontal: 32.0, vertical: 16.0),
+                              padding: EdgeInsets.symmetric(horizontal: 32.w, vertical: 16.h),
                               backgroundColor: Colors.transparent,
                               shadowColor: Colors.transparent,
                               shape: RoundedRectangleBorder(
-                                borderRadius: BorderRadius.circular(12.0),
+                                borderRadius: BorderRadius.circular(12.r),
                               ),
                             ),
-                            child: const Text(
+                            child: Text(
                               'Verify OTP',
                               style: TextStyle(
-                                fontSize: 16.0,
+                                fontSize: 16.sp,
                                 fontWeight: FontWeight.bold,
                                 color: Colors.white,
                               ),
                             ),
                           ),
                         ),
-                        const SizedBox(height: 24.0),
+                        SizedBox(height: 24.h),
                         Text(
                           _statusMessage,
                           style: TextStyle(
-                            fontSize: 16.0,
+                            fontSize: 16.sp,
                             color: _statusMessage.contains('Error') ? Colors.red : Colors.green,
                             fontWeight: FontWeight.w500,
                           ),

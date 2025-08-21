@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
+import 'package:flutter_screenutil/flutter_screenutil.dart';
 import 'package:go_router/go_router.dart';
 import 'package:phone_authentication/constants/images.dart';
 import 'package:phone_authentication/screens/custom_text_field.dart';
@@ -47,7 +48,7 @@ class _PhoneAuthPageState extends State<PhoneAuthPage> {
     });
 
     return Padding(
-      padding: const EdgeInsets.only(bottom: 16.0),
+      padding: EdgeInsets.only(bottom: 16.h),
       child: CustomTextField(
         controller: _controllers[key]!,
         labelText: label,
@@ -73,19 +74,30 @@ class _PhoneAuthPageState extends State<PhoneAuthPage> {
           } catch (e) {
             debugPrint('Navigation error: $e');
             ScaffoldMessenger.of(context).showSnackBar(
-              SnackBar(content: Text('Navigation failed: $e')),
+              SnackBar(
+                content: Text('Navigation failed: $e'),
+                backgroundColor: Colors.red,
+                behavior: SnackBarBehavior.floating,
+                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8.r)),
+                margin: EdgeInsets.all(16.w),
+              ),
             );
           }
         }
       },
       child: Scaffold(
         appBar: AppBar(
-          title: const Text(
+          title: Text(
             'Phone Authentication',
-            style: TextStyle(fontWeight: FontWeight.bold, color: Colors.white),
+            style: TextStyle(
+              fontWeight: FontWeight.bold,
+              color: Colors.white,
+              fontSize: 20.sp,
+            ),
           ),
           backgroundColor: Colors.blueAccent,
           elevation: 0,
+          toolbarHeight: 60.h,
         ),
         body: Container(
           decoration: const BoxDecoration(
@@ -98,28 +110,27 @@ class _PhoneAuthPageState extends State<PhoneAuthPage> {
           child: Center(
             child: SingleChildScrollView(
               child: Padding(
-                padding: const EdgeInsets.symmetric(horizontal: 24.0),
+                padding: EdgeInsets.symmetric(horizontal: 24.w),
                 child: Card(
                   elevation: 8.0,
-                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16.0)),
+                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16.r)),
                   child: Padding(
-                    padding: const EdgeInsets.all(24.0),
+                    padding: EdgeInsets.all(24.w),
                     child: BlocBuilder<PhoneAuthCubit, PhoneAuthState>(
                       builder: (context, state) {
                         return Column(
                           mainAxisSize: MainAxisSize.min,
                           children: [
                             ClipRRect(
-                              borderRadius: BorderRadius.circular(12.0),
+                              borderRadius: BorderRadius.circular(12.r),
                               child: Image.network(
                                 'https://img.freepik.com/free-vector/mobile-login-concept-illustration_114360-135.jpg',
-                                height: 150,
-                                width: 150,
+                                height: 150.h,
+                                width: 150.w,
                                 fit: BoxFit.cover,
                               ),
-                       
                             ),
-                            const SizedBox(height: 24.0),
+                            SizedBox(height: 24.h),
                             _buildTextField(
                               key: 'name',
                               label: 'Enter name',
@@ -161,7 +172,7 @@ class _PhoneAuthPageState extends State<PhoneAuthPage> {
                               errorText: state.errors['vehicle'],
                               context: context,
                             ),
-                            const SizedBox(height: 8.0),
+                            SizedBox(height: 8.h),
                             Container(
                               decoration: BoxDecoration(
                                 gradient: const LinearGradient(
@@ -169,12 +180,12 @@ class _PhoneAuthPageState extends State<PhoneAuthPage> {
                                   begin: Alignment.topLeft,
                                   end: Alignment.bottomRight,
                                 ),
-                                borderRadius: BorderRadius.circular(12.0),
-                                boxShadow: const [
+                                borderRadius: BorderRadius.circular(12.r),
+                                boxShadow: [
                                   BoxShadow(
                                     color: Colors.black26,
-                                    blurRadius: 8.0,
-                                    offset: Offset(0, 4),
+                                    blurRadius: 8.r,
+                                    offset: Offset(0, 4.h),
                                   ),
                                 ],
                               ),
@@ -183,28 +194,28 @@ class _PhoneAuthPageState extends State<PhoneAuthPage> {
                                     ? null
                                     : () => context.read<PhoneAuthCubit>().submitForm(),
                                 style: ElevatedButton.styleFrom(
-                                  padding: const EdgeInsets.symmetric(horizontal: 32.0, vertical: 16.0),
+                                  padding: EdgeInsets.symmetric(horizontal: 32.w, vertical: 16.h),
                                   backgroundColor: Colors.transparent,
                                   shadowColor: Colors.transparent,
                                   shape: RoundedRectangleBorder(
-                                    borderRadius: BorderRadius.circular(12.0),
+                                    borderRadius: BorderRadius.circular(12.r),
                                   ),
                                 ),
-                                child: const Text(
+                                child: Text(
                                   'Send Verification Code',
                                   style: TextStyle(
-                                    fontSize: 16.0,
+                                    fontSize: 16.sp,
                                     fontWeight: FontWeight.bold,
                                     color: Colors.white,
                                   ),
                                 ),
                               ),
                             ),
-                            const SizedBox(height: 24.0),
+                            SizedBox(height: 24.h),
                             Text(
                               state.statusMessage,
                               style: TextStyle(
-                                fontSize: 16.0,
+                                fontSize: 16.sp,
                                 color: state.statusMessage.contains('Error') ? Colors.red : Colors.green,
                                 fontWeight: FontWeight.w500,
                               ),
@@ -227,7 +238,7 @@ class _PhoneAuthPageState extends State<PhoneAuthPage> {
   @override
   void dispose() {
     _controllers.forEach((_, controller) {
-      controller.removeListener(() {}); // Clean up listeners
+      controller.removeListener(() {}); 
       controller.dispose();
     });
     super.dispose();

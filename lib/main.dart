@@ -1,16 +1,19 @@
 import 'package:flutter/material.dart';
 import 'package:firebase_core/firebase_core.dart';
 import 'package:flutter_screenutil/flutter_screenutil.dart';
+import 'package:phone_authentication/bloc/location_cubit/location_cubit.dart';
 import 'package:phone_authentication/core/navigation.dart';
 import 'package:phone_authentication/firebase_options.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:phone_authentication/bloc/phone_auth_cubit.dart';
+import 'package:phone_authentication/services/service_locator.dart';
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
   await Firebase.initializeApp(
     options: DefaultFirebaseOptions.currentPlatform,
   );
+  setupLocator(); // Initialize service locator
   runApp(const MyApp());
 }
 
@@ -20,12 +23,19 @@ class MyApp extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return ScreenUtilInit(
-      designSize: const Size(360, 690), // Reference design size for scaling
-      minTextAdapt: true, // Adapt text for small/large screens
-      splitScreenMode: true, // Support split-screen or foldable devices
+      designSize: const Size(360, 690),
+      minTextAdapt: true,
+      splitScreenMode: true,
       builder: (context, child) {
-        return BlocProvider(
-          create: (context) => PhoneAuthCubit(),
+        return MultiBlocProvider(
+          providers: [
+            BlocProvider(
+              create: (context) => PhoneAuthCubit(),
+            ),
+            BlocProvider(
+              create: (context) => locator<LocationCubit>()..getCurrentLocation(),
+            ),
+          ],
           child: MaterialApp.router(
             title: 'Phone Auth UI Demo',
             debugShowCheckedModeBanner: false,

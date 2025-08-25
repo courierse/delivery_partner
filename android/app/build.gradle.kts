@@ -1,3 +1,5 @@
+
+
 plugins {
     id("com.android.application")
     // START: FlutterFire Configuration
@@ -10,7 +12,7 @@ plugins {
 
 android {
     namespace = "com.example.phone_authentication"
-    compileSdk = 34 // Set to 34 for compatibility with modern Android and Firebase
+    compileSdk = 35 // Set to 34 for compatibility with modern Android and Firebase
     ndkVersion = flutter.ndkVersion
 
     compileOptions {

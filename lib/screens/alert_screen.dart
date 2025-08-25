@@ -1,0 +1,329 @@
+import 'dart:math';
+import 'package:cloud_firestore/cloud_firestore.dart';
+import 'package:firebase_auth/firebase_auth.dart';
+import 'package:flutter/material.dart';
+import 'package:flutter_bloc/flutter_bloc.dart';
+import 'package:flutter_screenutil/flutter_screenutil.dart';
+import 'package:google_maps_flutter/google_maps_flutter.dart';
+import 'package:phone_authentication/bloc/location_cubit/location_cubit.dart';
+import 'package:phone_authentication/bloc/location_cubit/location_state.dart';
+import 'package:phone_authentication/constants/colors.dart';
+import 'package:geolocator/geolocator.dart'; 
+import 'package:phone_authentication/models/order_model.dart' as order_model;
+
+// // Added for openAppSettings
+
+
+
+class AlertScreen extends StatefulWidget {
+  const AlertScreen({super.key});
+  
+  @override
+  State<AlertScreen> createState() => _AlertScreenState();
+}
+
+class _AlertScreenState extends State<AlertScreen> {
+  final CollectionReference _ordersCollection = FirebaseFirestore.instance.collection('orders');
+  final Set<String> _dismissedOrders = {};
+
+  double _calculateDistance(LatLng start, LatLng end) {
+    const double earthRadius = 6371;
+    final double lat1 = start.latitude * pi / 180;
+    final double lon1 = start.longitude * pi / 180;
+    final double lat2 = end.latitude * pi / 180;
+    final double lon2 = end.longitude * pi / 180;
+
+    final double dLat = lat2 - lat1;
+    final double dLon = lon2 - lon1;
+
+    final double a = sin(dLat / 2) * sin(dLat / 2) +
+        cos(lat1) * cos(lat2) * sin(dLon / 2) * sin(dLon / 2);
+    final double c = 2 * atan2(sqrt(a), sqrt(1 - a));
+    return earthRadius * c;
+  }
+
+  Future<void> _acceptOrder(String orderId) async {
+    final user = FirebaseAuth.instance.currentUser;
+    if (user == null) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Please log in to accept orders')),
+      );
+      return;
+    }
+
+    try {
+      await FirebaseFirestore.instance.runTransaction((transaction) async {
+        final docRef = _ordersCollection.doc(orderId);
+        final snapshot = await transaction.get(docRef);
+        if (!snapshot.exists) {
+          throw Exception('Order does not exist');
+        }
+        final data = snapshot.data() as Map<String, dynamic>?;
+        print('Order $orderId data: $data'); // Debug log
+        if (data == null) {
+          throw Exception('Order data is null');
+        }
+        if (data['status'] != 'pending') {
+          throw Exception('Order is not pending');
+        }
+        transaction.update(docRef, {
+          'status': 'accepted',
+          'driverId': user.uid,
+          'acceptedAt': FieldValue.serverTimestamp(),
+        });
+      });
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Order accepted!')),
+      );
+    } catch (e) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('Failed to accept order: $e')),
+      );
+    }
+  }
+
+  void _rejectOrder(String orderId) {
+    setState(() {
+      _dismissedOrders.add(orderId);
+    });
+    ScaffoldMessenger.of(context).showSnackBar(
+      const SnackBar(content: Text('Order rejected.')),
+    );
+  }
+
+  Widget _buildOrderCard(order_model.Order order, bool isPending, LatLng driverLocation) {
+    final distanceToPickup = _calculateDistance(
+      driverLocation,
+      LatLng(order.pickupLat ?? 0.0, order.pickupLng ?? 0.0),
+    );
+    return Card(
+      margin: EdgeInsets.all(8.w),
+      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12.r)),
+      elevation: 4,
+      color: Colors.white,
+      child: Padding(
+        padding: EdgeInsets.all(16.w),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Text(
+              'Delivery Request',
+              style: TextStyle(
+                fontSize: 18.sp,
+                fontWeight: FontWeight.bold,
+                color: AppColors.textColor,
+              ),
+            ),
+            SizedBox(height: 8.h),
+            Text('Pickup: ${order.pickupLocation}', style: TextStyle(fontSize: 14.sp)),
+            Text('Pickup Contact: ${order.pickupName} - ${order.pickupPhone}', style: TextStyle(fontSize: 14.sp)),
+            Text('Drop-off: ${order.dropLocation}', style: TextStyle(fontSize: 14.sp)),
+            Text('Drop-off Contact: ${order.dropName} - ${order.dropPhone}', style: TextStyle(fontSize: 14.sp)),
+            Text('Weight: ${order.weightRange}', style: TextStyle(fontSize: 14.sp)),
+            Text('Distance to Pickup: ${distanceToPickup.toStringAsFixed(2)} km', style: TextStyle(fontSize: 14.sp)),
+            Text('Total Distance: ${order.distance.toStringAsFixed(2)} km', style: TextStyle(fontSize: 14.sp)),
+            Text('Delivery Cost: \$${order.deliveryCost.toStringAsFixed(2)}', style: TextStyle(fontSize: 14.sp)),
+            SizedBox(height: 16.h),
+            if (isPending)
+              Row(
+                mainAxisAlignment: MainAxisAlignment.spaceEvenly,
+                children: [
+                  ElevatedButton(
+                    onPressed: () => _acceptOrder(order.id),
+                    style: ElevatedButton.styleFrom(
+                      backgroundColor: AppColors.buttonColour,
+                      foregroundColor: AppColors.buttonTextColor,
+                      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8.r)),
+                    ),
+                    child: Text('Accept', style: TextStyle(fontSize: 14.sp)),
+                  ),
+                  ElevatedButton(
+                    onPressed: () => _rejectOrder(order.id),
+                    style: ElevatedButton.styleFrom(
+                      backgroundColor: AppColors.grey,
+                      foregroundColor: AppColors.textColor,
+                      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8.r)),
+                    ),
+                    child: Text('Reject', style: TextStyle(fontSize: 14.sp)),
+                  ),
+                ],
+              )
+            else if (order.driverId == FirebaseAuth.instance.currentUser?.uid)
+              Text(
+                'You have accepted this delivery.',
+                style: TextStyle(fontSize: 14.sp, color: Colors.green),
+              )
+            else
+              Text(
+                'The delivery has been accepted by another partner.',
+                style: TextStyle(fontSize: 14.sp, color: Colors.red),
+              ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return BlocBuilder<LocationCubit, LocationState>(
+      builder: (context, locationState) {
+        if (locationState is LocationError) {
+          return Center(
+            child: Column(
+              mainAxisAlignment: MainAxisAlignment.center,
+              children: [
+                Text(
+                  'Location Error: ${locationState.message}',
+                  style: TextStyle(fontSize: 16.sp, color: AppColors.textColor),
+                  textAlign: TextAlign.center,
+                ),
+                SizedBox(height: 16.h),
+                ElevatedButton(
+                  onPressed: () async {
+                    if (locationState.message.contains('permanently denied')) {
+                      print('Opening app settings for location permission');
+                      await Geolocator.openAppSettings();
+                    } else {
+                      context.read<LocationCubit>().getCurrentLocation();
+                    }
+                  },
+                  style: ElevatedButton.styleFrom(
+                    backgroundColor: AppColors.buttonColour,
+                    foregroundColor: AppColors.buttonTextColor,
+                  ),
+                  child: Text(
+                    locationState.message.contains('permanently denied')
+                        ? 'Open Settings'
+                        : 'Retry',
+                    style: TextStyle(fontSize: 14.sp),
+                  ),
+                ),
+              ],
+            ),
+          );
+        } else if (locationState is! CurrentLocationUpdated) {
+          return Center(
+            child: CircularProgressIndicator(color: AppColors.buttonColour),
+          );
+        }
+
+        final driverLocation = LatLng(locationState.latitude, locationState.longitude);
+        print('Driver location: ${driverLocation.latitude}, ${driverLocation.longitude}'); // Debug log
+        final recentThreshold = Timestamp.fromDate(DateTime.now().subtract(const Duration(hours: 1)));
+
+        return Column(
+          children: [
+            Padding(
+              padding: EdgeInsets.all(16.w),
+              child: Text(
+                'Available Deliveries',
+                style: TextStyle(
+                  fontSize: 20.sp,
+                  fontWeight: FontWeight.bold,
+                  color: AppColors.textColor,
+                ),
+              ),
+            ),
+            Expanded(
+              child: StreamBuilder<QuerySnapshot>(
+                stream: _ordersCollection
+                    .where('status', whereIn: ['pending', 'accepted'])
+                    .where('createdAt', isGreaterThanOrEqualTo: recentThreshold)
+                    .snapshots(),
+                builder: (context, snapshot) {
+                  if (snapshot.hasError) {
+                    final error = snapshot.error.toString();
+                    print('Firestore error: $error'); // Debug log
+                    String errorMessage = 'Error loading orders: $error';
+                    if (error.contains('requires an index')) {
+                      errorMessage = 'Error: Firestore query requires an index. Check the console for a link to create it.';
+                    }
+                    return Center(
+                      child: Column(
+                        mainAxisAlignment: MainAxisAlignment.center,
+                        children: [
+                          Text(
+                            errorMessage,
+                            style: TextStyle(fontSize: 16.sp, color: AppColors.textColor),
+                            textAlign: TextAlign.center,
+                          ),
+                          SizedBox(height: 16.h),
+                          ElevatedButton(
+                            onPressed: () => setState(() {}), // Refresh UI
+                            style: ElevatedButton.styleFrom(
+                              backgroundColor: AppColors.buttonColour,
+                              foregroundColor: AppColors.buttonTextColor,
+                            ),
+                            child: Text('Retry', style: TextStyle(fontSize: 14.sp)),
+                          ),
+                        ],
+                      ),
+                    );
+                  }
+                  if (!snapshot.hasData) {
+                    return Center(
+                      child: CircularProgressIndicator(color: AppColors.buttonColour),
+                    );
+                  }
+
+                  final docs = snapshot.data!.docs;
+                  print('Fetched ${docs.length} orders'); // Debug log
+                  for (var doc in docs) {
+                    print('Order ${doc.id}: ${doc.data()}'); // Debug log
+                  }
+
+                  final orders = docs
+                      .map((doc) {
+                        try {
+                          return order_model.Order.fromSnapshot(doc);
+                        } catch (e) {
+                          print('Error parsing order ${doc.id}: $e');
+                          return null;
+                        }
+                      })
+                      .where((order) => order != null)
+                      .cast<order_model.Order>()
+                      .where((order) {
+                        print('Checking order ${order.id}: status=${order.status}, dismissed=${_dismissedOrders.contains(order.id)}'); // Debug log
+                        return !_dismissedOrders.contains(order.id);
+                      })
+                      .where((order) {
+                        if (order.pickupLat == null || order.pickupLng == null) {
+                          print('Invalid coordinates for order ${order.id}: pickupLat=${order.pickupLat}, pickupLng=${order.pickupLng}'); // Debug log
+                          return false;
+                        }
+                        final pickupLoc = LatLng(order.pickupLat!, order.pickupLng!);
+                        final distance = _calculateDistance(driverLocation, pickupLoc);
+                        print('Order ${order.id} distance: $distance km, pickupLoc=${pickupLoc.latitude},${pickupLoc.longitude}'); // Debug log
+                        return distance <= 5.0;
+                      })
+                      .toList();
+
+                  print('Filtered orders count: ${orders.length}'); // Debug log
+                  if (orders.isEmpty) {
+                    return Center(
+                      child: Text(
+                        'No delivery requests within 5km.',
+                        style: TextStyle(fontSize: 16.sp, color: AppColors.textColor),
+                      ),
+                    );
+                  }
+
+                  return ListView.builder(
+                    itemCount: orders.length,
+                    itemBuilder: (context, index) {
+                      final order = orders[index];
+                      final isPending = order.status == 'pending';
+                      return _buildOrderCard(order, isPending, driverLocation);
+                    },
+                  );
+                },
+              ),
+            ),
+          ],
+        );
+      },
+    );
+  }
+}

@@ -1,6 +1,11 @@
 import 'package:flutter/material.dart';
-import 'package:phone_authentication/screens/profile_screen.dart';
-
+import 'package:flutter_screenutil/flutter_screenutil.dart';
+// import 'package:courierse/utils/constants/colors.dart';
+import 'package:phone_authentication/constants/colors.dart';
+// import 'package:phone_authentication/screens/history_screen.dart';
+import 'alert_screen.dart'; // Import the updated AlertScreen
+import 'profile_screen.dart'; // Adjust path if needed
+import 'history_screen.dart'; 
 class HomeScreen extends StatefulWidget {
   const HomeScreen({super.key});
 
@@ -11,7 +16,6 @@ class HomeScreen extends StatefulWidget {
 class _HomeScreenState extends State<HomeScreen> {
   int _selectedIndex = 0;
 
-  // List of screens for each tab
   static const List<Widget> _screens = [
     AlertScreen(),
     HistoryScreen(),
@@ -20,7 +24,7 @@ class _HomeScreenState extends State<HomeScreen> {
 
   void _onItemTapped(int index) {
     setState(() {
-      _selectedIndex = index; // Update selected tab
+      _selectedIndex = index;
     });
   }
 
@@ -28,17 +32,18 @@ class _HomeScreenState extends State<HomeScreen> {
   Widget build(BuildContext context) {
     return Scaffold(
       appBar: AppBar(
-        title: const Text(
+        title: Text(
           'Home',
           style: TextStyle(
             fontWeight: FontWeight.bold,
-            color: Colors.white,
+            color: AppColors.buttonTextColor,
+            fontSize: 20.sp,
           ),
         ),
-        backgroundColor: Colors.blueAccent,
+        backgroundColor: AppColors.buttonColour,
         elevation: 0,
       ),
-      body: _screens[_selectedIndex], // Display the selected screen
+      body: _screens[_selectedIndex],
       bottomNavigationBar: BottomNavigationBar(
         items: const <BottomNavigationBarItem>[
           BottomNavigationBarItem(
@@ -55,69 +60,9 @@ class _HomeScreenState extends State<HomeScreen> {
           ),
         ],
         currentIndex: _selectedIndex,
-        selectedItemColor: Colors.blueAccent,
-        unselectedItemColor: Colors.grey,
+        selectedItemColor: AppColors.buttonColour,
+        unselectedItemColor: AppColors.grey,
         onTap: _onItemTapped,
-      ),
-    );
-  }
-}
-
-// Placeholder screen for Alert tab
-class AlertScreen extends StatelessWidget {
-  const AlertScreen({super.key});
-
-  @override
-  Widget build(BuildContext context) {
-    return const Center(
-      child: Column(
-        mainAxisAlignment: MainAxisAlignment.center,
-        children: [
-          Icon(Icons.warning, size: 48, color: Colors.blueAccent),
-          SizedBox(height: 16),
-          Text(
-            'Alert Screen',
-            style: TextStyle(
-              fontSize: 24,
-              fontWeight: FontWeight.bold,
-            ),
-          ),
-          SizedBox(height: 8),
-          Text(
-            'Display alerts or notifications here.',
-            style: TextStyle(fontSize: 16, color: Colors.grey),
-          ),
-        ],
-      ),
-    );
-  }
-}
-
-// Placeholder screen for History tab
-class HistoryScreen extends StatelessWidget {
-  const HistoryScreen({super.key});
-
-  @override
-  Widget build(BuildContext context) {
-    return const Center(
-      child: Column(
-        mainAxisAlignment: MainAxisAlignment.center,
-        children: [
-          Icon(Icons.history, size: 48, color: Colors.blueAccent),
-          SizedBox(height: 16),
-          Text(
-            'History Screen',
-            style: TextStyle(
-              fontSize: 24,
-              fontWeight: FontWeight.bold,
-            ),
-          ),
-          SizedBox(height: 8),
-          Text(
-            'Display authentication or activity history here.',
-            style: TextStyle(fontSize: 16, color: Colors.grey),
-          ),
-        ],
       ),
     );
   }

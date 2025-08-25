@@ -1,0 +1,70 @@
+import 'package:cloud_firestore/cloud_firestore.dart';
+
+class Order {
+  final String id;
+  final String pickupLocation;
+  final double? pickupLat;
+  final double? pickupLng;
+  final String dropLocation;
+  final double? dropLat;
+  final double? dropLng;
+  final String pickupName;
+  final String pickupPhone;
+  final String dropName;
+  final String dropPhone;
+  final String weightRange;
+  final String userId;
+  final String status;
+  final double distance;
+  final double deliveryCost;
+  final Timestamp createdAt;
+  final String? driverId;
+  final Timestamp? acceptedAt;
+
+  Order({
+    required this.id,
+    required this.pickupLocation,
+    this.pickupLat,
+    this.pickupLng,
+    required this.dropLocation,
+    this.dropLat,
+    this.dropLng,
+    required this.pickupName,
+    required this.pickupPhone,
+    required this.dropName,
+    required this.dropPhone,
+    required this.weightRange,
+    required this.userId,
+    required this.status,
+    required this.distance,
+    required this.deliveryCost,
+    required this.createdAt,
+    this.driverId,
+    this.acceptedAt,
+  });
+
+  factory Order.fromSnapshot(DocumentSnapshot snapshot) {
+    final data = snapshot.data() as Map<String, dynamic>;
+    return Order(
+      id: snapshot.id,
+      pickupLocation: data['pickupLocation'] ?? '',
+      pickupLat: data['pickupLat']?.toDouble(),
+      pickupLng: data['pickupLng']?.toDouble(),
+      dropLocation: data['dropLocation'] ?? '',
+      dropLat: data['dropLat']?.toDouble(),
+      dropLng: data['dropLng']?.toDouble(),
+      pickupName: data['pickupName'] ?? '',
+      pickupPhone: data['pickupPhone'] ?? '',
+      dropName: data['dropName'] ?? '',
+      dropPhone: data['dropPhone'] ?? '',
+      weightRange: data['weightRange'] ?? '',
+      userId: data['userId'] ?? '',
+      status: data['status'] ?? 'pending',
+      distance: data['distance']?.toDouble() ?? 0.0,
+      deliveryCost: data['deliveryCost']?.toDouble() ?? 0.0,
+      createdAt: data['createdAt'] ?? Timestamp.now(),
+      driverId: data['driverId'],
+      acceptedAt: data['acceptedAt'],
+    );
+  }
+}

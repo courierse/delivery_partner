@@ -10,12 +10,27 @@ import 'package:phone_authentication/core/validators.dart';
 part 'phone_auth_state.dart';
 
 class PhoneAuthCubit extends Cubit<PhoneAuthState> {
-  PhoneAuthCubit() : super(const PhoneAuthState());
+  PhoneAuthCubit() : super(const PhoneAuthState()) {
+    _checkAuthState(); // Check auth state on initialization
+  }
+
+  void _checkAuthState() {
+    final user = FirebaseAuth.instance.currentUser;
+    if (user != null) {
+      emit(state.copyWith(
+        user: user,
+        statusMessage: 'Authenticated',
+        isCodeSent: false,
+        phoneNumber: null,
+        verificationId: null,
+      ));
+    }
+  }
 
   void updateField(String key, String value) {
     final fields = Map<String, String>.from(state.fields)..[key] = value;
     final errors = Map<String, String?>.from(state.errors);
-    errors[key] = validateField(key, value); // Update error for the specific field
+    errors[key] = validateField(key, value);
     emit(state.copyWith(fields: fields, errors: errors));
   }
 
@@ -24,7 +39,6 @@ class PhoneAuthCubit extends Cubit<PhoneAuthState> {
     final errors = <String, String?>{};
     bool hasError = false;
 
-    // Validate all fields
     fields.forEach((key, value) {
       final error = validateField(key, value);
       errors[key] = error;
@@ -36,7 +50,6 @@ class PhoneAuthCubit extends Cubit<PhoneAuthState> {
       return;
     }
 
-    // Ensure phone number starts with +91
     final phoneNumber = fields['phone']!.startsWith('+91')
         ? fields['phone']!
         : '+91${fields['phone']}';
@@ -47,12 +60,12 @@ class PhoneAuthCubit extends Cubit<PhoneAuthState> {
       await FirebaseAuth.instance.verifyPhoneNumber(
         phoneNumber: phoneNumber,
         verificationCompleted: (PhoneAuthCredential credential) async {
-          // Auto-verification (e.g., on some Android devices)
           await FirebaseAuth.instance.signInWithCredential(credential);
           final user = FirebaseAuth.instance.currentUser;
           if (user != null) {
             await _saveUserDataToFirestore(user.uid);
             emit(state.copyWith(
+              user: user,
               statusMessage: 'Authentication successful',
               isCodeSent: false,
               phoneNumber: null,
@@ -76,9 +89,7 @@ class PhoneAuthCubit extends Cubit<PhoneAuthState> {
             statusMessage: 'Verification code sent to $phoneNumber',
           ));
         },
-        codeAutoRetrievalTimeout: (String verificationId) {
-          // Handle timeout if needed
-        },
+        codeAutoRetrievalTimeout: (String verificationId) {},
       );
     } catch (e) {
       emit(state.copyWith(statusMessage: 'Error: $e'));
@@ -97,21 +108,35 @@ class PhoneAuthCubit extends Cubit<PhoneAuthState> {
       final user = userCredential.user;
 
       if (user != null) {
-        // Save driver data to Firestore
         await _saveUserDataToFirestore(user.uid);
         emit(state.copyWith(
+          user: user,
           statusMessage: 'Authentication successful',
           isCodeSent: false,
           phoneNumber: null,
           verificationId: null,
         ));
-        // Navigate to HomeScreen
         context.go('/home');
       } else {
         emit(state.copyWith(statusMessage: 'Error: Authentication failed'));
       }
     } catch (e) {
       emit(state.copyWith(statusMessage: 'Error: $e'));
+    }
+  }
+
+  Future<void> signOut() async {
+    try {
+      await FirebaseAuth.instance.signOut();
+      emit(const PhoneAuthState(
+        statusMessage: 'Logged out',
+        isCodeSent: false,
+        phoneNumber: null,
+        verificationId: null,
+        user: null,
+      ));
+    } catch (e) {
+      emit(state.copyWith(statusMessage: 'Error logging out: $e'));
     }
   }
 

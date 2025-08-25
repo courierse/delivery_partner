@@ -30,7 +30,6 @@ class _PhoneAuthPageState extends State<PhoneAuthPage> {
     );
   }
 
-  // Build text field with common properties
   Widget _buildTextField({
     required String key,
     required String label,
@@ -38,11 +37,9 @@ class _PhoneAuthPageState extends State<PhoneAuthPage> {
     IconData? prefixIcon,
     String? prefixText,
     String? errorText,
-    required BuildContext context, // Pass context for Cubit access
+    required BuildContext context,
   }) {
-    // Sync controller with Cubit state
     _controllers[key]!.text = context.read<PhoneAuthCubit>().state.fields[key] ?? '';
-    // Add listener to update Cubit on text change
     _controllers[key]!.addListener(() {
       context.read<PhoneAuthCubit>().updateField(key, _controllers[key]!.text);
     });
@@ -64,7 +61,9 @@ class _PhoneAuthPageState extends State<PhoneAuthPage> {
   Widget build(BuildContext context) {
     return BlocListener<PhoneAuthCubit, PhoneAuthState>(
       listener: (context, state) {
-        if (state.isCodeSent && state.phoneNumber != null && state.verificationId != null) {
+        if (state.user != null) {
+          context.go('/home'); // Redirect to HomeScreen if authenticated
+        } else if (state.isCodeSent && state.phoneNumber != null && state.verificationId != null) {
           debugPrint('Navigating with phone number: ${state.phoneNumber}, verificationId: ${state.verificationId}');
           try {
             context.push('/otp', extra: {
@@ -83,6 +82,16 @@ class _PhoneAuthPageState extends State<PhoneAuthPage> {
               ),
             );
           }
+        } else if (state.statusMessage.contains('Error')) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(
+              content: Text(state.statusMessage),
+              backgroundColor: Colors.red,
+              behavior: SnackBarBehavior.floating,
+              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8.r)),
+              margin: EdgeInsets.all(16.w),
+            ),
+          );
         }
       },
       child: Scaffold(
@@ -238,7 +247,7 @@ class _PhoneAuthPageState extends State<PhoneAuthPage> {
   @override
   void dispose() {
     _controllers.forEach((_, controller) {
-      controller.removeListener(() {}); 
+      controller.removeListener(() {});
       controller.dispose();
     });
     super.dispose();

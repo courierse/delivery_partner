@@ -1,13 +1,25 @@
 import 'package:flutter/material.dart';
+import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:go_router/go_router.dart';
 import 'package:phone_authentication/screens/phone_auth_page.dart';
 import 'package:phone_authentication/screens/otp_screen.dart';
 import 'package:phone_authentication/screens/home_screen.dart';
+import 'package:phone_authentication/bloc/phone_auth_cubit.dart';
 
 final GoRouter router = GoRouter(
   routes: [
     GoRoute(
       path: '/',
+      redirect: (context, state) {
+        final authState = context.read<PhoneAuthCubit>().state;
+        if (authState.user != null) {
+          return '/home'; // Redirect to HomeScreen if authenticated
+        }
+        return '/login'; // Redirect to PhoneAuthPage if not authenticated
+      },
+    ),
+    GoRoute(
+      path: '/login',
       builder: (context, state) => const PhoneAuthPage(),
     ),
     GoRoute(

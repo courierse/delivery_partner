@@ -7,6 +7,7 @@ class PhoneAuthState extends Equatable {
   final bool isCodeSent;
   final String? phoneNumber;
   final String? verificationId;
+  final User? user; // Added to track authenticated user
 
   const PhoneAuthState({
     this.fields = const {'name': '', 'phone': '', 'address': '', 'age': '', 'vehicle': ''},
@@ -15,6 +16,7 @@ class PhoneAuthState extends Equatable {
     this.isCodeSent = false,
     this.phoneNumber,
     this.verificationId,
+    this.user,
   });
 
   PhoneAuthState copyWith({
@@ -24,6 +26,7 @@ class PhoneAuthState extends Equatable {
     bool? isCodeSent,
     String? phoneNumber,
     String? verificationId,
+    User? user,
   }) {
     return PhoneAuthState(
       fields: fields ?? this.fields,
@@ -32,9 +35,10 @@ class PhoneAuthState extends Equatable {
       isCodeSent: isCodeSent ?? this.isCodeSent,
       phoneNumber: phoneNumber ?? this.phoneNumber,
       verificationId: verificationId ?? this.verificationId,
+      user: user ?? this.user,
     );
   }
 
   @override
-  List<Object?> get props => [fields, errors, statusMessage, isCodeSent, phoneNumber, verificationId];
+  List<Object?> get props => [fields, errors, statusMessage, isCodeSent, phoneNumber, verificationId, user];
 }

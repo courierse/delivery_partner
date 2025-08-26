@@ -186,15 +186,10 @@ class _AlertScreenState extends State<AlertScreen> {
                   ),
                 ],
               )
-            else if (order.driverId == FirebaseAuth.instance.currentUser?.uid)
+            else
               Text(
                 'You have accepted this delivery.',
                 style: TextStyle(fontSize: 14.sp, color: Colors.green),
-              )
-            else
-              Text(
-                'The delivery has been accepted by another partner.',
-                style: TextStyle(fontSize: 14.sp, color: Colors.red),
               ),
           ],
         ),
@@ -361,6 +356,9 @@ class _AlertScreenState extends State<AlertScreen> {
                           .cast<order_model.Order>()
                           .where((order) => !rejectedOrderIds.contains(order.id))
                           .where((order) {
+                            if (order.status == 'accepted' && order.driverId != user.uid) {
+                              return false; // Exclude orders accepted by other drivers
+                            }
                             if (order.pickupLat == null || order.pickupLng == null) {
                               print('Invalid coordinates for order ${order.id}: pickupLat=${order.pickupLat}, pickupLng=${order.pickupLng}'); // Debug log
                               return false;

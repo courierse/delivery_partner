@@ -14,10 +14,8 @@ class DeliveryHistoryScreen extends StatefulWidget {
 
 class _DeliveryHistoryScreenState extends State<DeliveryHistoryScreen> {
   final CollectionReference _ordersCollection = FirebaseFirestore.instance.collection('orders');
-  final Set<String> _dismissedOrders = {};
 
-  Widget _buildHistoryCard(order_model.Order order) {
-    final isAccepted = order.status == 'accepted' && order.driverId == FirebaseAuth.instance.currentUser?.uid;
+  Widget _buildHistoryCard(order_model.Order order, bool isAccepted, {Timestamp? rejectedAt}) {
     return Card(
       margin: EdgeInsets.all(8.w),
       shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12.r)),
@@ -44,9 +42,14 @@ class _DeliveryHistoryScreenState extends State<DeliveryHistoryScreen> {
             Text('Weight: ${order.weightRange}', style: TextStyle(fontSize: 14.sp)),
             Text('Total Distance: ${order.distance.toStringAsFixed(2)} km', style: TextStyle(fontSize: 14.sp)),
             Text('Delivery Cost: \$${order.deliveryCost.toStringAsFixed(2)}', style: TextStyle(fontSize: 14.sp)),
-            if (order.acceptedAt != null && isAccepted)
+            if (isAccepted && order.acceptedAt != null)
               Text(
                 'Accepted At: ${order.acceptedAt!.toDate().toString().substring(0, 16)}',
+                style: TextStyle(fontSize: 14.sp, color: AppColors.textColor),
+              ),
+            if (!isAccepted && rejectedAt != null)
+              Text(
+                'Rejected At: ${rejectedAt.toDate().toString().substring(0, 16)}',
                 style: TextStyle(fontSize: 14.sp, color: AppColors.textColor),
               ),
           ],
@@ -86,15 +89,15 @@ class _DeliveryHistoryScreenState extends State<DeliveryHistoryScreen> {
                 .where('driverId', isEqualTo: user.uid)
                 .where('status', isEqualTo: 'accepted')
                 .snapshots(),
-            builder: (context, snapshot) {
-              if (snapshot.hasError) {
-                final error = snapshot.error.toString();
+            builder: (context, acceptedSnapshot) {
+              if (acceptedSnapshot.hasError) {
+                final error = acceptedSnapshot.error.toString();
                 return Center(
                   child: Column(
                     mainAxisAlignment: MainAxisAlignment.center,
                     children: [
                       Text(
-                        'Error loading history: $error',
+                        'Error loading accepted orders: $error',
                         style: TextStyle(fontSize: 16.sp, color: AppColors.textColor),
                         textAlign: TextAlign.center,
                       ),
@@ -111,47 +114,71 @@ class _DeliveryHistoryScreenState extends State<DeliveryHistoryScreen> {
                   ),
                 );
               }
-              if (!snapshot.hasData) {
-                return Center(
-                  child: CircularProgressIndicator(color: AppColors.buttonColour),
-                );
-              }
 
-              final docs = snapshot.data!.docs;
-              final orders = docs
-                  .map((doc) {
-                    try {
-                      return order_model.Order.fromSnapshot(doc);
-                    } catch (e) {
-                      print('Error parsing order ${doc.id}: $e');
-                      return null;
-                    }
-                  })
-                  .where((order) => order != null)
-                  .cast<order_model.Order>()
-                  .toList();
+              return StreamBuilder<QuerySnapshot>(
+                stream: FirebaseFirestore.instance
+                    .collection('drivers')
+                    .doc(user.uid)
+                    .collection('rejected_orders')
+                    .snapshots(),
+                builder: (context, rejectedSnapshot) {
+                  if (rejectedSnapshot.hasError) {
+                    return Center(
+                      child: Column(
+                        mainAxisAlignment: MainAxisAlignment.center,
+                        children: [
+                          Text(
+                            'Error loading rejected orders: ${rejectedSnapshot.error}',
+                            style: TextStyle(fontSize: 16.sp, color: AppColors.textColor),
+                            textAlign: TextAlign.center,
+                          ),
+                          SizedBox(height: 16.h),
+                          ElevatedButton(
+                            onPressed: () => setState(() {}),
+                            style: ElevatedButton.styleFrom(
+                              backgroundColor: AppColors.buttonColour,
+                              foregroundColor: AppColors.buttonTextColor,
+                            ),
+                            child: Text('Retry', style: TextStyle(fontSize: 14.sp)),
+                          ),
+                        ],
+                      ),
+                    );
+                  }
 
-              // Include dismissed orders (rejected)
-              final rejectedOrders = _dismissedOrders
-                  .map((orderId) => _ordersCollection.doc(orderId).get())
-                  .toList();
-              if (rejectedOrders.isNotEmpty) {
-                return FutureBuilder<List<DocumentSnapshot>>(
-                  future: Future.wait(rejectedOrders),
-                  builder: (context, futureSnapshot) {
-                    if (!futureSnapshot.hasData) {
-                      return Center(
-                        child: CircularProgressIndicator(color: AppColors.buttonColour),
-                      );
-                    }
-                    final allOrders = [
-                      ...orders,
-                      ...futureSnapshot.data!
-                          .map((doc) => order_model.Order.fromSnapshot(doc))
+                  if (!acceptedSnapshot.hasData && !rejectedSnapshot.hasData) {
+                    return Center(
+                      child: CircularProgressIndicator(color: AppColors.buttonColour),
+                    );
+                  }
+
+                  final acceptedOrders = acceptedSnapshot.hasData
+                      ? acceptedSnapshot.data!.docs
+                          .map((doc) {
+                            try {
+                              return order_model.Order.fromSnapshot(doc);
+                            } catch (e) {
+                              print('Error parsing accepted order ${doc.id}: $e');
+                              return null;
+                            }
+                          })
                           .where((order) => order != null)
-                    ];
+                          .cast<order_model.Order>()
+                          .toList()
+                      : [];
 
-                    if (allOrders.isEmpty) {
+                  final rejectedOrderIds = rejectedSnapshot.hasData
+                      ? rejectedSnapshot.data!.docs
+                          .map((doc) => {
+                                'orderId': doc['orderId'] as String,
+                                'rejectedAt': doc['rejectedAt'] as Timestamp,
+                              })
+                          .toList()
+                      : [];
+
+                  // Fetch details of rejected orders
+                  if (rejectedOrderIds.isEmpty) {
+                    if (acceptedOrders.isEmpty) {
                       return Center(
                         child: Text(
                           'No delivery history available.',
@@ -159,32 +186,87 @@ class _DeliveryHistoryScreenState extends State<DeliveryHistoryScreen> {
                         ),
                       );
                     }
-
                     return ListView.builder(
-                      itemCount: allOrders.length,
+                      itemCount: acceptedOrders.length,
                       itemBuilder: (context, index) {
-                        final order = allOrders[index];
-                        return _buildHistoryCard(order);
+                        final order = acceptedOrders[index];
+                        return _buildHistoryCard(order, true);
                       },
                     );
-                  },
-                );
-              }
+                  }
 
-              if (orders.isEmpty) {
-                return Center(
-                  child: Text(
-                    'No delivery history available.',
-                    style: TextStyle(fontSize: 16.sp, color: AppColors.textColor),
-                  ),
-                );
-              }
+                  return FutureBuilder<List<order_model.Order?>>(
+                    future: Future.wait(
+                      rejectedOrderIds.map((rejected) async {
+                        try {
+                          final doc = await _ordersCollection.doc(rejected['orderId']).get();
+                          if (doc.exists) {
+                            return order_model.Order.fromSnapshot(doc);
+                          }
+                          return null;
+                        } catch (e) {
+                          print('Error fetching rejected order ${rejected['orderId']}: $e');
+                          return null;
+                        }
+                      }),
+                    ),
+                    builder: (context, futureSnapshot) {
+                      if (!futureSnapshot.hasData) {
+                        return Center(
+                          child: CircularProgressIndicator(color: AppColors.buttonColour),
+                        );
+                      }
 
-              return ListView.builder(
-                itemCount: orders.length,
-                itemBuilder: (context, index) {
-                  final order = orders[index];
-                  return _buildHistoryCard(order);
+                      final rejectedOrders = futureSnapshot.data!
+                          .asMap()
+                          .entries
+                          .where((entry) => entry.value != null)
+                          .map((entry) => {
+                                'order': entry.value as order_model.Order,
+                                'rejectedAt': rejectedOrderIds[entry.key]['rejectedAt'] as Timestamp,
+                              })
+                          .toList();
+
+                      final allOrders = [
+                        ...acceptedOrders.map((order) => {'order': order, 'isAccepted': true}),
+                        ...rejectedOrders.map((entry) => {
+                              'order': entry['order'] as order_model.Order,
+                              'isAccepted': false,
+                              'rejectedAt': entry['rejectedAt'] as Timestamp,
+                            }),
+                      ];
+
+                      if (allOrders.isEmpty) {
+                        return Center(
+                          child: Text(
+                            'No delivery history available.',
+                            style: TextStyle(fontSize: 16.sp, color: AppColors.textColor),
+                          ),
+                        );
+                      }
+
+                      allOrders.sort((a, b) {
+                        final aTime = a['isAccepted']
+                            ? (a['order'] as order_model.Order).acceptedAt ?? Timestamp.now()
+                            : a['rejectedAt'] as Timestamp;
+                        final bTime = b['isAccepted']
+                            ? (b['order'] as order_model.Order).acceptedAt ?? Timestamp.now()
+                            : b['rejectedAt'] as Timestamp;
+                        return bTime.compareTo(aTime); // Sort by most recent
+                      });
+
+                      return ListView.builder(
+                        itemCount: allOrders.length,
+                        itemBuilder: (context, index) {
+                          final entry = allOrders[index];
+                          final order = entry['order'] as order_model.Order;
+                          final isAccepted = entry['isAccepted'] as bool;
+                          final rejectedAt = entry['rejectedAt'] as Timestamp?;
+                          return _buildHistoryCard(order, isAccepted, rejectedAt: rejectedAt);
+                        },
+                      );
+                    },
+                  );
                 },
               );
             },

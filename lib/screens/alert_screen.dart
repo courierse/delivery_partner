@@ -20,7 +20,6 @@ class AlertScreen extends StatefulWidget {
 
 class _AlertScreenState extends State<AlertScreen> {
   final CollectionReference _ordersCollection = FirebaseFirestore.instance.collection('orders');
-  final Set<String> _dismissedOrders = {};
 
   double _calculateDistance(LatLng start, LatLng end) {
     const double earthRadius = 6371;
@@ -100,13 +99,34 @@ class _AlertScreenState extends State<AlertScreen> {
     }
   }
 
-  void _rejectOrder(String orderId) {
-    setState(() {
-      _dismissedOrders.add(orderId);
-    });
-    ScaffoldMessenger.of(context).showSnackBar(
-      const SnackBar(content: Text('Order rejected.')),
-    );
+  Future<void> _rejectOrder(String orderId) async {
+    final user = FirebaseAuth.instance.currentUser;
+    if (user == null) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Please log in to reject orders')),
+      );
+      return;
+    }
+
+    try {
+      // Store rejected order in driver's rejected_orders subcollection
+      await FirebaseFirestore.instance
+          .collection('drivers')
+          .doc(user.uid)
+          .collection('rejected_orders')
+          .doc(orderId)
+          .set({
+        'orderId': orderId,
+        'rejectedAt': FieldValue.serverTimestamp(),
+      });
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Order rejected.')),
+      );
+    } catch (e) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('Failed to reject order: $e')),
+      );
+    }
   }
 
   Widget _buildOrderCard(order_model.Order order, bool isPending, LatLng driverLocation) {
@@ -229,6 +249,16 @@ class _AlertScreenState extends State<AlertScreen> {
         final driverLocation = LatLng(locationState.latitude, locationState.longitude);
         print('Driver location: ${driverLocation.latitude}, ${driverLocation.longitude}'); // Debug log
         final recentThreshold = Timestamp.fromDate(DateTime.now().subtract(const Duration(hours: 1)));
+        final user = FirebaseAuth.instance.currentUser;
+
+        if (user == null) {
+          return Center(
+            child: Text(
+              'Please log in to view deliveries',
+              style: TextStyle(fontSize: 16.sp, color: AppColors.textColor),
+            ),
+          );
+        }
 
         return Column(
           children: [
@@ -291,49 +321,75 @@ class _AlertScreenState extends State<AlertScreen> {
                     print('Order ${doc.id}: ${doc.data()}'); // Debug log
                   }
 
-                  final orders = docs
-                      .map((doc) {
-                        try {
-                          return order_model.Order.fromSnapshot(doc);
-                        } catch (e) {
-                          print('Error parsing order ${doc.id}: $e');
-                          return null;
-                        }
-                      })
-                      .where((order) => order != null)
-                      .cast<order_model.Order>()
-                      .where((order) {
-                        print('Checking order ${order.id}: status=${order.status}, dismissed=${_dismissedOrders.contains(order.id)}'); // Debug log
-                        return !_dismissedOrders.contains(order.id);
-                      })
-                      .where((order) {
-                        if (order.pickupLat == null || order.pickupLng == null) {
-                          print('Invalid coordinates for order ${order.id}: pickupLat=${order.pickupLat}, pickupLng=${order.pickupLng}'); // Debug log
-                          return false;
-                        }
-                        final pickupLoc = LatLng(order.pickupLat!, order.pickupLng!);
-                        final distance = _calculateDistance(driverLocation, pickupLoc);
-                        print('Order ${order.id} distance: $distance km, pickupLoc=${pickupLoc.latitude},${pickupLoc.longitude}'); // Debug log
-                        return distance <= 5.0;
-                      })
-                      .toList();
+                  // Fetch rejected orders for the current driver
+                  return StreamBuilder<QuerySnapshot>(
+                    stream: FirebaseFirestore.instance
+                        .collection('drivers')
+                        .doc(user.uid)
+                        .collection('rejected_orders')
+                        .snapshots(),
+                    builder: (context, rejectedSnapshot) {
+                      if (rejectedSnapshot.hasError) {
+                        print('Rejected orders error: ${rejectedSnapshot.error}'); // Debug log
+                        return Center(
+                          child: Text(
+                            'Error loading rejected orders',
+                            style: TextStyle(fontSize: 16.sp, color: AppColors.textColor),
+                          ),
+                        );
+                      }
+                      if (!rejectedSnapshot.hasData) {
+                        return Center(
+                          child: CircularProgressIndicator(color: AppColors.buttonColour),
+                        );
+                      }
 
-                  print('Filtered orders count: ${orders.length}'); // Debug log
-                  if (orders.isEmpty) {
-                    return Center(
-                      child: Text(
-                        'No delivery requests within 5km.',
-                        style: TextStyle(fontSize: 16.sp, color: AppColors.textColor),
-                      ),
-                    );
-                  }
+                      final rejectedOrderIds = rejectedSnapshot.data!.docs
+                          .map((doc) => doc['orderId'] as String)
+                          .toSet();
 
-                  return ListView.builder(
-                    itemCount: orders.length,
-                    itemBuilder: (context, index) {
-                      final order = orders[index];
-                      final isPending = order.status == 'pending';
-                      return _buildOrderCard(order, isPending, driverLocation);
+                      final orders = docs
+                          .map((doc) {
+                            try {
+                              return order_model.Order.fromSnapshot(doc);
+                            } catch (e) {
+                              print('Error parsing order ${doc.id}: $e');
+                              return null;
+                            }
+                          })
+                          .where((order) => order != null)
+                          .cast<order_model.Order>()
+                          .where((order) => !rejectedOrderIds.contains(order.id))
+                          .where((order) {
+                            if (order.pickupLat == null || order.pickupLng == null) {
+                              print('Invalid coordinates for order ${order.id}: pickupLat=${order.pickupLat}, pickupLng=${order.pickupLng}'); // Debug log
+                              return false;
+                            }
+                            final pickupLoc = LatLng(order.pickupLat!, order.pickupLng!);
+                            final distance = _calculateDistance(driverLocation, pickupLoc);
+                            print('Order ${order.id} distance: $distance km, pickupLoc=${pickupLoc.latitude},${pickupLoc.longitude}'); // Debug log
+                            return distance <= 5.0;
+                          })
+                          .toList();
+
+                      print('Filtered orders count: ${orders.length}'); // Debug log
+                      if (orders.isEmpty) {
+                        return Center(
+                          child: Text(
+                            'No delivery requests within 5km.',
+                            style: TextStyle(fontSize: 16.sp, color: AppColors.textColor),
+                          ),
+                        );
+                      }
+
+                      return ListView.builder(
+                        itemCount: orders.length,
+                        itemBuilder: (context, index) {
+                          final order = orders[index];
+                          final isPending = order.status == 'pending';
+                          return _buildOrderCard(order, isPending, driverLocation);
+                        },
+                      );
                     },
                   );
                 },

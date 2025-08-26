@@ -145,11 +145,11 @@ class _AlertScreenState extends State<AlertScreen> {
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
             Text(
-              'Delivery Request',
+              isPending ? 'Delivery Request' : 'Accepted Delivery',
               style: TextStyle(
                 fontSize: 18.sp,
                 fontWeight: FontWeight.bold,
-                color: AppColors.textColor,
+                color: isPending ? AppColors.textColor : Colors.green,
               ),
             ),
             SizedBox(height: 8.h),
@@ -343,6 +343,7 @@ class _AlertScreenState extends State<AlertScreen> {
                           .map((doc) => doc['orderId'] as String)
                           .toSet();
 
+                      // Filter orders: include pending orders and the most recent accepted order by this driver
                       final orders = docs
                           .map((doc) {
                             try {
@@ -370,8 +371,28 @@ class _AlertScreenState extends State<AlertScreen> {
                           })
                           .toList();
 
-                      print('Filtered orders count: ${orders.length}'); // Debug log
-                      if (orders.isEmpty) {
+                      // Separate pending and accepted orders
+                      final pendingOrders = orders.where((order) => order.status == 'pending').toList();
+                      final acceptedOrders = orders
+                          .where((order) => order.status == 'accepted' && order.driverId == user.uid)
+                          .toList();
+
+                      // Select only the most recent accepted order (if any)
+                      order_model.Order? latestAcceptedOrder;
+                      if (acceptedOrders.isNotEmpty) {
+                        acceptedOrders.sort((a, b) => (b.acceptedAt ?? Timestamp.now())
+                            .compareTo(a.acceptedAt ?? Timestamp.now()));
+                        latestAcceptedOrder = acceptedOrders.first;
+                      }
+
+                      // Combine pending orders with the latest accepted order (if exists)
+                      final finalOrders = [
+                        ...pendingOrders,
+                        if (latestAcceptedOrder != null) latestAcceptedOrder,
+                      ];
+
+                      print('Filtered orders count: ${finalOrders.length}'); // Debug log
+                      if (finalOrders.isEmpty) {
                         return Center(
                           child: Text(
                             'No delivery requests within 5km.',
@@ -380,10 +401,20 @@ class _AlertScreenState extends State<AlertScreen> {
                         );
                       }
 
+                      // Sort to ensure pending orders are at the top
+                      finalOrders.sort((a, b) {
+                        if (a.status == 'pending' && b.status != 'pending') {
+                          return -1; // Pending orders come first
+                        } else if (a.status != 'pending' && b.status == 'pending') {
+                          return 1;
+                        }
+                        return 0; // Maintain order for same status
+                      });
+
                       return ListView.builder(
-                        itemCount: orders.length,
+                        itemCount: finalOrders.length,
                         itemBuilder: (context, index) {
-                          final order = orders[index];
+                          final order = finalOrders[index];
                           final isPending = order.status == 'pending';
                           return _buildOrderCard(order, isPending, driverLocation);
                         },

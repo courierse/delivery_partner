@@ -8,16 +8,12 @@ import 'package:google_maps_flutter/google_maps_flutter.dart';
 import 'package:phone_authentication/bloc/location_cubit/location_cubit.dart';
 import 'package:phone_authentication/bloc/location_cubit/location_state.dart';
 import 'package:phone_authentication/constants/colors.dart';
-import 'package:geolocator/geolocator.dart'; 
+import 'package:geolocator/geolocator.dart';
 import 'package:phone_authentication/models/order_model.dart' as order_model;
-
-// // Added for openAppSettings
-
-
 
 class AlertScreen extends StatefulWidget {
   const AlertScreen({super.key});
-  
+
   @override
   State<AlertScreen> createState() => _AlertScreenState();
 }
@@ -51,6 +47,16 @@ class _AlertScreenState extends State<AlertScreen> {
       return;
     }
 
+    final locationState = context.read<LocationCubit>().state;
+    if (locationState is! CurrentLocationUpdated) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Driver location unavailable')),
+      );
+      return;
+    }
+
+    final driverLocation = LatLng(locationState.latitude, locationState.longitude);
+
     try {
       await FirebaseFirestore.instance.runTransaction((transaction) async {
         final docRef = _ordersCollection.doc(orderId);
@@ -71,6 +77,18 @@ class _AlertScreenState extends State<AlertScreen> {
           'driverId': user.uid,
           'acceptedAt': FieldValue.serverTimestamp(),
         });
+
+        // Update driver location in Firestore
+        final driverRef = FirebaseFirestore.instance.collection('drivers').doc(user.uid);
+        transaction.set(
+          driverRef,
+          {
+            'latitude': driverLocation.latitude,
+            'longitude': driverLocation.longitude,
+            'updatedAt': FieldValue.serverTimestamp(),
+          },
+          SetOptions(merge: true),
+        );
       });
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(content: Text('Order accepted!')),

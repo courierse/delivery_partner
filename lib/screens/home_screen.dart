@@ -4,9 +4,9 @@ import 'package:flutter_screenutil/flutter_screenutil.dart';
 import 'package:go_router/go_router.dart';
 import 'package:phone_authentication/constants/colors.dart';
 import 'package:phone_authentication/bloc/phone_auth_cubit.dart';
+import 'package:phone_authentication/screens/history_screen.dart';
 import 'alert_screen.dart';
 import 'profile_screen.dart';
-import 'history_screen.dart';
 
 class HomeScreen extends StatefulWidget {
   const HomeScreen({super.key});
@@ -20,7 +20,7 @@ class _HomeScreenState extends State<HomeScreen> {
 
   static const List<Widget> _screens = [
     AlertScreen(),
-    HistoryScreen(),
+    DeliveryHistoryScreen(),
     ProfileScreen(),
   ];
 

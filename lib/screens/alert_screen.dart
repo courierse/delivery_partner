@@ -1,4 +1,5 @@
 import 'dart:math';
+import 'package:audioplayers/audioplayers.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
@@ -20,6 +21,22 @@ class AlertScreen extends StatefulWidget {
 
 class _AlertScreenState extends State<AlertScreen> {
   final CollectionReference _ordersCollection = FirebaseFirestore.instance.collection('orders');
+  final AudioPlayer _audioPlayer = AudioPlayer();
+  Set<String> _knownOrderIds = {};
+
+  @override
+  void initState() {
+    super.initState();
+    // Set audio player to loop mode
+    _audioPlayer.setReleaseMode(ReleaseMode.loop);
+  }
+
+  @override
+  void dispose() {
+    _audioPlayer.stop();
+    _audioPlayer.dispose();
+    super.dispose();
+  }
 
   double _calculateDistance(LatLng start, LatLng end) {
     const double earthRadius = 6371;
@@ -57,6 +74,7 @@ class _AlertScreenState extends State<AlertScreen> {
     final driverLocation = LatLng(locationState.latitude, locationState.longitude);
 
     try {
+      await _audioPlayer.stop(); // Stop sound on accept
       await FirebaseFirestore.instance.runTransaction((transaction) async {
         final docRef = _ordersCollection.doc(orderId);
         final snapshot = await transaction.get(docRef);
@@ -109,6 +127,7 @@ class _AlertScreenState extends State<AlertScreen> {
     }
 
     try {
+      await _audioPlayer.stop(); // Stop sound on reject
       // Store rejected order in driver's rejected_orders subcollection
       await FirebaseFirestore.instance
           .collection('drivers')
@@ -127,6 +146,16 @@ class _AlertScreenState extends State<AlertScreen> {
         SnackBar(content: Text('Failed to reject order: $e')),
       );
     }
+  }
+
+  Future<void> _dismissOrder(String orderId) async {
+    await _audioPlayer.stop(); // Stop sound on dismiss
+    setState(() {
+      _knownOrderIds.remove(orderId); // Remove from known orders to allow sound replay if order reappears
+    });
+    ScaffoldMessenger.of(context).showSnackBar(
+      const SnackBar(content: Text('Order dismissed.')),
+    );
   }
 
   Widget _buildOrderCard(order_model.Order order, bool isPending, LatLng driverLocation) {
@@ -183,6 +212,15 @@ class _AlertScreenState extends State<AlertScreen> {
                       shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8.r)),
                     ),
                     child: Text('Reject', style: TextStyle(fontSize: 14.sp)),
+                  ),
+                  ElevatedButton(
+                    onPressed: () => _dismissOrder(order.id),
+                    style: ElevatedButton.styleFrom(
+                      backgroundColor: Colors.blueGrey,
+                      foregroundColor: AppColors.buttonTextColor,
+                      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8.r)),
+                    ),
+                    child: Text('Dismiss', style: TextStyle(fontSize: 14.sp)),
                   ),
                 ],
               )
@@ -377,6 +415,16 @@ class _AlertScreenState extends State<AlertScreen> {
                           .where((order) => order.status == 'accepted' && order.driverId == user.uid)
                           .toList();
 
+                      // Detect new pending orders to trigger sound
+                      final currentOrderIds = orders.map((order) => order.id).toSet();
+                      final newOrderIds = currentOrderIds.difference(_knownOrderIds);
+                      if (newOrderIds.isNotEmpty && pendingOrders.isNotEmpty) {
+                        _audioPlayer.play(AssetSource('sounds/alert.mp3'));
+                        _knownOrderIds = currentOrderIds; // Update known orders
+                      } else if (pendingOrders.isEmpty) {
+                        _audioPlayer.stop(); // Stop sound if no pending orders
+                      }
+
                       // Select only the most recent accepted order (if any)
                       order_model.Order? latestAcceptedOrder;
                       if (acceptedOrders.isNotEmpty) {
@@ -393,6 +441,7 @@ class _AlertScreenState extends State<AlertScreen> {
 
                       print('Filtered orders count: ${finalOrders.length}'); // Debug log
                       if (finalOrders.isEmpty) {
+                        _audioPlayer.stop(); // Ensure sound stops if no orders
                         return Center(
                           child: Text(
                             'No delivery requests within 5km.',

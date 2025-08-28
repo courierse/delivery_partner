@@ -11,7 +11,7 @@ plugins {
 }
 
 android {
-    namespace = "com.example.phone_authentication"
+    namespace = "com.example.deliveryapp"
     compileSdk = 35 // Set to 34 for compatibility with modern Android and Firebase
     ndkVersion = flutter.ndkVersion
 
@@ -25,7 +25,7 @@ android {
     }
 
     defaultConfig {
-        applicationId = "com.example.phone_authentication"
+        applicationId = "com.example.deliveryapp"
         minSdk = 23 // Updated to 23 to meet firebase_auth requirements
         targetSdk = 34 // Set to 34 for modern Android compatibility
         versionCode = flutter.versionCode

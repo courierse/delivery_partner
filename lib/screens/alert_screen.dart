@@ -22,7 +22,6 @@ class AlertScreen extends StatefulWidget {
 class _AlertScreenState extends State<AlertScreen> {
   final CollectionReference _ordersCollection = FirebaseFirestore.instance.collection('orders');
   final AudioPlayer _audioPlayer = AudioPlayer();
-  Set<String> _knownOrderIds = {};
 
   @override
   void initState() {
@@ -148,16 +147,6 @@ class _AlertScreenState extends State<AlertScreen> {
     }
   }
 
-  Future<void> _dismissOrder(String orderId) async {
-    await _audioPlayer.stop(); // Stop sound on dismiss
-    setState(() {
-      _knownOrderIds.remove(orderId); // Remove from known orders to allow sound replay if order reappears
-    });
-    ScaffoldMessenger.of(context).showSnackBar(
-      const SnackBar(content: Text('Order dismissed.')),
-    );
-  }
-
   Widget _buildOrderCard(order_model.Order order, bool isPending, LatLng driverLocation) {
     final distanceToPickup = _calculateDistance(
       driverLocation,
@@ -189,7 +178,7 @@ class _AlertScreenState extends State<AlertScreen> {
             Text('Weight: ${order.weightRange}', style: TextStyle(fontSize: 14.sp)),
             Text('Distance to Pickup: ${distanceToPickup.toStringAsFixed(2)} km', style: TextStyle(fontSize: 14.sp)),
             Text('Total Distance: ${order.distance.toStringAsFixed(2)} km', style: TextStyle(fontSize: 14.sp)),
-            Text('Delivery Cost: \$${order.deliveryCost.toStringAsFixed(2)}', style: TextStyle(fontSize: 14.sp)),
+            Text('Delivery Cost: \₹${order.deliveryCost.toStringAsFixed(2)}', style: TextStyle(fontSize: 14.sp)),
             SizedBox(height: 16.h),
             if (isPending)
               Row(
@@ -212,15 +201,6 @@ class _AlertScreenState extends State<AlertScreen> {
                       shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8.r)),
                     ),
                     child: Text('Reject', style: TextStyle(fontSize: 14.sp)),
-                  ),
-                  ElevatedButton(
-                    onPressed: () => _dismissOrder(order.id),
-                    style: ElevatedButton.styleFrom(
-                      backgroundColor: Colors.blueGrey,
-                      foregroundColor: AppColors.buttonTextColor,
-                      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8.r)),
-                    ),
-                    child: Text('Dismiss', style: TextStyle(fontSize: 14.sp)),
                   ),
                 ],
               )
@@ -415,13 +395,10 @@ class _AlertScreenState extends State<AlertScreen> {
                           .where((order) => order.status == 'accepted' && order.driverId == user.uid)
                           .toList();
 
-                      // Detect new pending orders to trigger sound
-                      final currentOrderIds = orders.map((order) => order.id).toSet();
-                      final newOrderIds = currentOrderIds.difference(_knownOrderIds);
-                      if (newOrderIds.isNotEmpty && pendingOrders.isNotEmpty) {
+                      // Play sound if there are pending orders
+                      if (pendingOrders.isNotEmpty) {
                         _audioPlayer.play(AssetSource('sounds/alert.mp3'));
-                        _knownOrderIds = currentOrderIds; // Update known orders
-                      } else if (pendingOrders.isEmpty) {
+                      } else {
                         _audioPlayer.stop(); // Stop sound if no pending orders
                       }
 

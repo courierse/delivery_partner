@@ -7,7 +7,7 @@ import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:go_router/go_router.dart';
 import 'package:phone_authentication/core/validators.dart';
 
-part 'phone_auth_state.dart';
+part 'profile_state.dart';
 
 class PhoneAuthCubit extends Cubit<PhoneAuthState> {
   PhoneAuthCubit() : super(const PhoneAuthState()) {

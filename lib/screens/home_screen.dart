@@ -3,7 +3,7 @@ import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:flutter_screenutil/flutter_screenutil.dart';
 import 'package:go_router/go_router.dart';
 import 'package:phone_authentication/constants/colors.dart';
-import 'package:phone_authentication/bloc/phone_auth_cubit.dart';
+import 'package:phone_authentication/bloc/profile_cubit.dart';
 import 'package:phone_authentication/screens/history_screen.dart';
 import 'alert_screen.dart';
 import 'profile_screen.dart';

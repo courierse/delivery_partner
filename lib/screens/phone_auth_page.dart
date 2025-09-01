@@ -4,7 +4,7 @@ import 'package:flutter_screenutil/flutter_screenutil.dart';
 import 'package:go_router/go_router.dart';
 import 'package:phone_authentication/constants/images.dart';
 import 'package:phone_authentication/screens/custom_text_field.dart';
-import '../bloc/phone_auth_cubit.dart';
+import '../bloc/profile_cubit.dart';
 
 class PhoneAuthPage extends StatefulWidget {
   const PhoneAuthPage({super.key});

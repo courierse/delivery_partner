@@ -88,14 +88,28 @@ class _AlertScreenState extends State<AlertScreen> {
         if (data['status'] != 'pending') {
           throw Exception('Order is not pending');
         }
+
+        // Fetch driver data
+        final driverRef = FirebaseFirestore.instance.collection('drivers').doc(user.uid);
+        final driverSnap = await transaction.get(driverRef);
+        if (!driverSnap.exists) {
+          throw Exception('Driver data not found');
+        }
+        final driverData = driverSnap.data() as Map<String, dynamic>;
+
+        // Update order with driver details and initial location
         transaction.update(docRef, {
           'status': 'accepted',
           'driverId': user.uid,
+          'driverName': driverData['name'] ?? 'Unknown',
+          'driverPhone': driverData['phone'] ?? 'Unknown',
+          'driverVehicle': driverData['vehicle'] ?? 'Unknown',
+          'driverLatitude': driverLocation.latitude,
+          'driverLongitude': driverLocation.longitude,
           'acceptedAt': FieldValue.serverTimestamp(),
         });
 
         // Update driver location in Firestore
-        final driverRef = FirebaseFirestore.instance.collection('drivers').doc(user.uid);
         transaction.set(
           driverRef,
           {
@@ -287,11 +301,18 @@ class _AlertScreenState extends State<AlertScreen> {
               ),
             ),
             Expanded(
-              child: StreamBuilder<QuerySnapshot>(
-                stream: _ordersCollection
-                    .where('status', whereIn: ['pending', 'accepted'])
-                    .where('createdAt', isGreaterThanOrEqualTo: recentThreshold)
-                    .snapshots(),
+              child: StreamBuilder<List<QuerySnapshot>>(
+                stream: Stream.fromFuture(Future.wait([
+                  _ordersCollection
+                      .where('status', isEqualTo: 'pending')
+                      .where('createdAt', isGreaterThanOrEqualTo: recentThreshold)
+                      .get(),
+                  _ordersCollection
+                      .where('status', isEqualTo: 'accepted')
+                      .where('driverId', isEqualTo: user.uid)
+                      .where('createdAt', isGreaterThanOrEqualTo: recentThreshold)
+                      .get(),
+                ])),
                 builder: (context, snapshot) {
                   if (snapshot.hasError) {
                     final error = snapshot.error.toString();
@@ -328,8 +349,10 @@ class _AlertScreenState extends State<AlertScreen> {
                     );
                   }
 
-                  final docs = snapshot.data!.docs;
-                  print('Fetched ${docs.length} orders'); // Debug log
+                  final pendingDocs = snapshot.data![0].docs;
+                  final acceptedDocs = snapshot.data![1].docs;
+                  final docs = [...pendingDocs, ...acceptedDocs];
+                  print('Fetched ${docs.length} orders (pending: ${pendingDocs.length}, accepted: ${acceptedDocs.length})'); // Debug log
                   for (var doc in docs) {
                     print('Order ${doc.id}: ${doc.data()}'); // Debug log
                   }

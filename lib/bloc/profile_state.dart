@@ -1,4 +1,4 @@
-part of 'phone_auth_cubit.dart';
+part of 'profile_cubit.dart';
 
 class PhoneAuthState extends Equatable {
   final Map<String, String> fields;

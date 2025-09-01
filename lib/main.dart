@@ -5,7 +5,7 @@ import 'package:phone_authentication/bloc/location_cubit/location_cubit.dart';
 import 'package:phone_authentication/core/navigation.dart';
 import 'package:phone_authentication/firebase_options.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
-import 'package:phone_authentication/bloc/phone_auth_cubit.dart';
+import 'package:phone_authentication/bloc/profile_cubit.dart';
 import 'package:phone_authentication/services/service_locator.dart';
 
 void main() async {

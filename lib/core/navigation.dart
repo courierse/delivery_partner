@@ -4,7 +4,7 @@ import 'package:go_router/go_router.dart';
 import 'package:phone_authentication/screens/phone_auth_page.dart';
 import 'package:phone_authentication/screens/otp_screen.dart';
 import 'package:phone_authentication/screens/home_screen.dart';
-import 'package:phone_authentication/bloc/phone_auth_cubit.dart';
+import 'package:phone_authentication/bloc/profile_cubit.dart';
 
 final GoRouter router = GoRouter(
   routes: [

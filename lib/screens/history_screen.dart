@@ -41,7 +41,7 @@ class _DeliveryHistoryScreenState extends State<DeliveryHistoryScreen> {
             Text('Drop-off Contact: ${order.dropName} - ${order.dropPhone}', style: TextStyle(fontSize: 14.sp)),
             Text('Weight: ${order.weightRange}', style: TextStyle(fontSize: 14.sp)),
             Text('Total Distance: ${order.distance.toStringAsFixed(2)} km', style: TextStyle(fontSize: 14.sp)),
-            Text('Delivery Cost: \$${order.deliveryCost.toStringAsFixed(2)}', style: TextStyle(fontSize: 14.sp)),
+            Text('Delivery Cost: \₹${order.deliveryCost.toStringAsFixed(2)}', style: TextStyle(fontSize: 14.sp)),
             if (isAccepted && order.acceptedAt != null)
               Text(
                 'Accepted At: ${order.acceptedAt!.toDate().toString().substring(0, 16)}',

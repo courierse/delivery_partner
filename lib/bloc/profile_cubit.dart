@@ -11,7 +11,7 @@ part 'profile_state.dart';
 
 class PhoneAuthCubit extends Cubit<PhoneAuthState> {
   PhoneAuthCubit() : super(const PhoneAuthState()) {
-    _checkAuthState(); // Check auth state on initialization
+    _checkAuthState();
   }
 
   void _checkAuthState() {
@@ -148,7 +148,8 @@ class PhoneAuthCubit extends Cubit<PhoneAuthState> {
         'phone': state.fields['phone'] ?? '',
         'address': state.fields['address'] ?? '',
         'age': state.fields['age'] ?? '',
-        'vehicle': state.fields['vehicle'] ?? '',
+        'vehicle': state.fields['vehicle'] ?? '', // Changed to vehicle
+        'vehicleTypes': state.fields['vehicleTypes'] ?? '',
         'createdAt': FieldValue.serverTimestamp(),
       }, SetOptions(merge: true));
     } catch (e) {

@@ -7,11 +7,25 @@ class PhoneAuthState extends Equatable {
   final bool isCodeSent;
   final String? phoneNumber;
   final String? verificationId;
-  final User? user; // Added to track authenticated user
+  final User? user;
 
   const PhoneAuthState({
-    this.fields = const {'name': '', 'phone': '', 'address': '', 'age': '', 'vehicle': ''},
-    this.errors = const {'name': null, 'phone': null, 'address': null, 'age': null, 'vehicle': null},
+    this.fields = const {
+      'name': '',
+      'phone': '',
+      'address': '',
+      'age': '',
+      'vehicle': '', // Changed to vehicle
+      'vehicleTypes': '',
+    },
+    this.errors = const {
+      'name': null,
+      'phone': null,
+      'address': null,
+      'age': null,
+      'vehicle': null, // Changed to vehicle
+      'vehicleTypes': null,
+    },
     this.statusMessage = '',
     this.isCodeSent = false,
     this.phoneNumber,

@@ -7,6 +7,10 @@ class CustomTextField extends StatelessWidget {
   final TextInputType keyboardType;
   final String? prefixText;
   final String? errorText;
+  final bool readOnly;
+  final VoidCallback? onTap;
+  final FocusNode? focusNode;
+  final InputDecoration? decoration;
 
   const CustomTextField({
     super.key,
@@ -16,13 +20,17 @@ class CustomTextField extends StatelessWidget {
     required this.keyboardType,
     this.prefixText,
     this.errorText,
+    this.readOnly = false,
+    this.onTap,
+    this.focusNode,
+    this.decoration,
   });
 
   @override
   Widget build(BuildContext context) {
     return TextField(
       controller: controller,
-      decoration: InputDecoration(
+      decoration: decoration ?? InputDecoration(
         labelText: labelText,
         prefixText: prefixText,
         errorText: errorText,
@@ -54,6 +62,9 @@ class CustomTextField extends StatelessWidget {
         fillColor: Colors.grey[100],
       ),
       keyboardType: keyboardType,
+      readOnly: readOnly,
+      onTap: onTap,
+      focusNode: focusNode,
     );
   }
 }

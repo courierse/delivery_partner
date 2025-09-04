@@ -6,6 +6,7 @@ import 'package:go_router/go_router.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:phone_authentication/bloc/profile_cubit.dart';
 import 'package:phone_authentication/core/validators.dart';
+import 'package:phone_authentication/constants/images.dart';
 
 class ProfileScreen extends StatefulWidget {
   const ProfileScreen({super.key});
@@ -22,6 +23,9 @@ class _ProfileScreenState extends State<ProfileScreen> {
   late TextEditingController _addressController;
   late TextEditingController _ageController;
   late TextEditingController _vehicleController;
+  late TextEditingController _vehicleTypesController;
+  List<String> _selectedVehicleTypes = [];
+  final _vehicleTypesFocus = FocusNode();
 
   @override
   void initState() {
@@ -31,6 +35,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
     _addressController = TextEditingController();
     _ageController = TextEditingController();
     _vehicleController = TextEditingController();
+    _vehicleTypesController = TextEditingController();
   }
 
   @override
@@ -40,6 +45,8 @@ class _ProfileScreenState extends State<ProfileScreen> {
     _addressController.dispose();
     _ageController.dispose();
     _vehicleController.dispose();
+    _vehicleTypesController.dispose();
+    _vehicleTypesFocus.dispose();
     super.dispose();
   }
 
@@ -51,7 +58,15 @@ class _ProfileScreenState extends State<ProfileScreen> {
         .collection('drivers')
         .doc(user.uid)
         .get();
-    return doc.exists ? doc.data() as Map<String, dynamic> : null;
+    if (doc.exists) {
+      final data = doc.data() as Map<String, dynamic>;
+      _selectedVehicleTypes = (data['vehicleTypes'] as String?)?.isNotEmpty ?? false
+          ? data['vehicleTypes'].split(', ').toList()
+          : [];
+      _vehicleTypesController.text = _selectedVehicleTypes.join(', ');
+      return data;
+    }
+    return null;
   }
 
   void _toggleEditMode() {
@@ -71,6 +86,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
         'address': _addressController.text,
         'age': _ageController.text,
         'vehicle': _vehicleController.text,
+        'vehicleTypes': _vehicleTypesController.text,
         'phone': _phoneController.text,
       };
 
@@ -86,6 +102,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
             'address': _addressController.text,
             'age': _ageController.text,
             'vehicle': _vehicleController.text,
+            'vehicleTypes': _vehicleTypesController.text,
             'phone': _phoneController.text,
             'updatedAt': FieldValue.serverTimestamp(),
           }, SetOptions(merge: true));
@@ -127,6 +144,151 @@ class _ProfileScreenState extends State<ProfileScreen> {
         );
       }
     }
+  }
+
+  void _showVehicleBottomSheet() {
+    final vehicles = [
+      {'name': '2 Wheeler', 'price': '₹50/km', 'image': Images.bike},
+      {'name': 'Tata Ace', 'price': '₹100/km', 'image': Images.tatace},
+      {'name': '10 Feet', 'price': '₹150/km', 'image': Images.tenfeets},
+      {'name': '17 Feet', 'price': '₹220/km', 'image': Images.seventeenfeets},
+      {'name': '3 Wheeler', 'price': '₹120/km', 'image': Images.three_wheeler},
+      {'name': 'E-Loader', 'price': '₹130/km', 'image': Images.eloader},
+      {'name': '14 Feet', 'price': '₹140/km', 'image': Images.forteenfeets},
+    ];
+
+    showModalBottomSheet(
+      context: context,
+      isScrollControlled: true,
+      shape: RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(top: Radius.circular(24.r)),
+      ),
+      backgroundColor: Colors.white,
+      builder: (context) => StatefulBuilder(
+        builder: (context, setModalState) {
+          return Container(
+            padding: EdgeInsets.symmetric(horizontal: 16.w, vertical: 12.h),
+            decoration: BoxDecoration(
+              gradient: LinearGradient(
+                colors: [Colors.white, Colors.grey.shade200],
+                begin: Alignment.topCenter,
+                end: Alignment.bottomCenter,
+              ),
+              borderRadius: BorderRadius.vertical(top: Radius.circular(24.r)),
+              boxShadow: [
+                BoxShadow(color: Colors.black, blurRadius: 10.r, offset: Offset(0, -2)),
+              ],
+            ),
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Row(
+                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                  children: [
+                    Text(
+                      'Select Vehicle Types',
+                      style: TextStyle(
+                        fontSize: 18.sp,
+                        fontWeight: FontWeight.w700,
+                        color: Colors.blueAccent,
+                      ),
+                    ),
+                    IconButton(
+                      icon: Icon(Icons.close, size: 20.sp, color: Colors.grey),
+                      onPressed: () => Navigator.pop(context),
+                    ),
+                  ],
+                ),
+                SizedBox(height: 8.h),
+                ...vehicles.map((vehicle) {
+                  final isSelected = _selectedVehicleTypes.contains(vehicle['name']);
+                  return GestureDetector(
+                    onTap: () {
+                      setModalState(() {
+                        if (isSelected) {
+                          _selectedVehicleTypes.remove(vehicle['name']);
+                        } else {
+                          _selectedVehicleTypes.add(vehicle['name']!);
+                        }
+                      });
+                    },
+                    child: Container(
+                      margin: EdgeInsets.symmetric(vertical: 4.h),
+                      padding: EdgeInsets.symmetric(horizontal: 12.w, vertical: 8.h),
+                      decoration: BoxDecoration(
+                        color: isSelected ? Colors.blueAccent : Colors.white,
+                        borderRadius: BorderRadius.circular(10.r),
+                        border: Border.all(
+                          color: isSelected ? Colors.blueAccent : Colors.grey,
+                        ),
+                        boxShadow: [
+                          BoxShadow(color: Colors.black12, blurRadius: 4.r),
+                        ],
+                      ),
+                      child: Row(
+                        children: [
+                          Image.asset(
+                            vehicle['image']!,
+                            width: 40.w,
+                            height: 40.h,
+                            fit: BoxFit.contain,
+                          ),
+                          SizedBox(width: 12.w),
+                          Expanded(
+                            child: Column(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                Text(
+                                  vehicle['name']!,
+                                  style: TextStyle(
+                                    fontSize: 14.sp,
+                                    fontWeight: FontWeight.w600,
+                                    color: isSelected ? Colors.white : Colors.black87,
+                                  ),
+                                ),
+                                SizedBox(height: 4.h),
+                                Text(
+                                  vehicle['price']!,
+                                  style: TextStyle(
+                                    fontSize: 12.sp,
+                                    fontWeight: FontWeight.w400,
+                                    color: isSelected ? Colors.white70 : Colors.grey,
+                                  ),
+                                ),
+                              ],
+                            ),
+                          ),
+                          Checkbox(
+                            value: isSelected,
+                            onChanged: (val) {
+                              setModalState(() {
+                                if (val == true) {
+                                  _selectedVehicleTypes.add(vehicle['name']!);
+                                } else {
+                                  _selectedVehicleTypes.remove(vehicle['name']);
+                                }
+                              });
+                            },
+                            activeColor: Colors.blueAccent,
+                            checkColor: Colors.white,
+                          ),
+                        ],
+                      ),
+                    ),
+                  );
+                }),
+                SizedBox(height: MediaQuery.of(context).padding.bottom + 8.h),
+              ],
+            ),
+          );
+        },
+      ),
+    ).then((_) {
+      // Update after bottom sheet closes
+      setState(() {
+        _vehicleTypesController.text = _selectedVehicleTypes.join(', ');
+      });
+    });
   }
 
   @override
@@ -181,6 +343,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
                 _addressController.text = data['address'] ?? '';
                 _ageController.text = data['age'] ?? '';
                 _vehicleController.text = data['vehicle'] ?? '';
+                _vehicleTypesController.text = data['vehicleTypes'] ?? '';
 
                 return _buildProfileContent();
               },
@@ -300,34 +463,35 @@ class _ProfileScreenState extends State<ProfileScreen> {
   }
 
   Widget _buildProfileContent() {
-  return LayoutBuilder(
-    builder: (context, constraints) {
-      final availableHeight = constraints.maxHeight;
-      final isKeyboardOpen = MediaQuery.of(context).viewInsets.bottom > 0;
-      final baseFontSize = isKeyboardOpen ? 0.85 : 1.0;
+    return LayoutBuilder(
+      builder: (context, constraints) {
+        final availableHeight = constraints.maxHeight;
+        final isKeyboardOpen = MediaQuery.of(context).viewInsets.bottom > 0;
+        final baseFontSize = isKeyboardOpen ? 0.85 : 1.0;
 
-      return SingleChildScrollView(
-        child: Padding(
-          padding: EdgeInsets.symmetric(horizontal: 10.w, vertical: 6.h),
-          child: ConstrainedBox(
-            constraints: BoxConstraints(minHeight: availableHeight),
-            child: Column(
-              mainAxisAlignment: MainAxisAlignment.start,
-              crossAxisAlignment: CrossAxisAlignment.stretch,
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                _buildProfileHeader(baseFontSize),
-                SizedBox(height: 6.h),
-                _buildProfileDetailsCard(baseFontSize),
-                if (_isEditing) Padding(padding: EdgeInsets.only(top: 6.h), child: _buildActionButtons(baseFontSize)),
-              ],
+        return SingleChildScrollView(
+          child: Padding(
+            padding: EdgeInsets.symmetric(horizontal: 10.w, vertical: 6.h),
+            child: ConstrainedBox(
+              constraints: BoxConstraints(minHeight: availableHeight),
+              child: Column(
+                mainAxisAlignment: MainAxisAlignment.start,
+                crossAxisAlignment: CrossAxisAlignment.stretch,
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  _buildProfileHeader(baseFontSize),
+                  SizedBox(height: 6.h),
+                  _buildProfileDetailsCard(baseFontSize),
+                  if (_isEditing) Padding(padding: EdgeInsets.only(top: 6.h), child: _buildActionButtons(baseFontSize)),
+                ],
+              ),
             ),
           ),
-        ),
-      );
-    },
-  );
-}
+        );
+      },
+    );
+  }
+
   Widget _buildProfileHeader(double fontScale) {
     return Container(
       padding: EdgeInsets.all(8.w),
@@ -457,6 +621,20 @@ class _ProfileScreenState extends State<ProfileScreen> {
                   ),
                 ],
               ),
+              SizedBox(height: 6.h),
+              _buildModernProfileField(
+                icon: Icons.directions_car,
+                label: 'Vehicle Types',
+                value: _vehicleTypesController.text,
+                controller: _vehicleTypesController,
+                enabled: _isEditing,
+                validator: (value) => validateField('vehicleTypes', value ?? ''),
+                keyboardType: TextInputType.none,
+                onTap: _isEditing ? _showVehicleBottomSheet : null,
+                focusNode: _vehicleTypesFocus,
+                showArrow: _isEditing,
+                fontScale: fontScale,
+              ),
             ],
           ),
         ),
@@ -521,10 +699,12 @@ class _ProfileScreenState extends State<ProfileScreen> {
         borderRadius: BorderRadius.circular(8.r),
         borderSide: BorderSide(color: Colors.red, width: 1.w),
       ),
-       
       filled: true,
       fillColor: _isEditing ? Colors.grey[50] : Colors.grey[100],
       contentPadding: EdgeInsets.symmetric(horizontal: 10.w, vertical: 8.h),
+      suffixIcon: label == 'Vehicle Types' && _isEditing
+          ? Icon(Icons.arrow_drop_down, color: Colors.blueAccent, size: 20.r)
+          : null,
     );
   }
 
@@ -537,7 +717,9 @@ class _ProfileScreenState extends State<ProfileScreen> {
     String? Function(String?)? validator,
     TextInputType? keyboardType,
     required double fontScale,
-
+    VoidCallback? onTap,
+    FocusNode? focusNode,
+    bool showArrow = false,
   }) {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
@@ -568,6 +750,9 @@ class _ProfileScreenState extends State<ProfileScreen> {
                 validator: validator,
                 keyboardType: keyboardType,
                 enabled: enabled,
+                readOnly: label == 'Vehicle Types',
+                onTap: onTap,
+                focusNode: focusNode,
                 style: TextStyle(fontSize: 14.sp * fontScale),
               )
             : Container(

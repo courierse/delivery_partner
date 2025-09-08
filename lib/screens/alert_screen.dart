@@ -26,7 +26,6 @@ class _AlertScreenState extends State<AlertScreen> {
   @override
   void initState() {
     super.initState();
-    // Set audio player to loop mode
     _audioPlayer.setReleaseMode(ReleaseMode.loop);
   }
 
@@ -73,7 +72,7 @@ class _AlertScreenState extends State<AlertScreen> {
     final driverLocation = LatLng(locationState.latitude, locationState.longitude);
 
     try {
-      await _audioPlayer.stop(); // Stop sound on accept
+      await _audioPlayer.stop();
       await FirebaseFirestore.instance.runTransaction((transaction) async {
         final docRef = _ordersCollection.doc(orderId);
         final snapshot = await transaction.get(docRef);
@@ -81,7 +80,7 @@ class _AlertScreenState extends State<AlertScreen> {
           throw Exception('Order does not exist');
         }
         final data = snapshot.data() as Map<String, dynamic>?;
-        print('Order $orderId data: $data'); // Debug log
+        print('Order $orderId data: $data');
         if (data == null) {
           throw Exception('Order data is null');
         }
@@ -89,7 +88,6 @@ class _AlertScreenState extends State<AlertScreen> {
           throw Exception('Order is not pending');
         }
 
-        // Fetch driver data
         final driverRef = FirebaseFirestore.instance.collection('drivers').doc(user.uid);
         final driverSnap = await transaction.get(driverRef);
         if (!driverSnap.exists) {
@@ -97,7 +95,6 @@ class _AlertScreenState extends State<AlertScreen> {
         }
         final driverData = driverSnap.data() as Map<String, dynamic>;
 
-        // Update order with driver details and initial location
         transaction.update(docRef, {
           'status': 'accepted',
           'driverId': user.uid,
@@ -109,7 +106,6 @@ class _AlertScreenState extends State<AlertScreen> {
           'acceptedAt': FieldValue.serverTimestamp(),
         });
 
-        // Update driver location in Firestore
         transaction.set(
           driverRef,
           {
@@ -140,8 +136,7 @@ class _AlertScreenState extends State<AlertScreen> {
     }
 
     try {
-      await _audioPlayer.stop(); // Stop sound on reject
-      // Store rejected order in driver's rejected_orders subcollection
+      await _audioPlayer.stop();
       await FirebaseFirestore.instance
           .collection('drivers')
           .doc(user.uid)
@@ -190,6 +185,7 @@ class _AlertScreenState extends State<AlertScreen> {
             Text('Drop-off: ${order.dropLocation}', style: TextStyle(fontSize: 14.sp)),
             Text('Drop-off Contact: ${order.dropName} - ${order.dropPhone}', style: TextStyle(fontSize: 14.sp)),
             Text('Weight: ${order.weightRange}', style: TextStyle(fontSize: 14.sp)),
+            Text('Vehicle Type: ${order.vehicleType}', style: TextStyle(fontSize: 14.sp)),
             Text('Distance to Pickup: ${distanceToPickup.toStringAsFixed(2)} km', style: TextStyle(fontSize: 14.sp)),
             Text('Total Distance: ${order.distance.toStringAsFixed(2)} km', style: TextStyle(fontSize: 14.sp)),
             Text('Delivery Cost: \₹${order.deliveryCost.toStringAsFixed(2)}', style: TextStyle(fontSize: 14.sp)),
@@ -274,7 +270,7 @@ class _AlertScreenState extends State<AlertScreen> {
         }
 
         final driverLocation = LatLng(locationState.latitude, locationState.longitude);
-        print('Driver location: ${driverLocation.latitude}, ${driverLocation.longitude}'); // Debug log
+        print('Driver location: ${driverLocation.latitude}, ${driverLocation.longitude}');
         final recentThreshold = Timestamp.fromDate(DateTime.now().subtract(const Duration(hours: 1)));
         final user = FirebaseAuth.instance.currentUser;
 
@@ -301,171 +297,202 @@ class _AlertScreenState extends State<AlertScreen> {
               ),
             ),
             Expanded(
-              child: StreamBuilder<List<QuerySnapshot>>(
-                stream: Stream.fromFuture(Future.wait([
-                  _ordersCollection
-                      .where('status', isEqualTo: 'pending')
-                      .where('createdAt', isGreaterThanOrEqualTo: recentThreshold)
-                      .get(),
-                  _ordersCollection
-                      .where('status', isEqualTo: 'accepted')
-                      .where('driverId', isEqualTo: user.uid)
-                      .where('createdAt', isGreaterThanOrEqualTo: recentThreshold)
-                      .get(),
-                ])),
-                builder: (context, snapshot) {
-                  if (snapshot.hasError) {
-                    final error = snapshot.error.toString();
-                    print('Firestore error: $error'); // Debug log
-                    String errorMessage = 'Error loading orders: $error';
-                    if (error.contains('requires an index')) {
-                      errorMessage = 'Error: Firestore query requires an index. Check the console for a link to create it.';
-                    }
+              child: StreamBuilder<DocumentSnapshot>(
+                stream: FirebaseFirestore.instance.collection('drivers').doc(user.uid).snapshots(),
+                builder: (context, driverSnapshot) {
+                  if (driverSnapshot.hasError) {
+                    print('Driver data error: ${driverSnapshot.error}');
                     return Center(
-                      child: Column(
-                        mainAxisAlignment: MainAxisAlignment.center,
-                        children: [
-                          Text(
-                            errorMessage,
-                            style: TextStyle(fontSize: 16.sp, color: AppColors.textColor),
-                            textAlign: TextAlign.center,
-                          ),
-                          SizedBox(height: 16.h),
-                          ElevatedButton(
-                            onPressed: () => setState(() {}), // Refresh UI
-                            style: ElevatedButton.styleFrom(
-                              backgroundColor: AppColors.buttonColour,
-                              foregroundColor: AppColors.buttonTextColor,
-                            ),
-                            child: Text('Retry', style: TextStyle(fontSize: 14.sp)),
-                          ),
-                        ],
+                      child: Text(
+                        'Error loading driver data',
+                        style: TextStyle(fontSize: 16.sp, color: AppColors.textColor),
                       ),
                     );
                   }
-                  if (!snapshot.hasData) {
+                  if (!driverSnapshot.hasData || !driverSnapshot.data!.exists) {
                     return Center(
-                      child: CircularProgressIndicator(color: AppColors.buttonColour),
+                      child: Text(
+                        'Driver profile not found',
+                        style: TextStyle(fontSize: 16.sp, color: AppColors.textColor),
+                      ),
                     );
                   }
 
-                  final pendingDocs = snapshot.data![0].docs;
-                  final acceptedDocs = snapshot.data![1].docs;
-                  final docs = [...pendingDocs, ...acceptedDocs];
-                  print('Fetched ${docs.length} orders (pending: ${pendingDocs.length}, accepted: ${acceptedDocs.length})'); // Debug log
-                  for (var doc in docs) {
-                    print('Order ${doc.id}: ${doc.data()}'); // Debug log
-                  }
+                  final driverData = driverSnapshot.data!.data() as Map<String, dynamic>?;
+                  final vehicleTypes = (driverData?['vehicleTypes'] as String?)?.split(', ')?.toList() ?? [];
+                  print('Driver vehicleTypes: $vehicleTypes');
 
-                  // Fetch rejected orders for the current driver
-                  return StreamBuilder<QuerySnapshot>(
-                    stream: FirebaseFirestore.instance
-                        .collection('drivers')
-                        .doc(user.uid)
-                        .collection('rejected_orders')
-                        .snapshots(),
-                    builder: (context, rejectedSnapshot) {
-                      if (rejectedSnapshot.hasError) {
-                        print('Rejected orders error: ${rejectedSnapshot.error}'); // Debug log
+                  return StreamBuilder<List<QuerySnapshot>>(
+                    stream: Stream.fromFuture(Future.wait([
+                      _ordersCollection
+                          .where('status', isEqualTo: 'pending')
+                          .where('createdAt', isGreaterThanOrEqualTo: recentThreshold)
+                          .get(),
+                      _ordersCollection
+                          .where('status', isEqualTo: 'accepted')
+                          .where('driverId', isEqualTo: user.uid)
+                          .where('createdAt', isGreaterThanOrEqualTo: recentThreshold)
+                          .get(),
+                    ])),
+                    builder: (context, snapshot) {
+                      if (snapshot.hasError) {
+                        final error = snapshot.error.toString();
+                        print('Firestore error: $error');
+                        String errorMessage = 'Error loading orders: $error';
+                        if (error.contains('requires an index')) {
+                          errorMessage = 'Error: Firestore query requires an index. Check the console for a link to create it.';
+                        }
                         return Center(
-                          child: Text(
-                            'Error loading rejected orders',
-                            style: TextStyle(fontSize: 16.sp, color: AppColors.textColor),
+                          child: Column(
+                            mainAxisAlignment: MainAxisAlignment.center,
+                            children: [
+                              Text(
+                                errorMessage,
+                                style: TextStyle(fontSize: 16.sp, color: AppColors.textColor),
+                                textAlign: TextAlign.center,
+                              ),
+                              SizedBox(height: 16.h),
+                              ElevatedButton(
+                                onPressed: () => setState(() {}),
+                                style: ElevatedButton.styleFrom(
+                                  backgroundColor: AppColors.buttonColour,
+                                  foregroundColor: AppColors.buttonTextColor,
+                                ),
+                                child: Text('Retry', style: TextStyle(fontSize: 14.sp)),
+                              ),
+                            ],
                           ),
                         );
                       }
-                      if (!rejectedSnapshot.hasData) {
+                      if (!snapshot.hasData) {
                         return Center(
                           child: CircularProgressIndicator(color: AppColors.buttonColour),
                         );
                       }
 
-                      final rejectedOrderIds = rejectedSnapshot.data!.docs
-                          .map((doc) => doc['orderId'] as String)
-                          .toSet();
-
-                      // Filter orders: include pending orders and the most recent accepted order by this driver
-                      final orders = docs
-                          .map((doc) {
-                            try {
-                              return order_model.Order.fromSnapshot(doc);
-                            } catch (e) {
-                              print('Error parsing order ${doc.id}: $e');
-                              return null;
-                            }
-                          })
-                          .where((order) => order != null)
-                          .cast<order_model.Order>()
-                          .where((order) => !rejectedOrderIds.contains(order.id))
-                          .where((order) {
-                            if (order.status == 'accepted' && order.driverId != user.uid) {
-                              return false; // Exclude orders accepted by other drivers
-                            }
-                            if (order.pickupLat == null || order.pickupLng == null) {
-                              print('Invalid coordinates for order ${order.id}: pickupLat=${order.pickupLat}, pickupLng=${order.pickupLng}'); // Debug log
-                              return false;
-                            }
-                            final pickupLoc = LatLng(order.pickupLat!, order.pickupLng!);
-                            final distance = _calculateDistance(driverLocation, pickupLoc);
-                            print('Order ${order.id} distance: $distance km, pickupLoc=${pickupLoc.latitude},${pickupLoc.longitude}'); // Debug log
-                            return distance <= 5.0;
-                          })
-                          .toList();
-
-                      // Separate pending and accepted orders
-                      final pendingOrders = orders.where((order) => order.status == 'pending').toList();
-                      final acceptedOrders = orders
-                          .where((order) => order.status == 'accepted' && order.driverId == user.uid)
-                          .toList();
-
-                      // Play sound if there are pending orders
-                      if (pendingOrders.isNotEmpty) {
-                        _audioPlayer.play(AssetSource('sounds/alert.mp3'));
-                      } else {
-                        _audioPlayer.stop(); // Stop sound if no pending orders
+                      final pendingDocs = snapshot.data![0].docs;
+                      final acceptedDocs = snapshot.data![1].docs;
+                      final docs = [...pendingDocs, ...acceptedDocs];
+                      print('Fetched ${docs.length} orders (pending: ${pendingDocs.length}, accepted: ${acceptedDocs.length})');
+                      for (var doc in docs) {
+                        print('Order ${doc.id}: ${doc.data()}');
                       }
 
-                      // Select only the most recent accepted order (if any)
-                      order_model.Order? latestAcceptedOrder;
-                      if (acceptedOrders.isNotEmpty) {
-                        acceptedOrders.sort((a, b) => (b.acceptedAt ?? Timestamp.now())
-                            .compareTo(a.acceptedAt ?? Timestamp.now()));
-                        latestAcceptedOrder = acceptedOrders.first;
-                      }
+                      return StreamBuilder<QuerySnapshot>(
+                        stream: FirebaseFirestore.instance
+                            .collection('drivers')
+                            .doc(user.uid)
+                            .collection('rejected_orders')
+                            .snapshots(),
+                        builder: (context, rejectedSnapshot) {
+                          if (rejectedSnapshot.hasError) {
+                            print('Rejected orders error: ${rejectedSnapshot.error}');
+                            return Center(
+                              child: Text(
+                                'Error loading rejected orders',
+                                style: TextStyle(fontSize: 16.sp, color: AppColors.textColor),
+                              ),
+                            );
+                          }
+                          if (!rejectedSnapshot.hasData) {
+                            return Center(
+                              child: CircularProgressIndicator(color: AppColors.buttonColour),
+                            );
+                          }
 
-                      // Combine pending orders with the latest accepted order (if exists)
-                      final finalOrders = [
-                        ...pendingOrders,
-                        if (latestAcceptedOrder != null) latestAcceptedOrder,
-                      ];
+                          final rejectedOrderIds = rejectedSnapshot.data!.docs
+                              .map((doc) => doc['orderId'] as String)
+                              .toSet();
 
-                      print('Filtered orders count: ${finalOrders.length}'); // Debug log
-                      if (finalOrders.isEmpty) {
-                        _audioPlayer.stop(); // Ensure sound stops if no orders
-                        return Center(
-                          child: Text(
-                            'No delivery requests within 5km.',
-                            style: TextStyle(fontSize: 16.sp, color: AppColors.textColor),
-                          ),
-                        );
-                      }
+                          final orders = docs
+                              .map((doc) {
+                                try {
+                                  return order_model.Order.fromSnapshot(doc);
+                                } catch (e) {
+                                  print('Error parsing order ${doc.id}: $e');
+                                  return null;
+                                }
+                              })
+                              .where((order) => order != null)
+                              .cast<order_model.Order>()
+                              .where((order) => !rejectedOrderIds.contains(order.id))
+                              .where((order) {
+                                if (order.status == 'accepted' && order.driverId == user.uid) {
+                                  return true; // Always include accepted orders by this driver
+                                }
+                                if (order.status != 'pending') {
+                                  return false; // Exclude non-pending orders not accepted by this driver
+                                }
+                                if (order.vehicleType == null || order.vehicleType!.isEmpty) {
+                                  print('Order ${order.id} has no vehicleType');
+                                  return false;
+                                }
+                                if (!vehicleTypes.contains(order.vehicleType)) {
+                                  print('Order ${order.id} vehicleType ${order.vehicleType} not in driver vehicleTypes $vehicleTypes');
+                                  return false;
+                                }
+                                if (order.pickupLat == null || order.pickupLng == null) {
+                                  print('Invalid coordinates for order ${order.id}: pickupLat=${order.pickupLat}, pickupLng=${order.pickupLng}');
+                                  return false;
+                                }
+                                final pickupLoc = LatLng(order.pickupLat!, order.pickupLng!);
+                                final distance = _calculateDistance(driverLocation, pickupLoc);
+                                print('Order ${order.id} distance: $distance km, vehicleType: ${order.vehicleType}');
+                                return distance <= 5.0;
+                              })
+                              .toList();
 
-                      // Sort to ensure pending orders are at the top
-                      finalOrders.sort((a, b) {
-                        if (a.status == 'pending' && b.status != 'pending') {
-                          return -1; // Pending orders come first
-                        } else if (a.status != 'pending' && b.status == 'pending') {
-                          return 1;
-                        }
-                        return 0; // Maintain order for same status
-                      });
+                          final pendingOrders = orders.where((order) => order.status == 'pending').toList();
+                          final acceptedOrders = orders
+                              .where((order) => order.status == 'accepted' && order.driverId == user.uid)
+                              .toList();
 
-                      return ListView.builder(
-                        itemCount: finalOrders.length,
-                        itemBuilder: (context, index) {
-                          final order = finalOrders[index];
-                          final isPending = order.status == 'pending';
-                          return _buildOrderCard(order, isPending, driverLocation);
+                          if (pendingOrders.isNotEmpty) {
+                            _audioPlayer.play(AssetSource('sounds/alert.mp3'));
+                          } else {
+                            _audioPlayer.stop();
+                          }
+
+                          order_model.Order? latestAcceptedOrder;
+                          if (acceptedOrders.isNotEmpty) {
+                            acceptedOrders.sort((a, b) => (b.acceptedAt ?? Timestamp.now())
+                                .compareTo(a.acceptedAt ?? Timestamp.now()));
+                            latestAcceptedOrder = acceptedOrders.first;
+                          }
+
+                          final finalOrders = [
+                            ...pendingOrders,
+                            if (latestAcceptedOrder != null) latestAcceptedOrder,
+                          ];
+
+                          print('Filtered orders count: ${finalOrders.length}');
+                          if (finalOrders.isEmpty) {
+                            _audioPlayer.stop();
+                            return Center(
+                              child: Text(
+                                'No matching delivery requests within 5km.',
+                                style: TextStyle(fontSize: 16.sp, color: AppColors.textColor),
+                              ),
+                            );
+                          }
+
+                          finalOrders.sort((a, b) {
+                            if (a.status == 'pending' && b.status != 'pending') {
+                              return -1;
+                            } else if (a.status != 'pending' && b.status == 'pending') {
+                              return 1;
+                            }
+                            return 0;
+                          });
+
+                          return ListView.builder(
+                            itemCount: finalOrders.length,
+                            itemBuilder: (context, index) {
+                              final order = finalOrders[index];
+                              final isPending = order.status == 'pending';
+                              return _buildOrderCard(order, isPending, driverLocation);
+                            },
+                          );
                         },
                       );
                     },

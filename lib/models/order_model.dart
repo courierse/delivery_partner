@@ -20,6 +20,7 @@ class Order {
   final Timestamp createdAt;
   final String? driverId;
   final Timestamp? acceptedAt;
+  final String? vehicleType;
 
   Order({
     required this.id,
@@ -41,6 +42,7 @@ class Order {
     required this.createdAt,
     this.driverId,
     this.acceptedAt,
+    this.vehicleType,
   });
 
   factory Order.fromSnapshot(DocumentSnapshot snapshot) {
@@ -65,6 +67,7 @@ class Order {
       createdAt: data['createdAt'] ?? Timestamp.now(),
       driverId: data['driverId'],
       acceptedAt: data['acceptedAt'],
+      vehicleType: data['vehicleType'],
     );
   }
 }

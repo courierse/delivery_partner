@@ -22,6 +22,7 @@ class _PhoneAuthPageState extends State<PhoneAuthPage> {
     'vehicleTypes': TextEditingController(),
   };
   Map<String, TextEditingController> _vehicleNumberControllers = {};
+  Map<String, FocusNode> _vehicleNumberFocusNodes = {}; // Track focus for vehicle fields
   List<String> _selectedVehicleTypes = [];
   final _vehicleTypesFocus = FocusNode();
 
@@ -40,6 +41,7 @@ class _PhoneAuthPageState extends State<PhoneAuthPage> {
         _vehicleNumberControllers[vehicleType] = TextEditingController(
           text: cubit.state.vehicleNumbers[vehicleType] ?? '',
         );
+        _vehicleNumberFocusNodes[vehicleType] = FocusNode();
       }
     }
     _controllers['vehicleTypes']!.text = _selectedVehicleTypes.join(', ');
@@ -63,6 +65,9 @@ class _PhoneAuthPageState extends State<PhoneAuthPage> {
     });
     _vehicleNumberControllers.forEach((_, controller) {
       controller.dispose();
+    });
+    _vehicleNumberFocusNodes.forEach((_, focusNode) {
+      focusNode.dispose();
     });
     _vehicleTypesFocus.dispose();
     super.dispose();
@@ -100,6 +105,21 @@ class _PhoneAuthPageState extends State<PhoneAuthPage> {
       controller.text = _selectedVehicleTypes.join(', ');
     }
 
+    // Determine if error should be shown for vehicle number fields
+    String? displayError;
+    if (key.startsWith('vehicleNumber_')) {
+      final vehicleType = key.replaceFirst('vehicleNumber_', '');
+      final hasFocus = _vehicleNumberFocusNodes[vehicleType]?.hasFocus ?? false;
+      if (hasFocus) {
+        displayError = errorText;
+        debugPrint('Showing error for $key: $displayError (hasFocus: $hasFocus)');
+      } else {
+        debugPrint('Hiding error for $key: hasFocus=$hasFocus');
+      }
+    } else {
+      displayError = errorText;
+    }
+
     return Padding(
       padding: EdgeInsets.only(bottom: 16.h),
       child: CustomTextField(
@@ -108,7 +128,7 @@ class _PhoneAuthPageState extends State<PhoneAuthPage> {
         prefixIcon: prefixIcon,
         keyboardType: keyboardType,
         prefixText: prefixText,
-        errorText: errorText,
+        errorText: displayError,
         readOnly: readOnly,
         onTap: onTap,
         focusNode: focusNode,
@@ -217,11 +237,13 @@ class _PhoneAuthPageState extends State<PhoneAuthPage> {
                         if (isSelected) {
                           _selectedVehicleTypes.remove(vehicle['name']);
                           _vehicleNumberControllers.remove(vehicle['name']);
+                          _vehicleNumberFocusNodes.remove(vehicle['name']);
                         } else {
                           _selectedVehicleTypes.add(vehicle['name']!);
                           _vehicleNumberControllers[vehicle['name']!] = TextEditingController(
                             text: context.read<PhoneAuthCubit>().state.vehicleNumbers[vehicle['name']] ?? '',
                           );
+                          _vehicleNumberFocusNodes[vehicle['name']!] = FocusNode();
                         }
                       });
                       context.read<PhoneAuthCubit>().updateField('vehicleTypes', _selectedVehicleTypes.join(', '));
@@ -286,9 +308,11 @@ class _PhoneAuthPageState extends State<PhoneAuthPage> {
                                   _vehicleNumberControllers[vehicle['name']!] = TextEditingController(
                                     text: context.read<PhoneAuthCubit>().state.vehicleNumbers[vehicle['name']] ?? '',
                                   );
+                                  _vehicleNumberFocusNodes[vehicle['name']!] = FocusNode();
                                 } else {
                                   _selectedVehicleTypes.remove(vehicle['name']);
                                   _vehicleNumberControllers.remove(vehicle['name']);
+                                  _vehicleNumberFocusNodes.remove(vehicle['name']);
                                 }
                               });
                               context.read<PhoneAuthCubit>().updateField('vehicleTypes', _selectedVehicleTypes.join(', '));
@@ -392,9 +416,10 @@ class _PhoneAuthPageState extends State<PhoneAuthPage> {
                       builder: (context, state) {
                         debugPrint('BlocBuilder rebuilding with state: fields=${state.fields}, '
                             'vehicleNumbers=${state.vehicleNumbers}, errors=${state.errors}');
-                        // Update vehicle number controllers with state values only if empty
+                        // Update vehicle number controllers and focus nodes
                         _selectedVehicleTypes.forEach((vehicleType) {
                           _vehicleNumberControllers[vehicleType] ??= TextEditingController();
+                          _vehicleNumberFocusNodes[vehicleType] ??= FocusNode();
                           if (_vehicleNumberControllers[vehicleType]!.text.isEmpty &&
                               state.vehicleNumbers[vehicleType]?.isNotEmpty == true) {
                             _vehicleNumberControllers[vehicleType]!.text = state.vehicleNumbers[vehicleType]!;
@@ -406,8 +431,8 @@ class _PhoneAuthPageState extends State<PhoneAuthPage> {
                           children: [
                             ClipRRect(
                               borderRadius: BorderRadius.circular(12.r),
-                              child: Image.asset(
-                              Images.phoneauthimg,
+                              child: Image.network(
+                                'https://img.freepik.com/free-vector/mobile-login-concept-illustration_114360-135.jpg',
                                 height: 150.h,
                                 width: 150.w,
                                 fit: BoxFit.cover,
@@ -462,14 +487,23 @@ class _PhoneAuthPageState extends State<PhoneAuthPage> {
                               _vehicleNumberControllers[vehicleType] ??= TextEditingController(
                                 text: state.vehicleNumbers[vehicleType] ?? '',
                               );
+                              _vehicleNumberFocusNodes[vehicleType] ??= FocusNode();
+                              // Validate vehicle number only when field has focus
+                              final error = _vehicleNumberFocusNodes[vehicleType]!.hasFocus
+                                  ? context.read<PhoneAuthCubit>().validateVehicleNumber(
+                                        vehicleType,
+                                        _vehicleNumberControllers[vehicleType]!.text,
+                                      )
+                                  : null;
                               return _buildTextField(
                                 key: 'vehicleNumber_$vehicleType',
                                 label: 'Vehicle number for $vehicleType',
                                 keyboardType: TextInputType.text,
                                 prefixIcon: Icons.directions_car,
-                                errorText: state.errors['vehicleNumber_$vehicleType'],
+                                errorText: error,
                                 context: context,
                                 controller: _vehicleNumberControllers[vehicleType],
+                                focusNode: _vehicleNumberFocusNodes[vehicleType],
                               );
                             }).toList(),
                             SizedBox(height: 8.h),
@@ -492,16 +526,22 @@ class _PhoneAuthPageState extends State<PhoneAuthPage> {
                               child: ElevatedButton(
                                 onPressed: state.isCodeSent || state.statusMessage == 'Sending verification code...'
                                     ? null
-                                    : () {
+                                    : () async {
                                         debugPrint('Submit button pressed');
-                                        // Update vehicleNumbers with controller text before submission
-                                        _vehicleNumberControllers.forEach((vehicleType, controller) {
+                                        // Update vehicleNumbers with controller text
+                                        final fallbackVehicleNumbers = <String, String>{};
+                                        for (var entry in _vehicleNumberControllers.entries) {
+                                          final vehicleType = entry.key;
+                                          final controller = entry.value;
                                           if (controller.text.isNotEmpty) {
-                                            context.read<PhoneAuthCubit>().updateVehicleNumber(vehicleType, controller.text);
+                                            fallbackVehicleNumbers[vehicleType] = controller.text;
                                             debugPrint('Pre-submission update: $vehicleType = ${controller.text}');
+                                            context.read<PhoneAuthCubit>().updateVehicleNumber(vehicleType, controller.text);
                                           }
-                                        });
-                                        context.read<PhoneAuthCubit>().submitForm();
+                                        }
+                                        // Ensure state updates are processed
+                                        await Future.microtask(() {});
+                                        context.read<PhoneAuthCubit>().submitForm(fallbackVehicleNumbers: fallbackVehicleNumbers);
                                       },
                                 style: ElevatedButton.styleFrom(
                                   padding: EdgeInsets.symmetric(horizontal: 32.w, vertical: 16.h),

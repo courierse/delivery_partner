@@ -41,14 +41,29 @@ class PhoneAuthCubit extends Cubit<PhoneAuthState> {
   void updateVehicleNumber(String vehicleType, String number) {
     final vehicleNumbers = Map<String, String>.from(state.vehicleNumbers)..[vehicleType] = number;
     final errors = Map<String, String?>.from(state.errors);
-    errors['vehicleNumber_$vehicleType'] = validateField('vehicleNumber_$vehicleType', number);
+    errors['vehicleNumber_$vehicleType'] = validateField('vehicleNumber_$vehicleType', number, validateVehicleNumber: true);
     // debugPrint('Updating vehicle number: $vehicleType = $number, error: ${errors['vehicleNumber_$vehicleType]}, new vehicleNumbers: $vehicleNumbers');
     emit(state.copyWith(vehicleNumbers: vehicleNumbers, errors: errors, fields: state.fields));
   }
 
-  void submitForm() async {
+  String? validateVehicleNumber(String vehicleType, String number) {
+    final error = validateField('vehicleNumber_$vehicleType', number, validateVehicleNumber: true);
+    debugPrint('Validating vehicle number for $vehicleType: $number, error: $error');
+    return error;
+  }
+
+  void submitForm({Map<String, String>? fallbackVehicleNumbers}) async {
     final fields = Map<String, String>.from(state.fields);
     final vehicleNumbers = Map<String, String>.from(state.vehicleNumbers);
+    // Apply fallback vehicle numbers if provided
+    if (fallbackVehicleNumbers != null) {
+      fallbackVehicleNumbers.forEach((key, value) {
+        if (value.isNotEmpty) {
+          vehicleNumbers[key] = value;
+          debugPrint('Applied fallback vehicle number: $key = $value');
+        }
+      });
+    }
     final errors = Map<String, String?>.from(state.errors);
     bool hasError = false;
 
@@ -66,7 +81,8 @@ class PhoneAuthCubit extends Cubit<PhoneAuthState> {
     final selectedVehicles = fields['vehicleTypes']?.split(', ').where((v) => v.isNotEmpty).toList() ?? [];
     for (var vehicleType in selectedVehicles) {
       final number = vehicleNumbers[vehicleType] ?? '';
-      final error = validateField('vehicleNumber_$vehicleType', number);
+      debugPrint('Validating vehicle number for $vehicleType: $number');
+      final error = validateField('vehicleNumber_$vehicleType', number, validateVehicleNumber: true);
       errors['vehicleNumber_$vehicleType'] = error;
       if (error != null) {
         debugPrint('Validation error for vehicleNumber_$vehicleType: $error');

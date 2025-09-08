@@ -1,6 +1,6 @@
 import 'package:flutter/material.dart';
 
-String? validateField(String key, String value) {
+String? validateField(String key, String value, {bool validateVehicleNumber = false}) {
   final validators = {
     'name': (String value) =>
         value.trim().isEmpty ? 'Name is required' : null,
@@ -23,11 +23,11 @@ String? validateField(String key, String value) {
         value.trim().isEmpty ? 'At least one vehicle type is required' : null,
   };
 
-  if (key.startsWith('vehicleNumber_')) {
+  if (key.startsWith('vehicleNumber_') && validateVehicleNumber) {
     return value.trim().isEmpty
-        ? 'Vehicle number is required'
+        ? 'Enter in correct format MH32TY8923'
         : !RegExp(r'^[A-Z]{2}\d{2}[A-Z]{1,2}\d{4}$').hasMatch(value.trim())
-            ? 'Enter a valid vehicle number (e.g., MH12AB1234)'
+            ? 'Enter in correct format MH32TY8923'
             : null;
   }
 

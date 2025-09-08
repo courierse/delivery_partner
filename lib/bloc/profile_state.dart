@@ -3,6 +3,7 @@ part of 'profile_cubit.dart';
 class PhoneAuthState extends Equatable {
   final Map<String, String> fields;
   final Map<String, String?> errors;
+  final Map<String, String> vehicleNumbers;
   final String statusMessage;
   final bool isCodeSent;
   final String? phoneNumber;
@@ -15,7 +16,6 @@ class PhoneAuthState extends Equatable {
       'phone': '',
       'address': '',
       'age': '',
-      'vehicle': '', // Changed to vehicle
       'vehicleTypes': '',
     },
     this.errors = const {
@@ -23,9 +23,9 @@ class PhoneAuthState extends Equatable {
       'phone': null,
       'address': null,
       'age': null,
-      'vehicle': null, // Changed to vehicle
       'vehicleTypes': null,
     },
+    this.vehicleNumbers = const {},
     this.statusMessage = '',
     this.isCodeSent = false,
     this.phoneNumber,
@@ -36,6 +36,7 @@ class PhoneAuthState extends Equatable {
   PhoneAuthState copyWith({
     Map<String, String>? fields,
     Map<String, String?>? errors,
+    Map<String, String>? vehicleNumbers,
     String? statusMessage,
     bool? isCodeSent,
     String? phoneNumber,
@@ -45,6 +46,7 @@ class PhoneAuthState extends Equatable {
     return PhoneAuthState(
       fields: fields ?? this.fields,
       errors: errors ?? this.errors,
+      vehicleNumbers: vehicleNumbers ?? this.vehicleNumbers,
       statusMessage: statusMessage ?? this.statusMessage,
       isCodeSent: isCodeSent ?? this.isCodeSent,
       phoneNumber: phoneNumber ?? this.phoneNumber,
@@ -54,5 +56,5 @@ class PhoneAuthState extends Equatable {
   }
 
   @override
-  List<Object?> get props => [fields, errors, statusMessage, isCodeSent, phoneNumber, verificationId, user];
+  List<Object?> get props => [fields, errors, vehicleNumbers, statusMessage, isCodeSent, phoneNumber, verificationId, user];
 }

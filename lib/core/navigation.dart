@@ -13,8 +13,11 @@ final GoRouter router = GoRouter(
       redirect: (context, state) {
         final authState = context.read<PhoneAuthCubit>().state;
         if (authState.user != null) {
-          return '/home';        }
-        return '/login'; 
+          debugPrint('Redirecting to /home for authenticated user');
+          return '/home';
+        }
+        debugPrint('Redirecting to /login for unauthenticated user');
+        return '/login';
       },
     ),
     GoRoute(

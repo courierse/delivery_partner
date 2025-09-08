@@ -23,7 +23,7 @@ class CustomTextField extends StatelessWidget {
     this.readOnly = false,
     this.onTap,
     this.focusNode,
-    this.decoration,
+    this.decoration, Null Function(dynamic value)? onChanged,
   });
 
   @override

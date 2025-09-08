@@ -19,9 +19,9 @@ class _PhoneAuthPageState extends State<PhoneAuthPage> {
     'phone': TextEditingController(),
     'address': TextEditingController(),
     'age': TextEditingController(),
-    'vehicle': TextEditingController(), // Changed to vehicle
     'vehicleTypes': TextEditingController(),
   };
+  Map<String, TextEditingController> _vehicleNumberControllers = {};
   List<String> _selectedVehicleTypes = [];
   final _vehicleTypesFocus = FocusNode();
 
@@ -31,18 +31,37 @@ class _PhoneAuthPageState extends State<PhoneAuthPage> {
     _controllers['phone']!.selection = TextSelection.fromPosition(
       const TextPosition(offset: 0),
     );
-    // Initialize vehicleTypes from cubit state if available
-    final initialVehicleTypes = context.read<PhoneAuthCubit>().state.fields['vehicleTypes'] as String?;
+    // Initialize from cubit state
+    final cubit = context.read<PhoneAuthCubit>();
+    final initialVehicleTypes = cubit.state.fields['vehicleTypes'] as String?;
     if (initialVehicleTypes != null && initialVehicleTypes.isNotEmpty) {
       _selectedVehicleTypes = initialVehicleTypes.split(', ').toList();
+      for (var vehicleType in _selectedVehicleTypes) {
+        _vehicleNumberControllers[vehicleType] = TextEditingController(
+          text: cubit.state.vehicleNumbers[vehicleType] ?? '',
+        );
+      }
     }
     _controllers['vehicleTypes']!.text = _selectedVehicleTypes.join(', ');
+    _controllers.forEach((key, controller) {
+      if (key != 'vehicleTypes') {
+        controller.text = cubit.state.fields[key] ?? '';
+        controller.addListener(() {
+          if (controller.text != cubit.state.fields[key]) {
+            debugPrint('Controller listener updating: $key = ${controller.text}');
+            cubit.updateField(key, controller.text);
+          }
+        });
+      }
+    });
   }
 
   @override
   void dispose() {
     _controllers.forEach((_, controller) {
-      controller.removeListener(() {});
+      controller.dispose();
+    });
+    _vehicleNumberControllers.forEach((_, controller) {
       controller.dispose();
     });
     _vehicleTypesFocus.dispose();
@@ -60,18 +79,31 @@ class _PhoneAuthPageState extends State<PhoneAuthPage> {
     bool readOnly = false,
     VoidCallback? onTap,
     FocusNode? focusNode,
+    TextEditingController? controller,
   }) {
-    _controllers[key]!.text = context.read<PhoneAuthCubit>().state.fields[key] ?? (key == 'vehicleTypes' ? _selectedVehicleTypes.join(', ') : '');
-    if (key != 'vehicleTypes') {
-      _controllers[key]!.addListener(() {
-        context.read<PhoneAuthCubit>().updateField(key, _controllers[key]!.text);
-      });
+    controller ??= _controllers[key]!;
+    // Sync controller with cubit state only if controller is empty and state has a value
+    if (!readOnly && !key.startsWith('vehicleNumber_')) {
+      final cubitValue = context.read<PhoneAuthCubit>().state.fields[key] ?? '';
+      if (controller.text.isEmpty && cubitValue.isNotEmpty) {
+        debugPrint('Syncing controller for $key: setting text to $cubitValue');
+        controller.text = cubitValue;
+      }
+    } else if (key.startsWith('vehicleNumber_')) {
+      final vehicleType = key.replaceFirst('vehicleNumber_', '');
+      final cubitValue = context.read<PhoneAuthCubit>().state.vehicleNumbers[vehicleType] ?? '';
+      if (controller.text.isEmpty && cubitValue.isNotEmpty) {
+        debugPrint('Syncing vehicle controller for $vehicleType: setting text to $cubitValue');
+        controller.text = cubitValue;
+      }
+    } else {
+      controller.text = _selectedVehicleTypes.join(', ');
     }
 
     return Padding(
       padding: EdgeInsets.only(bottom: 16.h),
       child: CustomTextField(
-        controller: _controllers[key]!,
+        controller: controller,
         labelText: label,
         prefixIcon: prefixIcon,
         keyboardType: keyboardType,
@@ -80,6 +112,17 @@ class _PhoneAuthPageState extends State<PhoneAuthPage> {
         readOnly: readOnly,
         onTap: onTap,
         focusNode: focusNode,
+        onChanged: readOnly
+            ? null
+            : (value) {
+                debugPrint('Text field changed: $key = $value');
+                if (key.startsWith('vehicleNumber_')) {
+                  final vehicleType = key.replaceFirst('vehicleNumber_', '');
+                  context.read<PhoneAuthCubit>().updateVehicleNumber(vehicleType, value);
+                } else {
+                  context.read<PhoneAuthCubit>().updateField(key, value);
+                }
+              },
         decoration: readOnly
             ? InputDecoration(
                 labelText: label,
@@ -113,13 +156,14 @@ class _PhoneAuthPageState extends State<PhoneAuthPage> {
 
   void _showVehicleBottomSheet() {
     final vehicles = [
-      {'name': '2 Wheeler', 'price': '₹50/km', 'image': Images.bike},
-      {'name': 'Tata Ace', 'price': '₹100/km', 'image': Images.tatace},
-      {'name': '10 Feet', 'price': '₹150/km', 'image': Images.tenfeets},
-      {'name': '17 Feet', 'price': '₹220/km', 'image': Images.seventeenfeets},
-      {'name': '3 Wheeler', 'price': '₹120/km', 'image': Images.three_wheeler},
-      {'name': 'E-Loader', 'price': '₹130/km', 'image': Images.eloader},
-      {'name': '14 Feet', 'price': '₹140/km', 'image': Images.forteenfeets},
+      {'name': '2 Wheeler', 'dimension': '40cm x 40cm x 40cm', 'image': Images.bike},
+      {'name': 'E-Loader', 'dimension': '6ft x 4.6 ft x 5ft', 'image': Images.eloader},
+      {'name': '3 Wheeler', 'dimension': '6ft x 4.6 ft x 5ft', 'image': Images.three_wheeler},
+      {'name': 'Tata Ace', 'dimension': '7ft x 4ft x 5ft', 'image': Images.tatace},
+      {'name': '8 Feet', 'dimension': '8ft x 4.5ft x 5.5ft', 'image': Images.eightfeets},
+      {'name': '10 Feet', 'dimension': '10.0ft x 5.5ft x 5.5ft', 'image': Images.tenfeets},
+      {'name': '14 Feet', 'dimension': '14.0ft x 6.0ft x 6.0ft', 'image': Images.forteenfeets},
+      {'name': '17 Feet', 'dimension': '17.0ft x 6.5ft x 6.5ft', 'image': Images.seventeenfeets},
     ];
 
     showModalBottomSheet(
@@ -172,14 +216,20 @@ class _PhoneAuthPageState extends State<PhoneAuthPage> {
                       setModalState(() {
                         if (isSelected) {
                           _selectedVehicleTypes.remove(vehicle['name']);
+                          _vehicleNumberControllers.remove(vehicle['name']);
                         } else {
                           _selectedVehicleTypes.add(vehicle['name']!);
+                          _vehicleNumberControllers[vehicle['name']!] = TextEditingController(
+                            text: context.read<PhoneAuthCubit>().state.vehicleNumbers[vehicle['name']] ?? '',
+                          );
                         }
                       });
-                      setState(() {
-                        _controllers['vehicleTypes']!.text = _selectedVehicleTypes.join(', ');
-                        context.read<PhoneAuthCubit>().updateField('vehicleTypes', _selectedVehicleTypes.join(', '));
+                      context.read<PhoneAuthCubit>().updateField('vehicleTypes', _selectedVehicleTypes.join(', '));
+                      _vehicleNumberControllers.forEach((vehicleType, controller) {
+                        context.read<PhoneAuthCubit>().updateVehicleNumber(vehicleType, controller.text);
                       });
+                      _controllers['vehicleTypes']!.text = _selectedVehicleTypes.join(', ');
+                      debugPrint('Vehicle types updated: ${_selectedVehicleTypes.join(', ')}');
                     },
                     child: Container(
                       margin: EdgeInsets.symmetric(vertical: 4.h),
@@ -217,7 +267,7 @@ class _PhoneAuthPageState extends State<PhoneAuthPage> {
                                 ),
                                 SizedBox(height: 4.h),
                                 Text(
-                                  vehicle['price']!,
+                                  vehicle['dimension']!,
                                   style: TextStyle(
                                     fontSize: 12.sp,
                                     fontWeight: FontWeight.w400,
@@ -233,14 +283,20 @@ class _PhoneAuthPageState extends State<PhoneAuthPage> {
                               setModalState(() {
                                 if (val == true) {
                                   _selectedVehicleTypes.add(vehicle['name']!);
+                                  _vehicleNumberControllers[vehicle['name']!] = TextEditingController(
+                                    text: context.read<PhoneAuthCubit>().state.vehicleNumbers[vehicle['name']] ?? '',
+                                  );
                                 } else {
                                   _selectedVehicleTypes.remove(vehicle['name']);
+                                  _vehicleNumberControllers.remove(vehicle['name']);
                                 }
                               });
-                              setState(() {
-                                _controllers['vehicleTypes']!.text = _selectedVehicleTypes.join(', ');
-                                context.read<PhoneAuthCubit>().updateField('vehicleTypes', _selectedVehicleTypes.join(', '));
+                              context.read<PhoneAuthCubit>().updateField('vehicleTypes', _selectedVehicleTypes.join(', '));
+                              _vehicleNumberControllers.forEach((vehicleType, controller) {
+                                context.read<PhoneAuthCubit>().updateVehicleNumber(vehicleType, controller.text);
                               });
+                              _controllers['vehicleTypes']!.text = _selectedVehicleTypes.join(', ');
+                              debugPrint('Vehicle types updated via checkbox: ${_selectedVehicleTypes.join(', ')}');
                             },
                             activeColor: Colors.blueAccent,
                             checkColor: Colors.white,
@@ -263,10 +319,14 @@ class _PhoneAuthPageState extends State<PhoneAuthPage> {
   Widget build(BuildContext context) {
     return BlocListener<PhoneAuthCubit, PhoneAuthState>(
       listener: (context, state) {
+        debugPrint('BlocListener triggered: isCodeSent=${state.isCodeSent}, '
+            'phoneNumber=${state.phoneNumber}, verificationId=${state.verificationId}, '
+            'statusMessage=${state.statusMessage}, fields=${state.fields}, vehicleNumbers=${state.vehicleNumbers}');
         if (state.user != null) {
+          debugPrint('Navigating to /home');
           context.go('/home');
         } else if (state.isCodeSent && state.phoneNumber != null && state.verificationId != null) {
-          debugPrint('Navigating with phone number: ${state.phoneNumber}, verificationId: ${state.verificationId}');
+          debugPrint('Navigating to /otp with phoneNumber: ${state.phoneNumber}, verificationId: ${state.verificationId}');
           try {
             context.push('/otp', extra: {
               'phoneNumber': state.phoneNumber,
@@ -284,7 +344,8 @@ class _PhoneAuthPageState extends State<PhoneAuthPage> {
               ),
             );
           }
-        } else if (state.statusMessage.contains('Error')) {
+        } else if (state.statusMessage.contains('Error') || state.statusMessage.contains('fix the errors')) {
+          debugPrint('Error or validation issue: ${state.statusMessage}');
           ScaffoldMessenger.of(context).showSnackBar(
             SnackBar(
               content: Text(state.statusMessage),
@@ -329,13 +390,24 @@ class _PhoneAuthPageState extends State<PhoneAuthPage> {
                     padding: EdgeInsets.all(24.w),
                     child: BlocBuilder<PhoneAuthCubit, PhoneAuthState>(
                       builder: (context, state) {
+                        debugPrint('BlocBuilder rebuilding with state: fields=${state.fields}, '
+                            'vehicleNumbers=${state.vehicleNumbers}, errors=${state.errors}');
+                        // Update vehicle number controllers with state values only if empty
+                        _selectedVehicleTypes.forEach((vehicleType) {
+                          _vehicleNumberControllers[vehicleType] ??= TextEditingController();
+                          if (_vehicleNumberControllers[vehicleType]!.text.isEmpty &&
+                              state.vehicleNumbers[vehicleType]?.isNotEmpty == true) {
+                            _vehicleNumberControllers[vehicleType]!.text = state.vehicleNumbers[vehicleType]!;
+                            debugPrint('Initialized controller for $vehicleType with state value: ${state.vehicleNumbers[vehicleType]}');
+                          }
+                        });
                         return Column(
                           mainAxisSize: MainAxisSize.min,
                           children: [
                             ClipRRect(
                               borderRadius: BorderRadius.circular(12.r),
-                              child: Image.network(
-                                'https://img.freepik.com/free-vector/mobile-login-concept-illustration_114360-135.jpg',
+                              child: Image.asset(
+                              Images.phoneauthimg,
                                 height: 150.h,
                                 width: 150.w,
                                 fit: BoxFit.cover,
@@ -376,14 +448,6 @@ class _PhoneAuthPageState extends State<PhoneAuthPage> {
                               context: context,
                             ),
                             _buildTextField(
-                              key: 'vehicle', // Changed to vehicle
-                              label: 'Enter vehicle number',
-                              keyboardType: TextInputType.text,
-                              prefixIcon: Icons.directions_car,
-                              errorText: state.errors['vehicle'],
-                              context: context,
-                            ),
-                            _buildTextField(
                               key: 'vehicleTypes',
                               label: 'Select vehicle types',
                               keyboardType: TextInputType.none,
@@ -394,6 +458,20 @@ class _PhoneAuthPageState extends State<PhoneAuthPage> {
                               onTap: _showVehicleBottomSheet,
                               focusNode: _vehicleTypesFocus,
                             ),
+                            ..._selectedVehicleTypes.map((vehicleType) {
+                              _vehicleNumberControllers[vehicleType] ??= TextEditingController(
+                                text: state.vehicleNumbers[vehicleType] ?? '',
+                              );
+                              return _buildTextField(
+                                key: 'vehicleNumber_$vehicleType',
+                                label: 'Vehicle number for $vehicleType',
+                                keyboardType: TextInputType.text,
+                                prefixIcon: Icons.directions_car,
+                                errorText: state.errors['vehicleNumber_$vehicleType'],
+                                context: context,
+                                controller: _vehicleNumberControllers[vehicleType],
+                              );
+                            }).toList(),
                             SizedBox(height: 8.h),
                             Container(
                               decoration: BoxDecoration(
@@ -412,9 +490,19 @@ class _PhoneAuthPageState extends State<PhoneAuthPage> {
                                 ],
                               ),
                               child: ElevatedButton(
-                                onPressed: state.isCodeSent
+                                onPressed: state.isCodeSent || state.statusMessage == 'Sending verification code...'
                                     ? null
-                                    : () => context.read<PhoneAuthCubit>().submitForm(),
+                                    : () {
+                                        debugPrint('Submit button pressed');
+                                        // Update vehicleNumbers with controller text before submission
+                                        _vehicleNumberControllers.forEach((vehicleType, controller) {
+                                          if (controller.text.isNotEmpty) {
+                                            context.read<PhoneAuthCubit>().updateVehicleNumber(vehicleType, controller.text);
+                                            debugPrint('Pre-submission update: $vehicleType = ${controller.text}');
+                                          }
+                                        });
+                                        context.read<PhoneAuthCubit>().submitForm();
+                                      },
                                 style: ElevatedButton.styleFrom(
                                   padding: EdgeInsets.symmetric(horizontal: 32.w, vertical: 16.h),
                                   backgroundColor: Colors.transparent,
@@ -423,14 +511,16 @@ class _PhoneAuthPageState extends State<PhoneAuthPage> {
                                     borderRadius: BorderRadius.circular(12.r),
                                   ),
                                 ),
-                                child: Text(
-                                  'Send Verification Code',
-                                  style: TextStyle(
-                                    fontSize: 16.sp,
-                                    fontWeight: FontWeight.bold,
-                                    color: Colors.white,
-                                  ),
-                                ),
+                                child: state.statusMessage == 'Sending verification code...'
+                                    ? CircularProgressIndicator(color: Colors.white)
+                                    : Text(
+                                        'Send Verification Code',
+                                        style: TextStyle(
+                                          fontSize: 16.sp,
+                                          fontWeight: FontWeight.bold,
+                                          color: Colors.white,
+                                        ),
+                                      ),
                               ),
                             ),
                             SizedBox(height: 24.h),
@@ -438,7 +528,9 @@ class _PhoneAuthPageState extends State<PhoneAuthPage> {
                               state.statusMessage,
                               style: TextStyle(
                                 fontSize: 16.sp,
-                                color: state.statusMessage.contains('Error') ? Colors.red : Colors.green,
+                                color: state.statusMessage.contains('Error') || state.statusMessage.contains('fix the errors')
+                                    ? Colors.red
+                                    : Colors.green,
                                 fontWeight: FontWeight.w500,
                               ),
                               textAlign: TextAlign.center,

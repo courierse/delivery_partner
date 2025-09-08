@@ -19,15 +19,17 @@ String? validateField(String key, String value) {
           ? 'You must be 19 or older to become a delivery partner'
           : null;
     },
-    'vehicle': (String value) => // Changed to vehicle
-        value.trim().isEmpty
-            ? 'Vehicle number is required'
-            : !RegExp(r'^[A-Z]{2}\d{2}[A-Z]{1,2}\d{4}$').hasMatch(value.trim())
-                ? 'Enter a valid vehicle number (e.g., MH12AB1234)'
-                : null,
     'vehicleTypes': (String value) =>
         value.trim().isEmpty ? 'At least one vehicle type is required' : null,
   };
+
+  if (key.startsWith('vehicleNumber_')) {
+    return value.trim().isEmpty
+        ? 'Vehicle number is required'
+        : !RegExp(r'^[A-Z]{2}\d{2}[A-Z]{1,2}\d{4}$').hasMatch(value.trim())
+            ? 'Enter a valid vehicle number (e.g., MH12AB1234)'
+            : null;
+  }
 
   final validator = validators[key];
   return validator != null ? validator(value) : null;

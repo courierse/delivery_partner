@@ -148,13 +148,14 @@ class _ProfileScreenState extends State<ProfileScreen> {
 
   void _showVehicleBottomSheet() {
     final vehicles = [
-      {'name': '2 Wheeler', 'price': '₹50/km', 'image': Images.bike},
-      {'name': 'Tata Ace', 'price': '₹100/km', 'image': Images.tatace},
-      {'name': '10 Feet', 'price': '₹150/km', 'image': Images.tenfeets},
-      {'name': '17 Feet', 'price': '₹220/km', 'image': Images.seventeenfeets},
-      {'name': '3 Wheeler', 'price': '₹120/km', 'image': Images.three_wheeler},
-      {'name': 'E-Loader', 'price': '₹130/km', 'image': Images.eloader},
-      {'name': '14 Feet', 'price': '₹140/km', 'image': Images.forteenfeets},
+      {'name': '2 Wheeler', 'dimension': '40cm x 40cm x 40cm', 'image': Images.bike},
+      {'name': 'E-Loader', 'dimension': '6ft x 4.6 ft x 5ft', 'image': Images.eloader},
+      {'name': '3 Wheeler', 'dimension': '6ft x 4.6 ft x 5ft', 'image': Images.three_wheeler},
+      {'name': 'Tata Ace', 'dimension': '7ft x 4ft x 5ft', 'image': Images.tatace},
+      {'name': '8 Feet', 'dimension': '8ft x 4.5ft x 5.5ft', 'image': Images.eightfeets},
+      {'name': '10 Feet', 'dimension': '10.0ft x 5.5ft x 5.5ft', 'image': Images.tenfeets},
+      {'name': '14 Feet', 'dimension': '14.0ft x 6.0ft x 6.0ft', 'image': Images.forteenfeets},
+      {'name': '17 Feet', 'dimension': '17.0ft x 6.5ft x 6.5ft', 'image': Images.seventeenfeets},
     ];
 
     showModalBottomSheet(
@@ -248,7 +249,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
                                 ),
                                 SizedBox(height: 4.h),
                                 Text(
-                                  vehicle['price']!,
+                                  vehicle['dimension']!,
                                   style: TextStyle(
                                     fontSize: 12.sp,
                                     fontWeight: FontWeight.w400,

@@ -24,41 +24,33 @@ class _PhoneAuthPageState extends State<PhoneAuthPage> {
   Map<String, TextEditingController> _vehicleNumberControllers = {};
   List<String> _selectedVehicleTypes = [];
   final _vehicleTypesFocus = FocusNode();
-  late PhoneAuthCubit _cubit; // Store cubit reference
 
   @override
   void initState() {
     super.initState();
-    // Store cubit reference
-    _cubit = context.read<PhoneAuthCubit>();
     _controllers['phone']!.selection = TextSelection.fromPosition(
       const TextPosition(offset: 0),
     );
     // Initialize from cubit state
-    final initialVehicleTypes = _cubit.state.fields['vehicleTypes'] as String?;
+    final cubit = context.read<PhoneAuthCubit>();
+    final initialVehicleTypes = cubit.state.fields['vehicleTypes'] as String?;
     if (initialVehicleTypes != null && initialVehicleTypes.isNotEmpty) {
       _selectedVehicleTypes = initialVehicleTypes.split(', ').toList();
       for (var vehicleType in _selectedVehicleTypes) {
         _vehicleNumberControllers[vehicleType] = TextEditingController(
-          text: _cubit.state.vehicleNumbers[vehicleType] ?? '',
+          text: cubit.state.vehicleNumbers[vehicleType] ?? '',
         );
-        _vehicleNumberControllers[vehicleType]!.addListener(() {
-          final value = _vehicleNumberControllers[vehicleType]!.text;
-          if (value != _cubit.state.vehicleNumbers[vehicleType]) {
-            debugPrint('Vehicle controller listener updating: $vehicleType = $value');
-            _cubit.updateVehicleNumber(vehicleType, value);
-          }
-        });
       }
     }
     _controllers['vehicleTypes']!.text = _selectedVehicleTypes.join(', ');
     _controllers.forEach((key, controller) {
       if (key != 'vehicleTypes') {
-        controller.text = _cubit.state.fields[key] ?? '';
+        controller.text = cubit.state.fields[key] ?? '';
+        // Add listener to update cubit on every change
         controller.addListener(() {
-          if (controller.text != _cubit.state.fields[key]) {
+          if (controller.text != cubit.state.fields[key]) {
             debugPrint('Controller listener updating: $key = ${controller.text}');
-            _cubit.updateField(key, controller.text);
+            cubit.updateField(key, controller.text);
           }
         });
       }
@@ -67,13 +59,10 @@ class _PhoneAuthPageState extends State<PhoneAuthPage> {
 
   @override
   void dispose() {
-    // Remove listeners before disposing controllers
     _controllers.forEach((key, controller) {
-      controller.removeListener(() {}); // Remove listener
       controller.dispose();
     });
-    _vehicleNumberControllers.forEach((key, controller) {
-      controller.removeListener(() {}); // Remove listener
+    _vehicleNumberControllers.forEach((_, controller) {
       controller.dispose();
     });
     _vehicleTypesFocus.dispose();
@@ -94,20 +83,22 @@ class _PhoneAuthPageState extends State<PhoneAuthPage> {
     TextEditingController? controller,
   }) {
     controller ??= _controllers[key]!;
-    // Sync controller with cubit state
+    // Only update controller text if it differs from cubit state
     if (!readOnly && !key.startsWith('vehicleNumber_')) {
-      final cubitValue = _cubit.state.fields[key] ?? '';
+      final cubitValue = context.read<PhoneAuthCubit>().state.fields[key] ?? '';
       if (controller.text != cubitValue) {
         debugPrint('Syncing controller for $key: setting text to $cubitValue');
         controller.text = cubitValue;
       }
     } else if (key.startsWith('vehicleNumber_')) {
       final vehicleType = key.replaceFirst('vehicleNumber_', '');
-      final cubitValue = _cubit.state.vehicleNumbers[vehicleType] ?? '';
+      final cubitValue = context.read<PhoneAuthCubit>().state.vehicleNumbers[vehicleType] ?? '';
       if (controller.text != cubitValue) {
         debugPrint('Syncing vehicle controller for $vehicleType: setting text to $cubitValue');
         controller.text = cubitValue;
       }
+    } else {
+      controller.text = _selectedVehicleTypes.join(', ');
     }
 
     return Padding(
@@ -128,9 +119,9 @@ class _PhoneAuthPageState extends State<PhoneAuthPage> {
                 debugPrint('Text field changed: $key = $value');
                 if (key.startsWith('vehicleNumber_')) {
                   final vehicleType = key.replaceFirst('vehicleNumber_', '');
-                  _cubit.updateVehicleNumber(vehicleType, value);
+                  context.read<PhoneAuthCubit>().updateVehicleNumber(vehicleType, value);
                 } else {
-                  _cubit.updateField(key, value);
+                  context.read<PhoneAuthCubit>().updateField(key, value);
                 }
               },
         decoration: readOnly
@@ -226,20 +217,20 @@ class _PhoneAuthPageState extends State<PhoneAuthPage> {
                       setModalState(() {
                         if (isSelected) {
                           _selectedVehicleTypes.remove(vehicle['name']);
-                          _vehicleNumberControllers[vehicle['name']]?.removeListener(() {});
                           _vehicleNumberControllers.remove(vehicle['name']);
                         } else {
                           _selectedVehicleTypes.add(vehicle['name']!);
                           _vehicleNumberControllers[vehicle['name']!] = TextEditingController(
-                            text: _cubit.state.vehicleNumbers[vehicle['name']] ?? '',
+                            text: context.read<PhoneAuthCubit>().state.vehicleNumbers[vehicle['name']] ?? '',
                           );
-                          _vehicleNumberControllers[vehicle['name']!]!.addListener(() {
-                            final value = _vehicleNumberControllers[vehicle['name']!]!.text;
-                            _cubit.updateVehicleNumber(vehicle['name']!, value);
-                          });
                         }
                       });
-                      _cubit.updateField('vehicleTypes', _selectedVehicleTypes.join(', '));
+                      // Update cubit without triggering full widget rebuild
+                      context.read<PhoneAuthCubit>().updateField('vehicleTypes', _selectedVehicleTypes.join(', '));
+                      _vehicleNumberControllers.forEach((vehicleType, controller) {
+                        context.read<PhoneAuthCubit>().updateVehicleNumber(vehicleType, controller.text);
+                      });
+                      // Update vehicleTypes controller
                       _controllers['vehicleTypes']!.text = _selectedVehicleTypes.join(', ');
                       debugPrint('Vehicle types updated: ${_selectedVehicleTypes.join(', ')}');
                     },
@@ -296,19 +287,18 @@ class _PhoneAuthPageState extends State<PhoneAuthPage> {
                                 if (val == true) {
                                   _selectedVehicleTypes.add(vehicle['name']!);
                                   _vehicleNumberControllers[vehicle['name']!] = TextEditingController(
-                                    text: _cubit.state.vehicleNumbers[vehicle['name']] ?? '',
+                                    text: context.read<PhoneAuthCubit>().state.vehicleNumbers[vehicle['name']] ?? '',
                                   );
-                                  _vehicleNumberControllers[vehicle['name']!]!.addListener(() {
-                                    final value = _vehicleNumberControllers[vehicle['name']!]!.text;
-                                    _cubit.updateVehicleNumber(vehicle['name']!, value);
-                                  });
                                 } else {
                                   _selectedVehicleTypes.remove(vehicle['name']);
-                                  _vehicleNumberControllers[vehicle['name']]?.removeListener(() {});
                                   _vehicleNumberControllers.remove(vehicle['name']);
                                 }
                               });
-                              _cubit.updateField('vehicleTypes', _selectedVehicleTypes.join(', '));
+                              // Update cubit without triggering full widget rebuild
+                              context.read<PhoneAuthCubit>().updateField('vehicleTypes', _selectedVehicleTypes.join(', '));
+                              _vehicleNumberControllers.forEach((vehicleType, controller) {
+                                context.read<PhoneAuthCubit>().updateVehicleNumber(vehicleType, controller.text);
+                              });
                               _controllers['vehicleTypes']!.text = _selectedVehicleTypes.join(', ');
                               debugPrint('Vehicle types updated via checkbox: ${_selectedVehicleTypes.join(', ')}');
                             },
@@ -406,18 +396,6 @@ class _PhoneAuthPageState extends State<PhoneAuthPage> {
                       builder: (context, state) {
                         debugPrint('BlocBuilder rebuilding with state: fields=${state.fields}, '
                             'vehicleNumbers=${state.vehicleNumbers}, errors=${state.errors}');
-                        // Sync vehicle number controllers with cubit state
-                        for (var vehicleType in _selectedVehicleTypes) {
-                          if (!_vehicleNumberControllers.containsKey(vehicleType)) {
-                            _vehicleNumberControllers[vehicleType] = TextEditingController(
-                              text: state.vehicleNumbers[vehicleType] ?? '',
-                            );
-                            _vehicleNumberControllers[vehicleType]!.addListener(() {
-                              final value = _vehicleNumberControllers[vehicleType]!.text;
-                              _cubit.updateVehicleNumber(vehicleType, value);
-                            });
-                          }
-                        }
                         return Column(
                           mainAxisSize: MainAxisSize.min,
                           children: [
@@ -476,6 +454,9 @@ class _PhoneAuthPageState extends State<PhoneAuthPage> {
                               focusNode: _vehicleTypesFocus,
                             ),
                             ..._selectedVehicleTypes.map((vehicleType) {
+                              _vehicleNumberControllers[vehicleType] ??= TextEditingController(
+                                text: state.vehicleNumbers[vehicleType] ?? '',
+                              );
                               return _buildTextField(
                                 key: 'vehicleNumber_$vehicleType',
                                 label: 'Vehicle number for $vehicleType',
@@ -508,11 +489,7 @@ class _PhoneAuthPageState extends State<PhoneAuthPage> {
                                     ? null
                                     : () {
                                         debugPrint('Submit button pressed');
-                                        // Ensure all vehicle numbers are updated in cubit before submitting
-                                        _vehicleNumberControllers.forEach((vehicleType, controller) {
-                                          _cubit.updateVehicleNumber(vehicleType, controller.text);
-                                        });
-                                        _cubit.submitForm();
+                                        context.read<PhoneAuthCubit>().submitForm();
                                       },
                                 style: ElevatedButton.styleFrom(
                                   padding: EdgeInsets.symmetric(horizontal: 32.w, vertical: 16.h),

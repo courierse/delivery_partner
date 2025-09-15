@@ -100,7 +100,7 @@ class _AlertScreenState extends State<AlertScreen> {
           'driverId': user.uid,
           'driverName': driverData['name'] ?? 'Unknown',
           'driverPhone': driverData['phone'] ?? 'Unknown',
-          'driverVehicle': driverData['vehicle'] ?? 'Unknown',
+          'driverVehicle': data['vehicleType'] ?? 'Unknown', // Use order's vehicleType
           'driverLatitude': driverLocation.latitude,
           'driverLongitude': driverLocation.longitude,
           'acceptedAt': FieldValue.serverTimestamp(),
@@ -418,10 +418,10 @@ class _AlertScreenState extends State<AlertScreen> {
                               .where((order) => !rejectedOrderIds.contains(order.id))
                               .where((order) {
                                 if (order.status == 'accepted' && order.driverId == user.uid) {
-                                  return true; // Always include accepted orders by this driver
+                                  return true;
                                 }
                                 if (order.status != 'pending') {
-                                  return false; // Exclude non-pending orders not accepted by this driver
+                                  return false;
                                 }
                                 if (order.vehicleType == null || order.vehicleType!.isEmpty) {
                                   print('Order ${order.id} has no vehicleType');

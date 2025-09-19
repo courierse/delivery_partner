@@ -1,7 +1,9 @@
+import 'dart:io';
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:flutter_screenutil/flutter_screenutil.dart';
 import 'package:go_router/go_router.dart';
+import 'package:image_picker/image_picker.dart';
 import 'package:phone_authentication/constants/images.dart';
 import 'package:phone_authentication/screens/custom_text_field.dart';
 import '../bloc/profile_cubit.dart';
@@ -22,19 +24,18 @@ class _PhoneAuthPageState extends State<PhoneAuthPage> {
     'vehicleTypes': TextEditingController(),
   };
   Map<String, TextEditingController> _vehicleNumberControllers = {};
+  Map<String, XFile?> _rcImages = {};
   List<String> _selectedVehicleTypes = [];
   final _vehicleTypesFocus = FocusNode();
-  late PhoneAuthCubit _cubit; // Store cubit reference
+  late PhoneAuthCubit _cubit;
 
   @override
   void initState() {
     super.initState();
-    // Store cubit reference
     _cubit = context.read<PhoneAuthCubit>();
     _controllers['phone']!.selection = TextSelection.fromPosition(
       const TextPosition(offset: 0),
     );
-    // Initialize from cubit state
     final initialVehicleTypes = _cubit.state.fields['vehicleTypes'] as String?;
     if (initialVehicleTypes != null && initialVehicleTypes.isNotEmpty) {
       _selectedVehicleTypes = initialVehicleTypes.split(', ').toList();
@@ -67,17 +68,57 @@ class _PhoneAuthPageState extends State<PhoneAuthPage> {
 
   @override
   void dispose() {
-    // Remove listeners before disposing controllers
     _controllers.forEach((key, controller) {
-      controller.removeListener(() {}); // Remove listener
+      controller.removeListener(() {});
       controller.dispose();
     });
     _vehicleNumberControllers.forEach((key, controller) {
-      controller.removeListener(() {}); // Remove listener
+      controller.removeListener(() {});
       controller.dispose();
     });
     _vehicleTypesFocus.dispose();
     super.dispose();
+  }
+
+  Future<void> _pickImage(String vehicleType) async {
+    final picker = ImagePicker();
+    try {
+      final pickedFile = await picker.pickImage(
+        source: ImageSource.gallery,
+        imageQuality: 80,
+        maxHeight: 800,
+        maxWidth: 800,
+      );
+      if (pickedFile != null && (pickedFile.path.endsWith('.jpg') || pickedFile.path.endsWith('.png'))) {
+        setState(() {
+          _rcImages[vehicleType] = pickedFile;
+        });
+        _cubit.updateRcImage(vehicleType, pickedFile); // Store XFile in cubit state
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('RC image selected for $vehicleType, will upload after authentication')),
+        );
+      } else {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('Please select a JPG or PNG file')),
+        );
+      }
+    } catch (e) {
+      debugPrint('Error picking image: $e');
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('Error picking image: $e')),
+      );
+    }
+  }
+
+  bool _canSubmitForm() {
+    final state = _cubit.state;
+    final selectedVehicles = state.fields['vehicleTypes']?.split(', ').where((v) => v.isNotEmpty).toList() ?? [];
+    for (var vehicleType in selectedVehicles) {
+      if (!state.rcImageFiles.containsKey(vehicleType) || state.rcImageFiles[vehicleType] == null) {
+        return false;
+      }
+    }
+    return true;
   }
 
   Widget _buildTextField({
@@ -94,7 +135,6 @@ class _PhoneAuthPageState extends State<PhoneAuthPage> {
     TextEditingController? controller,
   }) {
     controller ??= _controllers[key]!;
-    // Sync controller with cubit state
     if (!readOnly && !key.startsWith('vehicleNumber_')) {
       final cubitValue = _cubit.state.fields[key] ?? '';
       if (controller.text != cubitValue) {
@@ -228,6 +268,8 @@ class _PhoneAuthPageState extends State<PhoneAuthPage> {
                           _selectedVehicleTypes.remove(vehicle['name']);
                           _vehicleNumberControllers[vehicle['name']]?.removeListener(() {});
                           _vehicleNumberControllers.remove(vehicle['name']);
+                          _rcImages.remove(vehicle['name']);
+                          _cubit.removeRcImage(vehicle['name']!);
                         } else {
                           _selectedVehicleTypes.add(vehicle['name']!);
                           _vehicleNumberControllers[vehicle['name']!] = TextEditingController(
@@ -306,6 +348,8 @@ class _PhoneAuthPageState extends State<PhoneAuthPage> {
                                   _selectedVehicleTypes.remove(vehicle['name']);
                                   _vehicleNumberControllers[vehicle['name']]?.removeListener(() {});
                                   _vehicleNumberControllers.remove(vehicle['name']);
+                                  _rcImages.remove(vehicle['name']);
+                                  _cubit.removeRcImage(vehicle['name']!);
                                 }
                               });
                               _cubit.updateField('vehicleTypes', _selectedVehicleTypes.join(', '));
@@ -406,7 +450,6 @@ class _PhoneAuthPageState extends State<PhoneAuthPage> {
                       builder: (context, state) {
                         debugPrint('BlocBuilder rebuilding with state: fields=${state.fields}, '
                             'vehicleNumbers=${state.vehicleNumbers}, errors=${state.errors}');
-                        // Sync vehicle number controllers with cubit state
                         for (var vehicleType in _selectedVehicleTypes) {
                           if (!_vehicleNumberControllers.containsKey(vehicleType)) {
                             _vehicleNumberControllers[vehicleType] = TextEditingController(
@@ -476,14 +519,51 @@ class _PhoneAuthPageState extends State<PhoneAuthPage> {
                               focusNode: _vehicleTypesFocus,
                             ),
                             ..._selectedVehicleTypes.map((vehicleType) {
-                              return _buildTextField(
-                                key: 'vehicleNumber_$vehicleType',
-                                label: 'Vehicle number for $vehicleType',
-                                keyboardType: TextInputType.text,
-                                prefixIcon: Icons.directions_car,
-                                errorText: state.errors['vehicleNumber_$vehicleType'],
-                                context: context,
-                                controller: _vehicleNumberControllers[vehicleType],
+                              return Column(
+                                children: [
+                                  _buildTextField(
+                                    key: 'vehicleNumber_$vehicleType',
+                                    label: 'Vehicle number for $vehicleType',
+                                    keyboardType: TextInputType.text,
+                                    prefixIcon: Icons.directions_car,
+                                    errorText: state.errors['vehicleNumber_$vehicleType'],
+                                    context: context,
+                                    controller: _vehicleNumberControllers[vehicleType],
+                                  ),
+                                  Padding(
+                                    padding: EdgeInsets.only(bottom: 16.h),
+                                    child: Row(
+                                      children: [
+                                        Expanded(
+                                          child: ElevatedButton(
+                                            onPressed: () => _pickImage(vehicleType),
+                                            style: ElevatedButton.styleFrom(
+                                              backgroundColor: Colors.blueAccent,
+                                              shape: RoundedRectangleBorder(
+                                                borderRadius: BorderRadius.circular(8.r),
+                                              ),
+                                            ),
+                                            child: Text(
+                                              'Upload RC for $vehicleType',
+                                              style: TextStyle(fontSize: 14.sp, color: Colors.white),
+                                            ),
+                                          ),
+                                        ),
+                                        SizedBox(width: 8.w),
+                                        if (_rcImages[vehicleType] != null)
+                                          Icon(Icons.check_circle, color: Colors.green, size: 24.sp),
+                                      ],
+                                    ),
+                                  ),
+                                  if (state.errors['rcImage_$vehicleType'] != null)
+                                    Padding(
+                                      padding: EdgeInsets.only(bottom: 8.h),
+                                      child: Text(
+                                        state.errors['rcImage_$vehicleType']!,
+                                        style: TextStyle(color: Colors.red, fontSize: 12.sp),
+                                      ),
+                                    ),
+                                ],
                               );
                             }).toList(),
                             SizedBox(height: 8.h),
@@ -504,11 +584,12 @@ class _PhoneAuthPageState extends State<PhoneAuthPage> {
                                 ],
                               ),
                               child: ElevatedButton(
-                                onPressed: state.isCodeSent || state.statusMessage == 'Sending verification code...'
+                                onPressed: state.isCodeSent ||
+                                        state.statusMessage == 'Sending verification code...' ||
+                                        !_canSubmitForm()
                                     ? null
                                     : () {
                                         debugPrint('Submit button pressed');
-                                        // Ensure all vehicle numbers are updated in cubit before submitting
                                         _vehicleNumberControllers.forEach((vehicleType, controller) {
                                           _cubit.updateVehicleNumber(vehicleType, controller.text);
                                         });

@@ -49,6 +49,9 @@ dev_dependencies:
   google_maps_flutter: ^2.12.3
   get_it: ^8.2.0
   audioplayers: ^6.5.0
+  file_picker: ^10.3.3
+  firebase_storage: ^13.0.1
+  image_picker: ^1.2.0
   # The "flutter_lints" package below contains a set of recommended lints to
   # encourage good coding practices. The lint set provided by the package is
   # activated in the `analysis_options.yaml` file located at the root of your

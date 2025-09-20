@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:go_router/go_router.dart';
+import 'package:phone_authentication/screens/mobile_entry_page.dart';
 import 'package:phone_authentication/screens/phone_auth_page.dart';
 import 'package:phone_authentication/screens/otp_screen.dart';
 import 'package:phone_authentication/screens/home_screen.dart';
@@ -16,13 +17,22 @@ final GoRouter router = GoRouter(
           debugPrint('Redirecting to /home for authenticated user');
           return '/home';
         }
-        debugPrint('Redirecting to /login for unauthenticated user');
-        return '/login';
+        debugPrint('Redirecting to /mobile-entry for unauthenticated user');
+        return '/mobile-entry';
       },
     ),
     GoRoute(
-      path: '/login',
-      builder: (context, state) => const PhoneAuthPage(),
+      path: '/mobile-entry',
+      builder: (context, state) => const MobileEntryPage(),
+    ),
+    GoRoute(
+      path: '/phone-auth',
+      builder: (context, state) {
+        final extra = state.extra as Map<String, dynamic>?;
+        final phoneNumber = extra?['phoneNumber'] as String? ?? '';
+        debugPrint('Navigation: Extracted phoneNumber for phone-auth: $phoneNumber');
+        return PhoneAuthPage(initialPhoneNumber: phoneNumber);
+      },
     ),
     GoRoute(
       path: '/otp',

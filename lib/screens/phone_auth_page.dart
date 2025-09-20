@@ -9,7 +9,9 @@ import 'package:phone_authentication/screens/custom_text_field.dart';
 import '../bloc/profile_cubit.dart';
 
 class PhoneAuthPage extends StatefulWidget {
-  const PhoneAuthPage({super.key});
+  final String initialPhoneNumber;
+
+  const PhoneAuthPage({super.key, this.initialPhoneNumber = ''});
 
   @override
   _PhoneAuthPageState createState() => _PhoneAuthPageState();
@@ -33,6 +35,8 @@ class _PhoneAuthPageState extends State<PhoneAuthPage> {
   void initState() {
     super.initState();
     _cubit = context.read<PhoneAuthCubit>();
+    _controllers['phone']!.text = widget.initialPhoneNumber;
+    _cubit.updateField('phone', widget.initialPhoneNumber);
     _controllers['phone']!.selection = TextSelection.fromPosition(
       const TextPosition(offset: 0),
     );
@@ -54,7 +58,7 @@ class _PhoneAuthPageState extends State<PhoneAuthPage> {
     }
     _controllers['vehicleTypes']!.text = _selectedVehicleTypes.join(', ');
     _controllers.forEach((key, controller) {
-      if (key != 'vehicleTypes') {
+      if (key != 'vehicleTypes' && key != 'phone') {
         controller.text = _cubit.state.fields[key] ?? '';
         controller.addListener(() {
           if (controller.text != _cubit.state.fields[key]) {
@@ -93,7 +97,7 @@ class _PhoneAuthPageState extends State<PhoneAuthPage> {
         setState(() {
           _rcImages[vehicleType] = pickedFile;
         });
-        _cubit.updateRcImage(vehicleType, pickedFile); // Store XFile in cubit state
+        _cubit.updateRcImage(vehicleType, pickedFile);
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(content: Text('RC image selected for $vehicleType, will upload after authentication')),
         );

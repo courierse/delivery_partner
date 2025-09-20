@@ -82,48 +82,56 @@ class PhoneAuthCubit extends Cubit<PhoneAuthState> {
     return error;
   }
 
-  void submitForm({Map<String, String>? fallbackVehicleNumbers}) async {
+  void submitForm({Map<String, String>? fallbackVehicleNumbers, String? phoneNumber}) async {
     final fields = Map<String, String>.from(state.fields);
     final vehicleNumbers = Map<String, String>.from(state.vehicleNumbers);
     final rcImageFiles = Map<String, XFile?>.from(state.rcImageFiles);
     final rcImages = Map<String, String>.from(state.rcImages);
-    if (fallbackVehicleNumbers != null) {
-      fallbackVehicleNumbers.forEach((key, value) {
-        if (value.isNotEmpty) {
-          vehicleNumbers[key] = value;
-          debugPrint('Applied fallback vehicle number: $key = $value');
-        }
-      });
-    }
     final errors = Map<String, String?>.from(state.errors);
     bool hasError = false;
 
-    fields.forEach((key, value) {
-      final error = validateField(key, value);
-      errors[key] = error;
-      if (error != null) {
-        debugPrint('Validation error for $key: $error');
-        hasError = true;
+    if (phoneNumber != null) {
+      // Handle phone-only submission from MobileEntryPage
+      final submitPhoneNumber = phoneNumber.startsWith('+91') ? phoneNumber : '+91$phoneNumber';
+      // Skip validation for phone-only submission
+      debugPrint('Submitting phone-only: $submitPhoneNumber');
+    } else {
+      // Full form submission from PhoneAuthPage
+      if (fallbackVehicleNumbers != null) {
+        fallbackVehicleNumbers.forEach((key, value) {
+          if (value.isNotEmpty) {
+            vehicleNumbers[key] = value;
+            debugPrint('Applied fallback vehicle number: $key = $value');
+          }
+        });
       }
-    });
 
-    final selectedVehicles = fields['vehicleTypes']?.split(', ').where((v) => v.isNotEmpty).toList() ?? [];
-    for (var vehicleType in selectedVehicles) {
-      final number = vehicleNumbers[vehicleType] ?? '';
-      debugPrint('Validating vehicle number for $vehicleType: $number');
-      final error = validateField('vehicleNumber_$vehicleType', number, validateVehicleNumber: true);
-      errors['vehicleNumber_$vehicleType'] = error;
-      if (error != null) {
-        debugPrint('Validation error for vehicleNumber_$vehicleType: $error');
-        hasError = true;
-      }
-      if (!rcImageFiles.containsKey(vehicleType) || rcImageFiles[vehicleType] == null) {
-        errors['rcImage_$vehicleType'] = 'RC image is required for $vehicleType';
-        hasError = true;
+      fields.forEach((key, value) {
+        final error = validateField(key, value);
+        errors[key] = error;
+        if (error != null) {
+          debugPrint('Validation error for $key: $error');
+          hasError = true;
+        }
+      });
+
+      final selectedVehicles = fields['vehicleTypes']?.split(', ').where((v) => v.isNotEmpty).toList() ?? [];
+      for (var vehicleType in selectedVehicles) {
+        final number = vehicleNumbers[vehicleType] ?? '';
+        debugPrint('Validating vehicle number for $vehicleType: $number');
+        final error = validateField('vehicleNumber_$vehicleType', number, validateVehicleNumber: true);
+        errors['vehicleNumber_$vehicleType'] = error;
+        if (error != null) {
+          debugPrint('Validation error for vehicleNumber_$vehicleType: $error');
+          hasError = true;
+        }
+        if (!rcImageFiles.containsKey(vehicleType) || rcImageFiles[vehicleType] == null) {
+          errors['rcImage_$vehicleType'] = 'RC image is required for $vehicleType';
+          hasError = true;
+        }
       }
     }
 
-    debugPrint('Submitting form with fields: $fields, vehicleNumbers: $vehicleNumbers, rcImageFiles: $rcImageFiles');
     if (hasError) {
       debugPrint('Form has errors: $errors');
       emit(state.copyWith(
@@ -137,10 +145,10 @@ class PhoneAuthCubit extends Cubit<PhoneAuthState> {
       return;
     }
 
-    final phoneNumber = fields['phone']!.startsWith('+91')
-        ? fields['phone']!
-        : '+91${fields['phone']}';
-    debugPrint('Submitting form with phone number: $phoneNumber');
+    final submitPhoneNumber = phoneNumber != null
+        ? (phoneNumber.startsWith('+91') ? phoneNumber : '+91$phoneNumber')
+        : (fields['phone']!.startsWith('+91') ? fields['phone']! : '+91${fields['phone']}');
+    debugPrint('Submitting form with phone number: $submitPhoneNumber');
 
     try {
       emit(state.copyWith(
@@ -153,14 +161,17 @@ class PhoneAuthCubit extends Cubit<PhoneAuthState> {
       ));
 
       await FirebaseAuth.instance.verifyPhoneNumber(
-        phoneNumber: phoneNumber,
+        phoneNumber: submitPhoneNumber,
         verificationCompleted: (PhoneAuthCredential credential) async {
           debugPrint('Verification completed automatically with credential');
           await FirebaseAuth.instance.signInWithCredential(credential);
           final user = FirebaseAuth.instance.currentUser;
           if (user != null) {
             debugPrint('User signed in: ${user.uid}');
-            await _saveUserDataToFirestore(user.uid);
+            if (phoneNumber == null) {
+              // Only save data if coming from PhoneAuthPage (full form)
+              await _saveUserDataToFirestore(user.uid);
+            }
             emit(state.copyWith(
               user: user,
               statusMessage: 'Authentication successful',
@@ -200,9 +211,9 @@ class PhoneAuthCubit extends Cubit<PhoneAuthState> {
           debugPrint('Code sent: verificationId=$verificationId, resendToken=$resendToken');
           emit(state.copyWith(
             isCodeSent: true,
-            phoneNumber: phoneNumber,
+            phoneNumber: submitPhoneNumber,
             verificationId: verificationId,
-            statusMessage: 'Verification code sent to $phoneNumber',
+            statusMessage: 'Verification code sent to $submitPhoneNumber',
             fields: fields,
             vehicleNumbers: vehicleNumbers,
             rcImageFiles: rcImageFiles,
@@ -239,7 +250,15 @@ class PhoneAuthCubit extends Cubit<PhoneAuthState> {
 
       if (user != null) {
         debugPrint('OTP verified, user signed in: ${user.uid}');
-        await _saveUserDataToFirestore(user.uid);
+        final driverRef = FirebaseFirestore.instance.collection('drivers').doc(user.uid);
+        final driverDoc = await driverRef.get();
+        if (driverDoc.exists) {
+          // If driver data exists, skip saving new data
+          debugPrint('Driver data exists, skipping save');
+        } else {
+          // Save data if it was a new registration
+          await _saveUserDataToFirestore(user.uid);
+        }
         emit(state.copyWith(
           user: user,
           statusMessage: 'Authentication successful',
@@ -300,7 +319,7 @@ class PhoneAuthCubit extends Cubit<PhoneAuthState> {
       final driverRef = FirebaseFirestore.instance.collection('drivers').doc(uid);
       await driverRef.set({
         'name': state.fields['name'] ?? '',
-        'phone': state.fields['phone'] ?? '',
+        'phone': state.fields['phone']!.startsWith('+91') ? state.fields['phone']! : '+91${state.fields['phone']}',
         'address': state.fields['address'] ?? '',
         'age': state.fields['age'] ?? '',
         'vehicleNumbers': state.vehicleNumbers,

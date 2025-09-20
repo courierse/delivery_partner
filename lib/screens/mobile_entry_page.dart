@@ -4,6 +4,7 @@ import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:flutter_screenutil/flutter_screenutil.dart';
 import 'package:go_router/go_router.dart';
 import 'package:phone_authentication/bloc/profile_cubit.dart';
+import 'package:phone_authentication/constants/images.dart';
 import 'package:phone_authentication/screens/custom_text_field.dart';
 
 class MobileEntryPage extends StatefulWidget {
@@ -36,7 +37,7 @@ class _MobileEntryPageState extends State<MobileEntryPage> {
     });
 
     try {
-      final formattedPhone = '+91$phoneNumber'; // Match Firestore format: +917652067023
+      final formattedPhone = '+91$phoneNumber';
       debugPrint('Executing query: drivers.where(phone == $formattedPhone).limit(1)');
       final driverRef = FirebaseFirestore.instance
           .collection('drivers')
@@ -47,7 +48,7 @@ class _MobileEntryPageState extends State<MobileEntryPage> {
       if (querySnapshot.docs.isNotEmpty) {
         debugPrint('Phone number $formattedPhone found in Firestore, triggering OTP');
         context.read<PhoneAuthCubit>().submitForm(phoneNumber: formattedPhone);
-        await Future.delayed(Duration.zero); // Ensure state emission
+        await Future.delayed(Duration.zero);
       } else {
         debugPrint('Phone number $formattedPhone not found in Firestore, navigating to phone auth');
         context.push('/phone-auth', extra: {'phoneNumber': phoneNumber});
@@ -109,134 +110,156 @@ class _MobileEntryPageState extends State<MobileEntryPage> {
         }
       },
       child: Scaffold(
-        appBar: AppBar(
-          title: Text(
-            'Enter Mobile Number',
-            style: TextStyle(
-              fontWeight: FontWeight.bold,
-              color: Colors.white,
-              fontSize: 20.sp,
-            ),
-          ),
-          backgroundColor: Colors.blueAccent,
-          elevation: 0,
-          toolbarHeight: 60.h,
-        ),
         body: Container(
-          decoration: const BoxDecoration(
+          decoration: BoxDecoration(
             gradient: LinearGradient(
               begin: Alignment.topCenter,
               end: Alignment.bottomCenter,
-              colors: [Colors.blueAccent, Colors.white],
+              colors: [Colors.blue.shade800, Colors.blue.shade200],
             ),
           ),
-          child: Center(
-            child: SingleChildScrollView(
-              child: Padding(
-                padding: EdgeInsets.symmetric(horizontal: 24.w),
-                child: Card(
-                  elevation: 8.0,
-                  shape: RoundedRectangleBorder(
-                    borderRadius: BorderRadius.circular(16.r),
-                  ),
-                  child: Padding(
-                    padding: EdgeInsets.all(24.w),
-                    child: Column(
-                      mainAxisSize: MainAxisSize.min,
-                      children: [
-                        ClipRRect(
-                          borderRadius: BorderRadius.circular(12.r),
-                          child: Image.network(
-                            'https://img.freepik.com/free-vector/mobile-login-concept-illustration_114360-135.jpg',
-                            height: 150.h,
-                            width: 150.w,
-                            fit: BoxFit.cover,
+          child: SafeArea(
+            child: Center(
+              child: SingleChildScrollView(
+                child: Padding(
+                  padding: EdgeInsets.symmetric(horizontal: 24.w),
+                  child: Card(
+                    elevation: 12.0,
+                    shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(20.r),
+                    ),
+                    child: Padding(
+                      padding: EdgeInsets.all(32.w),
+                      child: Column(
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          Text(
+                            'Welcome Back',
+                            style: TextStyle(
+                              fontSize: 28.sp,
+                              fontWeight: FontWeight.bold,
+                              color: Colors.blue.shade900,
+                            ),
                           ),
-                        ),
-                        SizedBox(height: 24.h),
-                        CustomTextField(
-                          controller: _phoneController,
-                          labelText: 'Enter phone number',
-                          prefixIcon: Icons.phone,
-                          prefixText: '+91 ',
-                          keyboardType: TextInputType.phone,
-                          decoration: InputDecoration(
-                            labelStyle: TextStyle(fontSize: 14.sp, color: Colors.grey),
-                            border: OutlineInputBorder(
-                              borderRadius: BorderRadius.circular(12.r),
-                              borderSide: BorderSide(color: Colors.blueAccent),
+                          SizedBox(height: 8.h),
+                          Text(
+                            'Sign in with your phone number',
+                            style: TextStyle(
+                              fontSize: 16.sp,
+                              color: Colors.grey.shade600,
                             ),
-                            focusedBorder: OutlineInputBorder(
-                              borderRadius: BorderRadius.circular(12.r),
-                              borderSide: BorderSide(color: Colors.blueAccent),
-                            ),
-                            enabledBorder: OutlineInputBorder(
-                              borderRadius: BorderRadius.circular(12.r),
-                              borderSide: BorderSide(color: Colors.blueAccent),
-                            ),
-                            contentPadding: EdgeInsets.symmetric(
-                              vertical: 8.h,
-                              horizontal: 16.w,
-                            ),
-                            filled: true,
-                            fillColor: Colors.grey[100],
                           ),
-                        ),
-                        SizedBox(height: 24.h),
-                        Container(
-                          decoration: BoxDecoration(
-                            gradient: const LinearGradient(
-                              colors: [Colors.blueAccent, Colors.cyan],
-                              begin: Alignment.topLeft,
-                              end: Alignment.bottomRight,
+                          SizedBox(height: 24.h),
+                          ClipRRect(
+                            borderRadius: BorderRadius.circular(16.r),
+                            child: Image.asset(
+                              Images.phoneauthimg,
+                              height: 180.h,
+                              width: 180.w,
+                              fit: BoxFit.cover,
                             ),
-                            borderRadius: BorderRadius.circular(12.r),
-                            boxShadow: [
-                              BoxShadow(
-                                color: Colors.black26,
-                                blurRadius: 8.r,
-                                offset: Offset(0, 4.h),
+                          ),
+                          SizedBox(height: 32.h),
+                          CustomTextField(
+                            controller: _phoneController,
+                            labelText: 'Phone Number',
+                            prefixIcon: Icons.phone_iphone,
+                            keyboardType: TextInputType.phone,
+                            decoration: InputDecoration(
+                              labelStyle: TextStyle(
+                                fontSize: 16.sp,
+                                color: Colors.grey.shade700,
                               ),
-                            ],
-                          ),
-                          child: ElevatedButton(
-                            onPressed: _isLoading ? null : _checkPhoneNumber,
-                            style: ElevatedButton.styleFrom(
-                              padding: EdgeInsets.symmetric(
-                                horizontal: 32.w,
-                                vertical: 16.h,
+                              prefixIcon: Icon(
+                                Icons.phone_iphone,
+                                color: Colors.blue.shade700,
+                                size: 24.sp,
                               ),
-                              backgroundColor: Colors.transparent,
-                              shadowColor: Colors.transparent,
-                              shape: RoundedRectangleBorder(
+                              prefixText: '+91 ',
+                              border: OutlineInputBorder(
                                 borderRadius: BorderRadius.circular(12.r),
+                                borderSide: BorderSide(color: Colors.grey.shade300),
                               ),
+                              focusedBorder: OutlineInputBorder(
+                                borderRadius: BorderRadius.circular(12.r),
+                                borderSide: BorderSide(color: Colors.blue.shade700, width: 2),
+                              ),
+                              enabledBorder: OutlineInputBorder(
+                                borderRadius: BorderRadius.circular(12.r),
+                                borderSide: BorderSide(color: Colors.grey.shade300),
+                              ),
+                              contentPadding: EdgeInsets.symmetric(
+                                vertical: 12.h,
+                                horizontal: 16.w,
+                              ),
+                              filled: true,
+                              fillColor: Colors.white,
                             ),
-                            child: _isLoading
-                                ? CircularProgressIndicator(color: Colors.white)
-                                : Text(
-                                    'Confirm and Proceed',
-                                    style: TextStyle(
-                                      fontSize: 16.sp,
-                                      fontWeight: FontWeight.bold,
-                                      color: Colors.white,
+                          ),
+                          SizedBox(height: 32.h),
+                          Container(
+                            width: double.infinity,
+                            decoration: BoxDecoration(
+                              gradient: LinearGradient(
+                                colors: [Colors.blue.shade700, Colors.blue.shade400],
+                                begin: Alignment.topLeft,
+                                end: Alignment.bottomRight,
+                              ),
+                              borderRadius: BorderRadius.circular(12.r),
+                              boxShadow: [
+                                BoxShadow(
+                                  color: Colors.black.withOpacity(0.2),
+                                  blurRadius: 10.r,
+                                  offset: Offset(0, 4.h),
+                                ),
+                              ],
+                            ),
+                            child: ElevatedButton(
+                              onPressed: _isLoading ? null : _checkPhoneNumber,
+                              style: ElevatedButton.styleFrom(
+                                padding: EdgeInsets.symmetric(
+                                  horizontal: 32.w,
+                                  vertical: 16.h,
+                                ),
+                                backgroundColor: Colors.transparent,
+                                shadowColor: Colors.transparent,
+                                shape: RoundedRectangleBorder(
+                                  borderRadius: BorderRadius.circular(12.r),
+                                ),
+                              ),
+                              child: _isLoading
+                                  ? SizedBox(
+                                      height: 24.h,
+                                      width: 24.h,
+                                      child: CircularProgressIndicator(
+                                        color: Colors.white,
+                                        strokeWidth: 2.5,
+                                      ),
+                                    )
+                                  : Text(
+                                      'Continue',
+                                      style: TextStyle(
+                                        fontSize: 18.sp,
+                                        fontWeight: FontWeight.w600,
+                                        color: Colors.white,
+                                      ),
                                     ),
-                                  ),
+                            ),
                           ),
-                        ),
-                        SizedBox(height: 24.h),
-                        Text(
-                          _statusMessage,
-                          style: TextStyle(
-                            fontSize: 16.sp,
-                            color: _statusMessage.contains('Error')
-                                ? Colors.red
-                                : Colors.green,
-                            fontWeight: FontWeight.w500,
+                          SizedBox(height: 24.h),
+                          Text(
+                            _statusMessage,
+                            style: TextStyle(
+                              fontSize: 16.sp,
+                              color: _statusMessage.contains('Error')
+                                  ? Colors.red.shade600
+                                  : Colors.green.shade600,
+                              fontWeight: FontWeight.w500,
+                            ),
+                            textAlign: TextAlign.center,
                           ),
-                          textAlign: TextAlign.center,
-                        ),
-                      ],
+                        ],
+                      ),
                     ),
                   ),
                 ),

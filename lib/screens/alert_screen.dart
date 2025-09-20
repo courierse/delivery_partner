@@ -100,7 +100,7 @@ class _AlertScreenState extends State<AlertScreen> {
           'driverId': user.uid,
           'driverName': driverData['name'] ?? 'Unknown',
           'driverPhone': driverData['phone'] ?? 'Unknown',
-          'driverVehicle': data['vehicleType'] ?? 'Unknown', // Use order's vehicleType
+          'driverVehicle': data['vehicleType'] ?? 'Unknown',
           'driverLatitude': driverLocation.latitude,
           'driverLongitude': driverLocation.longitude,
           'acceptedAt': FieldValue.serverTimestamp(),
@@ -162,62 +162,109 @@ class _AlertScreenState extends State<AlertScreen> {
       LatLng(order.pickupLat ?? 0.0, order.pickupLng ?? 0.0),
     );
     return Card(
-      margin: EdgeInsets.all(8.w),
-      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12.r)),
-      elevation: 4,
-      color: Colors.white,
+      margin: EdgeInsets.symmetric(horizontal: 16.w, vertical: 8.h),
+      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16.r)),
+      elevation: 8,
+      shadowColor: Colors.black.withOpacity(0.2),
       child: Padding(
-        padding: EdgeInsets.all(16.w),
+        padding: EdgeInsets.all(20.w),
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            Text(
-              isPending ? 'Delivery Request' : 'Accepted Delivery',
-              style: TextStyle(
-                fontSize: 18.sp,
-                fontWeight: FontWeight.bold,
-                color: isPending ? AppColors.textColor : Colors.green,
-              ),
+            Row(
+              mainAxisAlignment: MainAxisAlignment.spaceBetween,
+              children: [
+                Text(
+                  isPending ? 'New Delivery Request' : 'Accepted Delivery',
+                  style: TextStyle(
+                    fontSize: 18.sp,
+                    fontWeight: FontWeight.bold,
+                    color: isPending ? Colors.blue.shade900 : Colors.green.shade700,
+                  ),
+                ),
+                if (isPending)
+                  Container(
+                    padding: EdgeInsets.symmetric(horizontal: 8.w, vertical: 4.h),
+                    decoration: BoxDecoration(
+                      color: Colors.blue.shade100,
+                      borderRadius: BorderRadius.circular(8.r),
+                    ),
+                    child: Text(
+                      'New',
+                      style: TextStyle(
+                        fontSize: 12.sp,
+                        fontWeight: FontWeight.w600,
+                        color: Colors.blue.shade900,
+                      ),
+                    ),
+                  ),
+              ],
             ),
-            SizedBox(height: 8.h),
-            Text('Pickup: ${order.pickupLocation}', style: TextStyle(fontSize: 14.sp)),
-            Text('Pickup Contact: ${order.pickupName} - ${order.pickupPhone}', style: TextStyle(fontSize: 14.sp)),
-            Text('Drop-off: ${order.dropLocation}', style: TextStyle(fontSize: 14.sp)),
-            Text('Drop-off Contact: ${order.dropName} - ${order.dropPhone}', style: TextStyle(fontSize: 14.sp)),
-            Text('Weight: ${order.weightRange}', style: TextStyle(fontSize: 14.sp)),
-            Text('Vehicle Type: ${order.vehicleType}', style: TextStyle(fontSize: 14.sp)),
-            Text('Distance to Pickup: ${distanceToPickup.toStringAsFixed(2)} km', style: TextStyle(fontSize: 14.sp)),
-            Text('Total Distance: ${order.distance.toStringAsFixed(2)} km', style: TextStyle(fontSize: 14.sp)),
-            Text('Delivery Cost: \₹${order.deliveryCost.toStringAsFixed(2)}', style: TextStyle(fontSize: 14.sp)),
+            SizedBox(height: 12.h),
+            _buildInfoRow(Icons.location_on, 'Pickup: ${order.pickupLocation}'),
+            _buildInfoRow(Icons.person, 'Contact: ${order.pickupName} - ${order.pickupPhone}'),
+            _buildInfoRow(Icons.local_shipping, 'Drop-off: ${order.dropLocation}'),
+            _buildInfoRow(Icons.person, 'Contact: ${order.dropName} - ${order.dropPhone}'),
+            _buildInfoRow(Icons.scale, 'Weight: ${order.weightRange}'),
+            _buildInfoRow(Icons.directions_car, 'Vehicle: ${order.vehicleType}'),
+            _buildInfoRow(Icons.social_distance, 'Distance to Pickup: ${distanceToPickup.toStringAsFixed(2)} km'),
+            _buildInfoRow(Icons.map, 'Total Distance: ${order.distance.toStringAsFixed(2)} km'),
+            _buildInfoRow(Icons.monetization_on, 'Cost: ₹${order.deliveryCost.toStringAsFixed(2)}'),
             SizedBox(height: 16.h),
             if (isPending)
               Row(
                 mainAxisAlignment: MainAxisAlignment.spaceEvenly,
                 children: [
-                  ElevatedButton(
-                    onPressed: () => _acceptOrder(order.id),
-                    style: ElevatedButton.styleFrom(
-                      backgroundColor: AppColors.buttonColour,
-                      foregroundColor: AppColors.buttonTextColor,
-                      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8.r)),
+                  Expanded(
+                    child: ElevatedButton(
+                      onPressed: () => _acceptOrder(order.id),
+                      style: ElevatedButton.styleFrom(
+                        backgroundColor: Colors.blue.shade700,
+                        foregroundColor: Colors.white,
+                        padding: EdgeInsets.symmetric(vertical: 12.h),
+                        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12.r)),
+                        elevation: 2,
+                      ),
+                      child: Text(
+                        'Accept',
+                        style: TextStyle(fontSize: 16.sp, fontWeight: FontWeight.w600),
+                      ),
                     ),
-                    child: Text('Accept', style: TextStyle(fontSize: 14.sp)),
                   ),
-                  ElevatedButton(
-                    onPressed: () => _rejectOrder(order.id),
-                    style: ElevatedButton.styleFrom(
-                      backgroundColor: AppColors.grey,
-                      foregroundColor: AppColors.textColor,
-                      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8.r)),
+                  SizedBox(width: 12.w),
+                  Expanded(
+                    child: ElevatedButton(
+                      onPressed: () => _rejectOrder(order.id),
+                      style: ElevatedButton.styleFrom(
+                        backgroundColor: Colors.grey.shade200,
+                        foregroundColor: Colors.grey.shade800,
+                        padding: EdgeInsets.symmetric(vertical: 12.h),
+                        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12.r)),
+                        elevation: 2,
+                      ),
+                      child: Text(
+                        'Reject',
+                        style: TextStyle(fontSize: 16.sp, fontWeight: FontWeight.w600),
+                      ),
                     ),
-                    child: Text('Reject', style: TextStyle(fontSize: 14.sp)),
                   ),
                 ],
               )
             else
-              Text(
-                'You have accepted this delivery.',
-                style: TextStyle(fontSize: 14.sp, color: Colors.green),
+              Container(
+                padding: EdgeInsets.symmetric(vertical: 8.h, horizontal: 12.w),
+                decoration: BoxDecoration(
+                  color: Colors.green.shade100,
+                  borderRadius: BorderRadius.circular(8.r),
+                ),
+                child: Text(
+                  'Accepted',
+                  style: TextStyle(
+                    fontSize: 14.sp,
+                    fontWeight: FontWeight.w600,
+                    color: Colors.green.shade700,
+                  ),
+                ),
               ),
           ],
         ),
@@ -225,284 +272,493 @@ class _AlertScreenState extends State<AlertScreen> {
     );
   }
 
+  Widget _buildInfoRow(IconData icon, String text) {
+    return Padding(
+      padding: EdgeInsets.symmetric(vertical: 4.h),
+      child: Row(
+        children: [
+          Icon(icon, size: 20.sp, color: Colors.blue.shade700),
+          SizedBox(width: 8.w),
+          Expanded(
+            child: Text(
+              text,
+              style: TextStyle(fontSize: 14.sp, color: Colors.grey.shade800),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
-    return BlocBuilder<LocationCubit, LocationState>(
-      builder: (context, locationState) {
-        if (locationState is LocationError) {
-          return Center(
-            child: Column(
-              mainAxisAlignment: MainAxisAlignment.center,
-              children: [
-                Text(
-                  'Location Error: ${locationState.message}',
-                  style: TextStyle(fontSize: 16.sp, color: AppColors.textColor),
-                  textAlign: TextAlign.center,
-                ),
-                SizedBox(height: 16.h),
-                ElevatedButton(
-                  onPressed: () async {
-                    if (locationState.message.contains('permanently denied')) {
-                      print('Opening app settings for location permission');
-                      await Geolocator.openAppSettings();
-                    } else {
-                      context.read<LocationCubit>().getCurrentLocation();
-                    }
-                  },
-                  style: ElevatedButton.styleFrom(
-                    backgroundColor: AppColors.buttonColour,
-                    foregroundColor: AppColors.buttonTextColor,
-                  ),
-                  child: Text(
-                    locationState.message.contains('permanently denied')
-                        ? 'Open Settings'
-                        : 'Retry',
-                    style: TextStyle(fontSize: 14.sp),
-                  ),
-                ),
-              ],
-            ),
-          );
-        } else if (locationState is! CurrentLocationUpdated) {
-          return Center(
-            child: CircularProgressIndicator(color: AppColors.buttonColour),
-          );
-        }
-
-        final driverLocation = LatLng(locationState.latitude, locationState.longitude);
-        print('Driver location: ${driverLocation.latitude}, ${driverLocation.longitude}');
-        final recentThreshold = Timestamp.fromDate(DateTime.now().subtract(const Duration(hours: 1)));
-        final user = FirebaseAuth.instance.currentUser;
-
-        if (user == null) {
-          return Center(
-            child: Text(
-              'Please log in to view deliveries',
-              style: TextStyle(fontSize: 16.sp, color: AppColors.textColor),
-            ),
-          );
-        }
-
-        return Column(
-          children: [
-            Padding(
-              padding: EdgeInsets.all(16.w),
-              child: Text(
-                'Available Deliveries',
-                style: TextStyle(
-                  fontSize: 20.sp,
-                  fontWeight: FontWeight.bold,
-                  color: AppColors.textColor,
-                ),
-              ),
-            ),
-            Expanded(
-              child: StreamBuilder<DocumentSnapshot>(
-                stream: FirebaseFirestore.instance.collection('drivers').doc(user.uid).snapshots(),
-                builder: (context, driverSnapshot) {
-                  if (driverSnapshot.hasError) {
-                    print('Driver data error: ${driverSnapshot.error}');
-                    return Center(
-                      child: Text(
-                        'Error loading driver data',
-                        style: TextStyle(fontSize: 16.sp, color: AppColors.textColor),
-                      ),
-                    );
-                  }
-                  if (!driverSnapshot.hasData || !driverSnapshot.data!.exists) {
-                    return Center(
-                      child: Text(
-                        'Driver profile not found',
-                        style: TextStyle(fontSize: 16.sp, color: AppColors.textColor),
-                      ),
-                    );
-                  }
-
-                  final driverData = driverSnapshot.data!.data() as Map<String, dynamic>?;
-                  final vehicleTypes = (driverData?['vehicleTypes'] as String?)?.split(', ')?.toList() ?? [];
-                  print('Driver vehicleTypes: $vehicleTypes');
-
-                  return StreamBuilder<List<QuerySnapshot>>(
-                    stream: Stream.fromFuture(Future.wait([
-                      _ordersCollection
-                          .where('status', isEqualTo: 'pending')
-                          .where('createdAt', isGreaterThanOrEqualTo: recentThreshold)
-                          .get(),
-                      _ordersCollection
-                          .where('status', isEqualTo: 'accepted')
-                          .where('driverId', isEqualTo: user.uid)
-                          .where('createdAt', isGreaterThanOrEqualTo: recentThreshold)
-                          .get(),
-                    ])),
-                    builder: (context, snapshot) {
-                      if (snapshot.hasError) {
-                        final error = snapshot.error.toString();
-                        print('Firestore error: $error');
-                        String errorMessage = 'Error loading orders: $error';
-                        if (error.contains('requires an index')) {
-                          errorMessage = 'Error: Firestore query requires an index. Check the console for a link to create it.';
-                        }
-                        return Center(
-                          child: Column(
-                            mainAxisAlignment: MainAxisAlignment.center,
-                            children: [
-                              Text(
-                                errorMessage,
-                                style: TextStyle(fontSize: 16.sp, color: AppColors.textColor),
-                                textAlign: TextAlign.center,
+    return Scaffold(
+      body: Container(
+        decoration: BoxDecoration(
+          gradient: LinearGradient(
+            begin: Alignment.topCenter,
+            end: Alignment.bottomCenter,
+            colors: [Colors.blue.shade800, Colors.blue.shade200],
+          ),
+        ),
+        child: SafeArea(
+          child: BlocBuilder<LocationCubit, LocationState>(
+            builder: (context, locationState) {
+              if (locationState is LocationError) {
+                return Center(
+                  child: Padding(
+                    padding: EdgeInsets.all(24.w),
+                    child: Card(
+                      elevation: 12,
+                      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16.r)),
+                      child: Padding(
+                        padding: EdgeInsets.all(24.w),
+                        child: Column(
+                          mainAxisSize: MainAxisSize.min,
+                          children: [
+                            Icon(
+                              Icons.error_outline,
+                              size: 48.sp,
+                              color: Colors.red.shade600,
+                            ),
+                            SizedBox(height: 16.h),
+                            Text(
+                              'Location Error: ${locationState.message}',
+                              style: TextStyle(
+                                fontSize: 16.sp,
+                                color: Colors.grey.shade800,
+                                fontWeight: FontWeight.w600,
                               ),
-                              SizedBox(height: 16.h),
-                              ElevatedButton(
-                                onPressed: () => setState(() {}),
-                                style: ElevatedButton.styleFrom(
-                                  backgroundColor: AppColors.buttonColour,
-                                  foregroundColor: AppColors.buttonTextColor,
+                              textAlign: TextAlign.center,
+                            ),
+                            SizedBox(height: 16.h),
+                            ElevatedButton(
+                              onPressed: () async {
+                                if (locationState.message.contains('permanently denied')) {
+                                  print('Opening app settings for location permission');
+                                  await Geolocator.openAppSettings();
+                                } else {
+                                  context.read<LocationCubit>().getCurrentLocation();
+                                }
+                              },
+                              style: ElevatedButton.styleFrom(
+                                backgroundColor: Colors.blue.shade700,
+                                foregroundColor: Colors.white,
+                                padding: EdgeInsets.symmetric(horizontal: 32.w, vertical: 12.h),
+                                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12.r)),
+                                elevation: 2,
+                              ),
+                              child: Text(
+                                locationState.message.contains('permanently denied') ? 'Open Settings' : 'Retry',
+                                style: TextStyle(fontSize: 16.sp, fontWeight: FontWeight.w600),
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
+                    ),
+                  ),
+                );
+              } else if (locationState is! CurrentLocationUpdated) {
+                return Center(
+                  child: CircularProgressIndicator(color: Colors.blue.shade700),
+                );
+              }
+
+              final driverLocation = LatLng(locationState.latitude, locationState.longitude);
+              print('Driver location: ${driverLocation.latitude}, ${driverLocation.longitude}');
+              final recentThreshold = Timestamp.fromDate(DateTime.now().subtract(const Duration(hours: 1)));
+              final user = FirebaseAuth.instance.currentUser;
+
+              if (user == null) {
+                return Center(
+                  child: Padding(
+                    padding: EdgeInsets.all(24.w),
+                    child: Card(
+                      elevation: 12,
+                      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16.r)),
+                      child: Padding(
+                        padding: EdgeInsets.all(24.w),
+                        child: Column(
+                          mainAxisSize: MainAxisSize.min,
+                          children: [
+                            Icon(
+                              Icons.lock_outline,
+                              size: 48.sp,
+                              color: Colors.red.shade600,
+                            ),
+                            SizedBox(height: 16.h),
+                            Text(
+                              'Please log in to view deliveries',
+                              style: TextStyle(
+                                fontSize: 16.sp,
+                                color: Colors.grey.shade800,
+                                fontWeight: FontWeight.w600,
+                              ),
+                              textAlign: TextAlign.center,
+                            ),
+                          ],
+                        ),
+                      ),
+                    ),
+                  ),
+                );
+              }
+
+              return Column(
+                children: [
+                  Padding(
+                    padding: EdgeInsets.symmetric(vertical: 16.h, horizontal: 24.w),
+                    child: Text(
+                      'Available Deliveries',
+                      style: TextStyle(
+                        fontSize: 24.sp,
+                        fontWeight: FontWeight.bold,
+                        color: Colors.white,
+                      ),
+                    ),
+                  ),
+                  Expanded(
+                    child: StreamBuilder<DocumentSnapshot>(
+                      stream: FirebaseFirestore.instance.collection('drivers').doc(user.uid).snapshots(),
+                      builder: (context, driverSnapshot) {
+                        if (driverSnapshot.hasError) {
+                          print('Driver data error: ${driverSnapshot.error}');
+                          return Center(
+                            child: Card(
+                              elevation: 12,
+                              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16.r)),
+                              child: Padding(
+                                padding: EdgeInsets.all(24.w),
+                                child: Column(
+                                  mainAxisSize: MainAxisSize.min,
+                                  children: [
+                                    Icon(
+                                      Icons.error_outline,
+                                      size: 48.sp,
+                                      color: Colors.red.shade600,
+                                    ),
+                                    SizedBox(height: 16.h),
+                                    Text(
+                                      'Error loading driver data',
+                                      style: TextStyle(
+                                        fontSize: 16.sp,
+                                        color: Colors.grey.shade800,
+                                        fontWeight: FontWeight.w600,
+                                      ),
+                                      textAlign: TextAlign.center,
+                                    ),
+                                    SizedBox(height: 16.h),
+                                    ElevatedButton(
+                                      onPressed: () => setState(() {}),
+                                      style: ElevatedButton.styleFrom(
+                                        backgroundColor: Colors.blue.shade700,
+                                        foregroundColor: Colors.white,
+                                        padding: EdgeInsets.symmetric(horizontal: 32.w, vertical: 12.h),
+                                        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12.r)),
+                                        elevation: 2,
+                                      ),
+                                      child: Text(
+                                        'Retry',
+                                        style: TextStyle(fontSize: 16.sp, fontWeight: FontWeight.w600),
+                                      ),
+                                    ),
+                                  ],
                                 ),
-                                child: Text('Retry', style: TextStyle(fontSize: 14.sp)),
                               ),
-                            ],
-                          ),
-                        );
-                      }
-                      if (!snapshot.hasData) {
-                        return Center(
-                          child: CircularProgressIndicator(color: AppColors.buttonColour),
-                        );
-                      }
-
-                      final pendingDocs = snapshot.data![0].docs;
-                      final acceptedDocs = snapshot.data![1].docs;
-                      final docs = [...pendingDocs, ...acceptedDocs];
-                      print('Fetched ${docs.length} orders (pending: ${pendingDocs.length}, accepted: ${acceptedDocs.length})');
-                      for (var doc in docs) {
-                        print('Order ${doc.id}: ${doc.data()}');
-                      }
-
-                      return StreamBuilder<QuerySnapshot>(
-                        stream: FirebaseFirestore.instance
-                            .collection('drivers')
-                            .doc(user.uid)
-                            .collection('rejected_orders')
-                            .snapshots(),
-                        builder: (context, rejectedSnapshot) {
-                          if (rejectedSnapshot.hasError) {
-                            print('Rejected orders error: ${rejectedSnapshot.error}');
-                            return Center(
-                              child: Text(
-                                'Error loading rejected orders',
-                                style: TextStyle(fontSize: 16.sp, color: AppColors.textColor),
-                              ),
-                            );
-                          }
-                          if (!rejectedSnapshot.hasData) {
-                            return Center(
-                              child: CircularProgressIndicator(color: AppColors.buttonColour),
-                            );
-                          }
-
-                          final rejectedOrderIds = rejectedSnapshot.data!.docs
-                              .map((doc) => doc['orderId'] as String)
-                              .toSet();
-
-                          final orders = docs
-                              .map((doc) {
-                                try {
-                                  return order_model.Order.fromSnapshot(doc);
-                                } catch (e) {
-                                  print('Error parsing order ${doc.id}: $e');
-                                  return null;
-                                }
-                              })
-                              .where((order) => order != null)
-                              .cast<order_model.Order>()
-                              .where((order) => !rejectedOrderIds.contains(order.id))
-                              .where((order) {
-                                if (order.status == 'accepted' && order.driverId == user.uid) {
-                                  return true;
-                                }
-                                if (order.status != 'pending') {
-                                  return false;
-                                }
-                                if (order.vehicleType == null || order.vehicleType!.isEmpty) {
-                                  print('Order ${order.id} has no vehicleType');
-                                  return false;
-                                }
-                                if (!vehicleTypes.contains(order.vehicleType)) {
-                                  print('Order ${order.id} vehicleType ${order.vehicleType} not in driver vehicleTypes $vehicleTypes');
-                                  return false;
-                                }
-                                if (order.pickupLat == null || order.pickupLng == null) {
-                                  print('Invalid coordinates for order ${order.id}: pickupLat=${order.pickupLat}, pickupLng=${order.pickupLng}');
-                                  return false;
-                                }
-                                final pickupLoc = LatLng(order.pickupLat!, order.pickupLng!);
-                                final distance = _calculateDistance(driverLocation, pickupLoc);
-                                print('Order ${order.id} distance: $distance km, vehicleType: ${order.vehicleType}');
-                                return distance <= 5.0;
-                              })
-                              .toList();
-
-                          final pendingOrders = orders.where((order) => order.status == 'pending').toList();
-                          final acceptedOrders = orders
-                              .where((order) => order.status == 'accepted' && order.driverId == user.uid)
-                              .toList();
-
-                          if (pendingOrders.isNotEmpty) {
-                            _audioPlayer.play(AssetSource('sounds/alert.mp3'));
-                          } else {
-                            _audioPlayer.stop();
-                          }
-
-                          order_model.Order? latestAcceptedOrder;
-                          if (acceptedOrders.isNotEmpty) {
-                            acceptedOrders.sort((a, b) => (b.acceptedAt ?? Timestamp.now())
-                                .compareTo(a.acceptedAt ?? Timestamp.now()));
-                            latestAcceptedOrder = acceptedOrders.first;
-                          }
-
-                          final finalOrders = [
-                            ...pendingOrders,
-                            if (latestAcceptedOrder != null) latestAcceptedOrder,
-                          ];
-
-                          print('Filtered orders count: ${finalOrders.length}');
-                          if (finalOrders.isEmpty) {
-                            _audioPlayer.stop();
-                            return Center(
-                              child: Text(
-                                'No matching delivery requests within 5km.',
-                                style: TextStyle(fontSize: 16.sp, color: AppColors.textColor),
-                              ),
-                            );
-                          }
-
-                          finalOrders.sort((a, b) {
-                            if (a.status == 'pending' && b.status != 'pending') {
-                              return -1;
-                            } else if (a.status != 'pending' && b.status == 'pending') {
-                              return 1;
-                            }
-                            return 0;
-                          });
-
-                          return ListView.builder(
-                            itemCount: finalOrders.length,
-                            itemBuilder: (context, index) {
-                              final order = finalOrders[index];
-                              final isPending = order.status == 'pending';
-                              return _buildOrderCard(order, isPending, driverLocation);
-                            },
+                            ),
                           );
-                        },
-                      );
-                    },
-                  );
-                },
-              ),
-            ),
-          ],
-        );
-      },
+                        }
+                        if (!driverSnapshot.hasData || !driverSnapshot.data!.exists) {
+                          return Center(
+                            child: Card(
+                              elevation: 12,
+                              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16.r)),
+                              child: Padding(
+                                padding: EdgeInsets.all(24.w),
+                                child: Column(
+                                  mainAxisSize: MainAxisSize.min,
+                                  children: [
+                                    Icon(
+                                      Icons.error_outline,
+                                      size: 48.sp,
+                                      color: Colors.red.shade600,
+                                    ),
+                                    SizedBox(height: 16.h),
+                                    Text(
+                                      'Driver profile not found',
+                                      style: TextStyle(
+                                        fontSize: 16.sp,
+                                        color: Colors.grey.shade800,
+                                        fontWeight: FontWeight.w600,
+                                      ),
+                                      textAlign: TextAlign.center,
+                                    ),
+                                  ],
+                                ),
+                              ),
+                            ),
+                          );
+                        }
+
+                        final driverData = driverSnapshot.data!.data() as Map<String, dynamic>?;
+                        final vehicleTypes = (driverData?['vehicleTypes'] as String?)?.split(', ')?.toList() ?? [];
+                        print('Driver vehicleTypes: $vehicleTypes');
+
+                        return StreamBuilder<List<QuerySnapshot>>(
+                          stream: Stream.fromFuture(Future.wait([
+                            _ordersCollection
+                                .where('status', isEqualTo: 'pending')
+                                .where('createdAt', isGreaterThanOrEqualTo: recentThreshold)
+                                .get(),
+                            _ordersCollection
+                                .where('status', isEqualTo: 'accepted')
+                                .where('driverId', isEqualTo: user.uid)
+                                .where('createdAt', isGreaterThanOrEqualTo: recentThreshold)
+                                .get(),
+                          ])),
+                          builder: (context, snapshot) {
+                            if (snapshot.hasError) {
+                              final error = snapshot.error.toString();
+                              print('Firestore error: $error');
+                              String errorMessage = 'Error loading orders: $error';
+                              if (error.contains('requires an index')) {
+                                errorMessage = 'Error: Firestore query requires an index. Check the console for a link to create it.';
+                              }
+                              return Center(
+                                child: Card(
+                                  elevation: 12,
+                                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16.r)),
+                                  child: Padding(
+                                    padding: EdgeInsets.all(24.w),
+                                    child: Column(
+                                      mainAxisSize: MainAxisSize.min,
+                                      children: [
+                                        Icon(
+                                          Icons.error_outline,
+                                          size: 48.sp,
+                                          color: Colors.red.shade600,
+                                        ),
+                                        SizedBox(height: 16.h),
+                                        Text(
+                                          errorMessage,
+                                          style: TextStyle(
+                                            fontSize: 16.sp,
+                                            color: Colors.grey.shade800,
+                                            fontWeight: FontWeight.w600,
+                                          ),
+                                          textAlign: TextAlign.center,
+                                        ),
+                                        SizedBox(height: 16.h),
+                                        ElevatedButton(
+                                          onPressed: () => setState(() {}),
+                                          style: ElevatedButton.styleFrom(
+                                            backgroundColor: Colors.blue.shade700,
+                                            foregroundColor: Colors.white,
+                                            padding: EdgeInsets.symmetric(horizontal: 32.w, vertical: 12.h),
+                                            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12.r)),
+                                            elevation: 2,
+                                          ),
+                                          child: Text(
+                                            'Retry',
+                                            style: TextStyle(fontSize: 16.sp, fontWeight: FontWeight.w600),
+                                          ),
+                                        ),
+                                      ],
+                                    ),
+                                  ),
+                                ),
+                              );
+                            }
+                            if (!snapshot.hasData) {
+                              return Center(
+                                child: CircularProgressIndicator(color: Colors.blue.shade700),
+                              );
+                            }
+
+                            final pendingDocs = snapshot.data![0].docs;
+                            final acceptedDocs = snapshot.data![1].docs;
+                            final docs = [...pendingDocs, ...acceptedDocs];
+                            print('Fetched ${docs.length} orders (pending: ${pendingDocs.length}, accepted: ${acceptedDocs.length})');
+                            for (var doc in docs) {
+                              print('Order ${doc.id}: ${doc.data()}');
+                            }
+
+                            return StreamBuilder<QuerySnapshot>(
+                              stream: FirebaseFirestore.instance
+                                  .collection('drivers')
+                                  .doc(user.uid)
+                                  .collection('rejected_orders')
+                                  .snapshots(),
+                              builder: (context, rejectedSnapshot) {
+                                if (rejectedSnapshot.hasError) {
+                                  print('Rejected orders error: ${rejectedSnapshot.error}');
+                                  return Center(
+                                    child: Card(
+                                      elevation: 12,
+                                      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16.r)),
+                                      child: Padding(
+                                        padding: EdgeInsets.all(24.w),
+                                        child: Column(
+                                          mainAxisSize: MainAxisSize.min,
+                                          children: [
+                                            Icon(
+                                              Icons.error_outline,
+                                              size: 48.sp,
+                                              color: Colors.red.shade600,
+                                            ),
+                                            SizedBox(height: 16.h),
+                                            Text(
+                                              'Error loading rejected orders',
+                                              style: TextStyle(
+                                                fontSize: 16.sp,
+                                                color: Colors.grey.shade800,
+                                                fontWeight: FontWeight.w600,
+                                              ),
+                                              textAlign: TextAlign.center,
+                                            ),
+                                          ],
+                                        ),
+                                      ),
+                                    ),
+                                  );
+                                }
+                                if (!rejectedSnapshot.hasData) {
+                                  return Center(
+                                    child: CircularProgressIndicator(color: Colors.blue.shade700),
+                                  );
+                                }
+
+                                final rejectedOrderIds = rejectedSnapshot.data!.docs
+                                    .map((doc) => doc['orderId'] as String)
+                                    .toSet();
+
+                                final orders = docs
+                                    .map((doc) {
+                                      try {
+                                        return order_model.Order.fromSnapshot(doc);
+                                      } catch (e) {
+                                        print('Error parsing order ${doc.id}: $e');
+                                        return null;
+                                      }
+                                    })
+                                    .where((order) => order != null)
+                                    .cast<order_model.Order>()
+                                    .where((order) => !rejectedOrderIds.contains(order.id))
+                                    .where((order) {
+                                      if (order.status == 'accepted' && order.driverId == user.uid) {
+                                        return true;
+                                      }
+                                      if (order.status != 'pending') {
+                                        return false;
+                                      }
+                                      if (order.vehicleType == null || order.vehicleType!.isEmpty) {
+                                        print('Order ${order.id} has no vehicleType');
+                                        return false;
+                                      }
+                                      if (!vehicleTypes.contains(order.vehicleType)) {
+                                        print('Order ${order.id} vehicleType ${order.vehicleType} not in driver vehicleTypes $vehicleTypes');
+                                        return false;
+                                      }
+                                      if (order.pickupLat == null || order.pickupLng == null) {
+                                        print('Invalid coordinates for order ${order.id}: pickupLat=${order.pickupLat}, pickupLng=${order.pickupLng}');
+                                        return false;
+                                      }
+                                      final pickupLoc = LatLng(order.pickupLat!, order.pickupLng!);
+                                      final distance = _calculateDistance(driverLocation, pickupLoc);
+                                      print('Order ${order.id} distance: $distance km, vehicleType: ${order.vehicleType}');
+                                      return distance <= 5.0;
+                                    })
+                                    .toList();
+
+                                final pendingOrders = orders.where((order) => order.status == 'pending').toList();
+                                final acceptedOrders = orders
+                                    .where((order) => order.status == 'accepted' && order.driverId == user.uid)
+                                    .toList();
+
+                                if (pendingOrders.isNotEmpty) {
+                                  _audioPlayer.play(AssetSource('sounds/alert.mp3'));
+                                } else {
+                                  _audioPlayer.stop();
+                                }
+
+                                order_model.Order? latestAcceptedOrder;
+                                if (acceptedOrders.isNotEmpty) {
+                                  acceptedOrders.sort((a, b) => (b.acceptedAt ?? Timestamp.now())
+                                      .compareTo(a.acceptedAt ?? Timestamp.now()));
+                                  latestAcceptedOrder = acceptedOrders.first;
+                                }
+
+                                final finalOrders = [
+                                  ...pendingOrders,
+                                  if (latestAcceptedOrder != null) latestAcceptedOrder,
+                                ];
+
+                                print('Filtered orders count: ${finalOrders.length}');
+                                if (finalOrders.isEmpty) {
+                                  _audioPlayer.stop();
+                                  return Center(
+                                    child: Card(
+                                      elevation: 12,
+                                      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16.r)),
+                                      child: Padding(
+                                        padding: EdgeInsets.all(24.w),
+                                        child: Column(
+                                          mainAxisSize: MainAxisSize.min,
+                                          children: [
+                                            Icon(
+                                              Icons.info_outline,
+                                              size: 48.sp,
+                                              color: Colors.blue.shade700,
+                                            ),
+                                            SizedBox(height: 16.h),
+                                            Text(
+                                              'No matching delivery requests within 5km.',
+                                              style: TextStyle(
+                                                fontSize: 16.sp,
+                                                color: Colors.grey.shade800,
+                                                fontWeight: FontWeight.w600,
+                                              ),
+                                              textAlign: TextAlign.center,
+                                            ),
+                                          ],
+                                        ),
+                                      ),
+                                    ),
+                                  );
+                                }
+
+                                finalOrders.sort((a, b) {
+                                  if (a.status == 'pending' && b.status != 'pending') {
+                                    return -1;
+                                  } else if (a.status != 'pending' && b.status == 'pending') {
+                                    return 1;
+                                  }
+                                  return 0;
+                                });
+
+                                return ListView.builder(
+                                  padding: EdgeInsets.symmetric(vertical: 8.h),
+                                  itemCount: finalOrders.length,
+                                  itemBuilder: (context, index) {
+                                    final order = finalOrders[index];
+                                    final isPending = order.status == 'pending';
+                                    return _buildOrderCard(order, isPending, driverLocation);
+                                  },
+                                );
+                              },
+                            );
+                          },
+                        );
+                      },
+                    ),
+                  ),
+                ],
+              );
+            },
+          ),
+        ),
+      ),
     );
   }
 }

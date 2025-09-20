@@ -11,6 +11,7 @@ import 'package:phone_authentication/bloc/location_cubit/location_state.dart';
 import 'package:phone_authentication/constants/colors.dart';
 import 'package:geolocator/geolocator.dart';
 import 'package:phone_authentication/models/order_model.dart' as order_model;
+import 'package:url_launcher/url_launcher.dart';
 
 class AlertScreen extends StatefulWidget {
   const AlertScreen({super.key});
@@ -156,11 +157,42 @@ class _AlertScreenState extends State<AlertScreen> {
     }
   }
 
+  Future<void> _openGoogleMaps(LatLng driverLocation, LatLng destination, String locationType) async {
+    try {
+      // Validate coordinates
+      if (destination.latitude == 0.0 || destination.longitude == 0.0) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('Invalid $locationType location coordinates')),
+        );
+        return;
+      }
+
+      final String googleMapsUrl =
+          'https://www.google.com/maps/dir/?api=1&origin=${driverLocation.latitude},${driverLocation.longitude}&destination=${destination.latitude},${destination.longitude}&travelmode=driving';
+      final Uri url = Uri.parse(googleMapsUrl);
+
+      if (await canLaunchUrl(url)) {
+        await launchUrl(url, mode: LaunchMode.externalApplication);
+      } else {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('Could not open Google Maps')),
+        );
+      }
+    } catch (e) {
+      print('Error launching Google Maps for $locationType: $e');
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('Error opening Google Maps for $locationType: $e')),
+      );
+    }
+  }
+
   Widget _buildOrderCard(order_model.Order order, bool isPending, LatLng driverLocation) {
     final distanceToPickup = _calculateDistance(
       driverLocation,
       LatLng(order.pickupLat ?? 0.0, order.pickupLng ?? 0.0),
     );
+    final pickupLocation = LatLng(order.pickupLat ?? 0.0, order.pickupLng ?? 0.0);
+    final dropLocation = LatLng(order.dropLat ?? 0.0, order.dropLng ?? 0.0);
     return Card(
       margin: EdgeInsets.symmetric(horizontal: 16.w, vertical: 8.h),
       shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16.r)),
@@ -211,6 +243,42 @@ class _AlertScreenState extends State<AlertScreen> {
             _buildInfoRow(Icons.map, 'Total Distance: ${order.distance.toStringAsFixed(2)} km'),
             _buildInfoRow(Icons.monetization_on, 'Cost: ₹${order.deliveryCost.toStringAsFixed(2)}'),
             SizedBox(height: 16.h),
+            Column(
+              children: [
+                ElevatedButton(
+                  onPressed: () => _openGoogleMaps(driverLocation, pickupLocation, 'pickup'),
+                  style: ElevatedButton.styleFrom(
+                    backgroundColor: Colors.blue.shade500,
+                    foregroundColor: Colors.white,
+                    padding: EdgeInsets.symmetric(vertical: 12.h),
+                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12.r)),
+                    elevation: 2,
+                    minimumSize: Size(double.infinity, 48.h),
+                  ),
+                  child: Text(
+                    'See Pickup on Google Maps',
+                    style: TextStyle(fontSize: 16.sp, fontWeight: FontWeight.w600),
+                  ),
+                ),
+                SizedBox(height: 12.h),
+                ElevatedButton(
+                  onPressed: () => _openGoogleMaps(driverLocation, dropLocation, 'drop-off'),
+                  style: ElevatedButton.styleFrom(
+                    backgroundColor: Colors.blue.shade600,
+                    foregroundColor: Colors.white,
+                    padding: EdgeInsets.symmetric(vertical: 12.h),
+                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12.r)),
+                    elevation: 2,
+                    minimumSize: Size(double.infinity, 48.h),
+                  ),
+                  child: Text(
+                    'See Drop-off on Google Maps',
+                    style: TextStyle(fontSize: 16.sp, fontWeight: FontWeight.w600),
+                  ),
+                ),
+              ],
+            ),
+            SizedBox(height: 12.h),
             if (isPending)
               Row(
                 mainAxisAlignment: MainAxisAlignment.spaceEvenly,
@@ -393,8 +461,7 @@ class _AlertScreenState extends State<AlertScreen> {
                               style: TextStyle(
                                 fontSize: 16.sp,
                                 color: Colors.grey.shade800,
-                                fontWeight: FontWeight.w600,
-                              ),
+                                fontWeight: FontWeight.w600),
                               textAlign: TextAlign.center,
                             ),
                           ],

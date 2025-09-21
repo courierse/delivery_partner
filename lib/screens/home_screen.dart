@@ -49,7 +49,7 @@ class _HomeScreenState extends State<HomeScreen> {
             icon: const Icon(Icons.logout),
             onPressed: () async {
               await context.read<PhoneAuthCubit>().signOut();
-              context.go('/login');
+              context.go('/mobile-entry');
             },
             tooltip: 'Logout',
           ),

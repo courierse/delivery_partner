@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:flutter_screenutil/flutter_screenutil.dart';
 import 'package:go_router/go_router.dart';
+import 'package:pinput/pinput.dart';
 import 'package:phone_authentication/bloc/profile_cubit.dart';
 
 class OtpScreen extends StatefulWidget {
@@ -24,8 +25,8 @@ class _OtpScreenState extends State<OtpScreen> {
 
   void _verifyOTP() {
     final smsCode = _otpController.text.trim();
-    if (smsCode.isEmpty) {
-      setState(() => _statusMessage = 'Please enter OTP');
+    if (smsCode.isEmpty || smsCode.length != 6) {
+      setState(() => _statusMessage = 'Please enter a valid 6-digit OTP');
       return;
     }
     // Pass context to verifyOtp
@@ -40,6 +41,21 @@ class _OtpScreenState extends State<OtpScreen> {
 
   @override
   Widget build(BuildContext context) {
+    final defaultPinTheme = PinTheme(
+      width: 50.w,
+      height: 50.h,
+      textStyle: TextStyle(
+        fontSize: 16.sp,
+        color: Colors.black87,
+        fontWeight: FontWeight.w500,
+      ),
+      decoration: BoxDecoration(
+        border: Border.all(color: Colors.black, width: 2.w),
+        borderRadius: BorderRadius.circular(12.r),
+        color: Colors.white,
+      ),
+    );
+
     return BlocListener<PhoneAuthCubit, PhoneAuthState>(
       listener: (context, state) {
         setState(() => _statusMessage = state.statusMessage);
@@ -101,29 +117,25 @@ class _OtpScreenState extends State<OtpScreen> {
                           textAlign: TextAlign.center,
                         ),
                         SizedBox(height: 16.h),
-                        TextField(
+                        Pinput(
                           controller: _otpController,
-                          decoration: InputDecoration(
-                            labelText: 'Enter OTP',
-                            labelStyle: TextStyle(color: Colors.blueAccent, fontSize: 14.sp),
-                            prefixIcon: Icon(Icons.lock, color: Colors.blueAccent, size: 24.r),
-                            border: OutlineInputBorder(
-                              borderRadius: BorderRadius.all(Radius.circular(12.r)),
-                              borderSide: BorderSide(color: Colors.black, width: 2.w),
+                          length: 6,
+                          defaultPinTheme: defaultPinTheme,
+                          focusedPinTheme: defaultPinTheme.copyWith(
+                            decoration: defaultPinTheme.decoration!.copyWith(
+                              border: Border.all(color: Colors.blueAccent, width: 2.5.w),
                             ),
-                            enabledBorder: OutlineInputBorder(
-                              borderRadius: BorderRadius.all(Radius.circular(12.r)),
-                              borderSide: BorderSide(color: Colors.black, width: 2.w),
-                            ),
-                            focusedBorder: OutlineInputBorder(
-                              borderRadius: BorderRadius.all(Radius.circular(12.r)),
-                              borderSide: BorderSide(color: Colors.black, width: 2.5.w),
-                            ),
-                            filled: true,
-                            fillColor: Colors.white,
-                            contentPadding: EdgeInsets.symmetric(horizontal: 16.w, vertical: 16.h),
                           ),
+                          submittedPinTheme: defaultPinTheme.copyWith(
+                            decoration: defaultPinTheme.decoration!.copyWith(
+                              border: Border.all(color: Colors.blueAccent, width: 2.w),
+                            ),
+                          ),
+                          showCursor: true,
                           keyboardType: TextInputType.number,
+                          onChanged: (value) {
+                            setState(() => _statusMessage = '');
+                          },
                         ),
                         SizedBox(height: 24.h),
                         Container(

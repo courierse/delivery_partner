@@ -24,9 +24,11 @@ class _PhoneAuthPageState extends State<PhoneAuthPage> {
     'address': TextEditingController(),
     'age': TextEditingController(),
     'vehicleTypes': TextEditingController(),
+    'aadharNumber': TextEditingController(),
   };
   Map<String, TextEditingController> _vehicleNumberControllers = {};
   Map<String, XFile?> _rcImages = {};
+  XFile? _aadharImage;
   List<String> _selectedVehicleTypes = [];
   final _vehicleTypesFocus = FocusNode();
   late PhoneAuthCubit _cubit;
@@ -68,6 +70,8 @@ class _PhoneAuthPageState extends State<PhoneAuthPage> {
         });
       }
     });
+    // Initialize Aadhar image from cubit state if available
+    _aadharImage = _cubit.state.aadharImage;
   }
 
   @override
@@ -114,6 +118,36 @@ class _PhoneAuthPageState extends State<PhoneAuthPage> {
     }
   }
 
+  Future<void> _pickAadharImage() async {
+    final picker = ImagePicker();
+    try {
+      final pickedFile = await picker.pickImage(
+        source: ImageSource.gallery,
+        imageQuality: 80,
+        maxHeight: 800,
+        maxWidth: 800,
+      );
+      if (pickedFile != null && (pickedFile.path.endsWith('.jpg') || pickedFile.path.endsWith('.png'))) {
+        setState(() {
+          _aadharImage = pickedFile;
+        });
+        _cubit.updateAadharImage(pickedFile);
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('Aadhar card image selected, will upload after authentication')),
+        );
+      } else {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('Please select a JPG or PNG file')),
+        );
+      }
+    } catch (e) {
+      debugPrint('Error picking Aadhar image: $e');
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('Error picking Aadhar image: $e')),
+      );
+    }
+  }
+
   bool _canSubmitForm() {
     final state = _cubit.state;
     final selectedVehicles = state.fields['vehicleTypes']?.split(', ').where((v) => v.isNotEmpty).toList() ?? [];
@@ -121,6 +155,10 @@ class _PhoneAuthPageState extends State<PhoneAuthPage> {
       if (!state.rcImageFiles.containsKey(vehicleType) || state.rcImageFiles[vehicleType] == null) {
         return false;
       }
+    }
+    // Ensure Aadhar number and image are provided
+    if (state.fields['aadharNumber']?.isEmpty ?? true || state.aadharImage == null) {
+      return false;
     }
     return true;
   }
@@ -570,6 +608,47 @@ class _PhoneAuthPageState extends State<PhoneAuthPage> {
                                 ],
                               );
                             }).toList(),
+                            _buildTextField(
+                              key: 'aadharNumber',
+                              label: 'Enter Aadhar number',
+                              keyboardType: TextInputType.number,
+                              prefixIcon: Icons.credit_card,
+                              errorText: state.errors['aadharNumber'],
+                              context: context,
+                            ),
+                            Padding(
+                              padding: EdgeInsets.only(bottom: 16.h),
+                              child: Row(
+                                children: [
+                                  Expanded(
+                                    child: ElevatedButton(
+                                      onPressed: _pickAadharImage,
+                                      style: ElevatedButton.styleFrom(
+                                        backgroundColor: Colors.blueAccent,
+                                        shape: RoundedRectangleBorder(
+                                          borderRadius: BorderRadius.circular(8.r),
+                                        ),
+                                      ),
+                                      child: Text(
+                                        'Upload Aadhar Card',
+                                        style: TextStyle(fontSize: 14.sp, color: Colors.white),
+                                      ),
+                                    ),
+                                  ),
+                                  SizedBox(width: 8.w),
+                                  if (_aadharImage != null)
+                                    Icon(Icons.check_circle, color: Colors.green, size: 24.sp),
+                                ],
+                              ),
+                            ),
+                            if (state.errors['aadharImage'] != null)
+                              Padding(
+                                padding: EdgeInsets.only(bottom: 8.h),
+                                child: Text(
+                                  state.errors['aadharImage']!,
+                                  style: TextStyle(color: Colors.red, fontSize: 12.sp),
+                                ),
+                              ),
                             SizedBox(height: 8.h),
                             Container(
                               decoration: BoxDecoration(

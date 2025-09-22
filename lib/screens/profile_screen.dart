@@ -22,51 +22,79 @@ class _ProfileScreenState extends State<ProfileScreen> {
   late TextEditingController _phoneController;
   late TextEditingController _addressController;
   late TextEditingController _ageController;
-  late TextEditingController _vehicleController;
   late TextEditingController _vehicleTypesController;
+  late TextEditingController _aadharNumberController;
+  Map<String, TextEditingController> _vehicleNumberControllers = {};
   List<String> _selectedVehicleTypes = [];
   final _vehicleTypesFocus = FocusNode();
 
   @override
   void initState() {
     super.initState();
+    debugPrint('ProfileScreen: Initializing controllers');
     _nameController = TextEditingController();
     _phoneController = TextEditingController();
     _addressController = TextEditingController();
     _ageController = TextEditingController();
-    _vehicleController = TextEditingController();
     _vehicleTypesController = TextEditingController();
+    _aadharNumberController = TextEditingController();
+    debugPrint('ProfileScreen: Controllers initialized');
   }
 
   @override
   void dispose() {
+    debugPrint('ProfileScreen: Disposing controllers');
     _nameController.dispose();
     _phoneController.dispose();
     _addressController.dispose();
     _ageController.dispose();
-    _vehicleController.dispose();
     _vehicleTypesController.dispose();
+    _aadharNumberController.dispose();
+    _vehicleNumberControllers.forEach((_, controller) => controller.dispose());
     _vehicleTypesFocus.dispose();
     super.dispose();
   }
 
   Future<Map<String, dynamic>?> _fetchUserData() async {
     final user = FirebaseAuth.instance.currentUser;
-    if (user == null) return null;
-
-    final doc = await FirebaseFirestore.instance
-        .collection('drivers')
-        .doc(user.uid)
-        .get();
-    if (doc.exists) {
-      final data = doc.data() as Map<String, dynamic>;
-      _selectedVehicleTypes = (data['vehicleTypes'] as String?)?.isNotEmpty ?? false
-          ? data['vehicleTypes'].split(', ').toList()
-          : [];
-      _vehicleTypesController.text = _selectedVehicleTypes.join(', ');
-      return data;
+    if (user == null) {
+      debugPrint('ProfileScreen: No user logged in');
+      return null;
     }
-    return null;
+
+    try {
+      debugPrint('ProfileScreen: Fetching data for user: ${user.uid}');
+      final doc = await FirebaseFirestore.instance
+          .collection('drivers')
+          .doc(user.uid)
+          .get();
+      if (doc.exists) {
+        final data = doc.data() as Map<String, dynamic>;
+        debugPrint('ProfileScreen: Fetched user data: $data');
+        _nameController.text = data['name'] ?? '';
+        _phoneController.text = data['phone']?.replaceFirst('+91', '') ?? '';
+        _addressController.text = data['address'] ?? '';
+        _ageController.text = data['age'] ?? '';
+        _aadharNumberController.text = data['aadharNumber'] ?? '';
+        _selectedVehicleTypes = (data['vehicleTypes'] as String?)?.isNotEmpty ?? false
+            ? data['vehicleTypes'].split(', ').toList()
+            : [];
+        _vehicleTypesController.text = _selectedVehicleTypes.join(', ');
+        _vehicleNumberControllers = {};
+        final vehicleNumbers = data['vehicleNumbers'] as Map<String, dynamic>? ?? {};
+        vehicleNumbers.forEach((vehicleType, number) {
+          _vehicleNumberControllers[vehicleType] = TextEditingController(text: number);
+        });
+        debugPrint('ProfileScreen: Initialized controllers with data');
+        return data;
+      } else {
+        debugPrint('ProfileScreen: No profile data found for user: ${user.uid}');
+        return null;
+      }
+    } catch (e) {
+      debugPrint('ProfileScreen: Error fetching user data: $e');
+      return null;
+    }
   }
 
   void _toggleEditMode() {
@@ -75,6 +103,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
       if (!_isEditing) {
         _formKey.currentState?.reset();
       }
+      debugPrint('ProfileScreen: Edit mode toggled to: $_isEditing');
     });
   }
 
@@ -83,29 +112,37 @@ class _ProfileScreenState extends State<ProfileScreen> {
       final cubit = context.read<PhoneAuthCubit>();
       final fields = {
         'name': _nameController.text,
+        'phone': _phoneController.text,
         'address': _addressController.text,
         'age': _ageController.text,
-        'vehicle': _vehicleController.text,
         'vehicleTypes': _vehicleTypesController.text,
-        'phone': _phoneController.text,
+        'aadharNumber': _aadharNumberController.text,
       };
 
+      debugPrint('ProfileScreen: Updating cubit with fields: $fields');
       fields.forEach((key, value) {
         cubit.updateField(key, value);
+      });
+
+      _vehicleNumberControllers.forEach((vehicleType, controller) {
+        cubit.updateVehicleNumber(vehicleType, controller.text);
       });
 
       try {
         final user = FirebaseAuth.instance.currentUser;
         if (user != null) {
-          await FirebaseFirestore.instance.collection('drivers').doc(user.uid).set({
+          final data = {
             'name': _nameController.text,
+            'phone': _phoneController.text.startsWith('+91') ? _phoneController.text : '+91${_phoneController.text}',
             'address': _addressController.text,
             'age': _ageController.text,
-            'vehicle': _vehicleController.text,
             'vehicleTypes': _vehicleTypesController.text,
-            'phone': _phoneController.text,
+            'aadharNumber': _aadharNumberController.text,
+            'vehicleNumbers': _vehicleNumberControllers.map((key, controller) => MapEntry(key, controller.text)),
             'updatedAt': FieldValue.serverTimestamp(),
-          }, SetOptions(merge: true));
+          };
+          debugPrint('ProfileScreen: Saving profile data to Firestore: $data');
+          await FirebaseFirestore.instance.collection('drivers').doc(user.uid).set(data, SetOptions(merge: true));
 
           ScaffoldMessenger.of(context).showSnackBar(
             SnackBar(
@@ -124,8 +161,11 @@ class _ProfileScreenState extends State<ProfileScreen> {
             ),
           );
           _toggleEditMode();
+        } else {
+          debugPrint('ProfileScreen: No user logged in during save');
         }
       } catch (e) {
+        debugPrint('ProfileScreen: Error saving profile: $e');
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
             content: Row(
@@ -143,6 +183,8 @@ class _ProfileScreenState extends State<ProfileScreen> {
           ),
         );
       }
+    } else {
+      debugPrint('ProfileScreen: Form validation failed');
     }
   }
 
@@ -208,8 +250,10 @@ class _ProfileScreenState extends State<ProfileScreen> {
                       setModalState(() {
                         if (isSelected) {
                           _selectedVehicleTypes.remove(vehicle['name']);
+                          _vehicleNumberControllers.remove(vehicle['name'])?.dispose();
                         } else {
                           _selectedVehicleTypes.add(vehicle['name']!);
+                          _vehicleNumberControllers[vehicle['name']!] = TextEditingController();
                         }
                       });
                     },
@@ -265,8 +309,10 @@ class _ProfileScreenState extends State<ProfileScreen> {
                               setModalState(() {
                                 if (val == true) {
                                   _selectedVehicleTypes.add(vehicle['name']!);
+                                  _vehicleNumberControllers[vehicle['name']!] = TextEditingController();
                                 } else {
                                   _selectedVehicleTypes.remove(vehicle['name']);
+                                  _vehicleNumberControllers.remove(vehicle['name'])?.dispose();
                                 }
                               });
                             },
@@ -285,9 +331,9 @@ class _ProfileScreenState extends State<ProfileScreen> {
         },
       ),
     ).then((_) {
-      // Update after bottom sheet closes
       setState(() {
         _vehicleTypesController.text = _selectedVehicleTypes.join(', ');
+        debugPrint('ProfileScreen: Vehicle types updated: ${_vehicleTypesController.text}');
       });
     });
   }
@@ -324,6 +370,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
               future: _fetchUserData(),
               builder: (context, snapshot) {
                 if (snapshot.connectionState == ConnectionState.waiting) {
+                  debugPrint('ProfileScreen: Waiting for user data');
                   return Center(
                     child: CircularProgressIndicator(
                       valueColor: const AlwaysStoppedAnimation<Color>(Color(0xFF1565C0)),
@@ -332,19 +379,13 @@ class _ProfileScreenState extends State<ProfileScreen> {
                   );
                 }
                 if (snapshot.hasError) {
+                  debugPrint('ProfileScreen: Snapshot error: ${snapshot.error}');
                   return _buildErrorState();
                 }
                 if (!snapshot.hasData || snapshot.data == null) {
+                  debugPrint('ProfileScreen: No profile data in snapshot');
                   return _buildNoDataState();
                 }
-
-                final data = snapshot.data!;
-                _nameController.text = data['name'] ?? '';
-                _phoneController.text = data['phone'] ?? '';
-                _addressController.text = data['address'] ?? '';
-                _ageController.text = data['age'] ?? '';
-                _vehicleController.text = data['vehicle'] ?? '';
-                _vehicleTypesController.text = data['vehicleTypes'] ?? '';
 
                 return _buildProfileContent();
               },
@@ -611,12 +652,13 @@ class _ProfileScreenState extends State<ProfileScreen> {
                   SizedBox(width: 8.w),
                   Expanded(
                     child: _buildModernProfileField(
-                      icon: Icons.directions_car,
-                      label: 'Vehicle',
-                      value: _vehicleController.text,
-                      controller: _vehicleController,
+                      icon: Icons.credit_card,
+                      label: 'Aadhar Number',
+                      value: _aadharNumberController.text,
+                      controller: _aadharNumberController,
                       enabled: _isEditing,
-                      validator: (value) => validateField('vehicle', value ?? ''),
+                      validator: (value) => validateField('aadharNumber', value ?? '', validateAadharNumber: true),
+                      keyboardType: TextInputType.number,
                       fontScale: fontScale,
                     ),
                   ),
@@ -636,6 +678,22 @@ class _ProfileScreenState extends State<ProfileScreen> {
                 showArrow: _isEditing,
                 fontScale: fontScale,
               ),
+              ..._selectedVehicleTypes.map((vehicleType) {
+                return Column(
+                  children: [
+                    SizedBox(height: 6.h),
+                    _buildModernProfileField(
+                      icon: Icons.directions_car,
+                      label: 'Vehicle Number ($vehicleType)',
+                      value: _vehicleNumberControllers[vehicleType]?.text ?? '',
+                      controller: _vehicleNumberControllers[vehicleType],
+                      enabled: _isEditing,
+                      validator: (value) => validateField('vehicleNumber_$vehicleType', value ?? '', validateVehicleNumber: true),
+                      fontScale: fontScale,
+                    ),
+                  ],
+                );
+              }).toList(),
             ],
           ),
         ),

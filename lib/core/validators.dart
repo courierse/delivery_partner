@@ -1,6 +1,6 @@
 import 'package:flutter/material.dart';
 
-String? validateField(String key, String value, {bool validateVehicleNumber = false}) {
+String? validateField(String key, String value, {bool validateVehicleNumber = false, bool validateAadharNumber = false}) {
   final validators = {
     'name': (String value) =>
         value.trim().isEmpty ? 'Name is required' : null,
@@ -21,6 +21,12 @@ String? validateField(String key, String value, {bool validateVehicleNumber = fa
     },
     'vehicleTypes': (String value) =>
         value.trim().isEmpty ? 'At least one vehicle type is required' : null,
+    'aadharNumber': (String value) =>
+        value.trim().isEmpty
+            ? 'Aadhar number is required'
+            : !RegExp(r'^\d{12}$').hasMatch(value.trim())
+                ? 'Aadhar number must be exactly 12 digits'
+                : null,
   };
 
   if (key.startsWith('vehicleNumber_') && validateVehicleNumber) {
@@ -28,6 +34,14 @@ String? validateField(String key, String value, {bool validateVehicleNumber = fa
         ? 'Enter in correct format MH32TY8923'
         : !RegExp(r'^[A-Z]{2}\d{2}[A-Z]{1,2}\d{4}$').hasMatch(value.trim())
             ? 'Enter in correct format MH32TY8923'
+            : null;
+  }
+
+  if (key == 'aadharNumber' && validateAadharNumber) {
+    return value.trim().isEmpty
+        ? 'Aadhar number is required'
+        : !RegExp(r'^\d{12}$').hasMatch(value.trim())
+            ? 'Aadhar number must be exactly 12 digits'
             : null;
   }
 

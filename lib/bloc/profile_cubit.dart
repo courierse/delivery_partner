@@ -31,6 +31,7 @@ class PhoneAuthCubit extends Cubit<PhoneAuthState> {
         vehicleNumbers: state.vehicleNumbers,
         rcImageFiles: state.rcImageFiles,
         rcImages: state.rcImages,
+        aadharImage: state.aadharImage,
       ));
     }
   }
@@ -38,9 +39,16 @@ class PhoneAuthCubit extends Cubit<PhoneAuthState> {
   void updateField(String key, String value) {
     final fields = Map<String, String>.from(state.fields)..[key] = value;
     final errors = Map<String, String?>.from(state.errors);
-    errors[key] = validateField(key, value);
+    errors[key] = validateField(key, value, validateAadharNumber: key == 'aadharNumber');
     debugPrint('Updating field: $key = $value, error: ${errors[key]}, new fields: $fields');
-    emit(state.copyWith(fields: fields, errors: errors, vehicleNumbers: state.vehicleNumbers, rcImageFiles: state.rcImageFiles, rcImages: state.rcImages));
+    emit(state.copyWith(
+      fields: fields,
+      errors: errors,
+      vehicleNumbers: state.vehicleNumbers,
+      rcImageFiles: state.rcImageFiles,
+      rcImages: state.rcImages,
+      aadharImage: state.aadharImage,
+    ));
   }
 
   void updateVehicleNumber(String vehicleType, String number) {
@@ -48,7 +56,14 @@ class PhoneAuthCubit extends Cubit<PhoneAuthState> {
     final errors = Map<String, String?>.from(state.errors);
     errors['vehicleNumber_$vehicleType'] = validateField('vehicleNumber_$vehicleType', number, validateVehicleNumber: true);
     debugPrint('Updating vehicle number: $vehicleType = $number, error: ${errors['vehicleNumber_$vehicleType']}, new vehicleNumbers: $vehicleNumbers');
-    emit(state.copyWith(vehicleNumbers: vehicleNumbers, errors: errors, fields: state.fields, rcImageFiles: state.rcImageFiles, rcImages: state.rcImages));
+    emit(state.copyWith(
+      vehicleNumbers: vehicleNumbers,
+      errors: errors,
+      fields: state.fields,
+      rcImageFiles: state.rcImageFiles,
+      rcImages: state.rcImages,
+      aadharImage: state.aadharImage,
+    ));
   }
 
   void updateRcImage(String vehicleType, XFile image) {
@@ -60,6 +75,21 @@ class PhoneAuthCubit extends Cubit<PhoneAuthState> {
       vehicleNumbers: state.vehicleNumbers,
       rcImages: state.rcImages,
       errors: state.errors,
+      aadharImage: state.aadharImage,
+    ));
+  }
+
+  void updateAadharImage(XFile? image) {
+    debugPrint('Stored Aadhar image: ${image?.path}');
+    final errors = Map<String, String?>.from(state.errors);
+    errors['aadharImage'] = image == null ? 'Aadhar image is required' : null;
+    emit(state.copyWith(
+      aadharImage: image,
+      errors: errors,
+      fields: state.fields,
+      vehicleNumbers: state.vehicleNumbers,
+      rcImageFiles: state.rcImageFiles,
+      rcImages: state.rcImages,
     ));
   }
 
@@ -73,6 +103,7 @@ class PhoneAuthCubit extends Cubit<PhoneAuthState> {
       fields: state.fields,
       vehicleNumbers: state.vehicleNumbers,
       errors: state.errors,
+      aadharImage: state.aadharImage,
     ));
   }
 
@@ -93,7 +124,6 @@ class PhoneAuthCubit extends Cubit<PhoneAuthState> {
     if (phoneNumber != null) {
       // Handle phone-only submission from MobileEntryPage
       final submitPhoneNumber = phoneNumber.startsWith('+91') ? phoneNumber : '+91$phoneNumber';
-      // Skip validation for phone-only submission
       debugPrint('Submitting phone-only: $submitPhoneNumber');
     } else {
       // Full form submission from PhoneAuthPage
@@ -107,7 +137,7 @@ class PhoneAuthCubit extends Cubit<PhoneAuthState> {
       }
 
       fields.forEach((key, value) {
-        final error = validateField(key, value);
+        final error = validateField(key, value, validateAadharNumber: key == 'aadharNumber');
         errors[key] = error;
         if (error != null) {
           debugPrint('Validation error for $key: $error');
@@ -130,6 +160,12 @@ class PhoneAuthCubit extends Cubit<PhoneAuthState> {
           hasError = true;
         }
       }
+
+      // Validate Aadhar image
+      if (state.aadharImage == null) {
+        errors['aadharImage'] = 'Aadhar image is required';
+        hasError = true;
+      }
     }
 
     if (hasError) {
@@ -141,6 +177,7 @@ class PhoneAuthCubit extends Cubit<PhoneAuthState> {
         vehicleNumbers: vehicleNumbers,
         rcImageFiles: rcImageFiles,
         rcImages: rcImages,
+        aadharImage: state.aadharImage,
       ));
       return;
     }
@@ -158,39 +195,54 @@ class PhoneAuthCubit extends Cubit<PhoneAuthState> {
         vehicleNumbers: vehicleNumbers,
         rcImageFiles: rcImageFiles,
         rcImages: rcImages,
+        aadharImage: state.aadharImage,
       ));
 
       await FirebaseAuth.instance.verifyPhoneNumber(
         phoneNumber: submitPhoneNumber,
         verificationCompleted: (PhoneAuthCredential credential) async {
           debugPrint('Verification completed automatically with credential');
-          await FirebaseAuth.instance.signInWithCredential(credential);
-          final user = FirebaseAuth.instance.currentUser;
-          if (user != null) {
-            debugPrint('User signed in: ${user.uid}');
-            if (phoneNumber == null) {
-              // Only save data if coming from PhoneAuthPage (full form)
-              await _saveUserDataToFirestore(user.uid);
+          try {
+            await FirebaseAuth.instance.signInWithCredential(credential);
+            final user = FirebaseAuth.instance.currentUser;
+            if (user != null) {
+              debugPrint('User signed in: ${user.uid}');
+              if (phoneNumber == null) {
+                // Only save data if coming from PhoneAuthPage (full form)
+                await _saveUserDataToFirestore(user.uid);
+              }
+              emit(state.copyWith(
+                user: user,
+                statusMessage: 'Authentication successful',
+                isCodeSent: false,
+                phoneNumber: null,
+                verificationId: null,
+                fields: fields,
+                vehicleNumbers: vehicleNumbers,
+                rcImageFiles: rcImageFiles,
+                rcImages: rcImages,
+                aadharImage: state.aadharImage,
+              ));
+            } else {
+              debugPrint('Error: User is null after sign-in');
+              emit(state.copyWith(
+                statusMessage: 'Error: Authentication failed',
+                fields: fields,
+                vehicleNumbers: vehicleNumbers,
+                rcImageFiles: rcImageFiles,
+                rcImages: rcImages,
+                aadharImage: state.aadharImage,
+              ));
             }
+          } catch (e) {
+            debugPrint('Error during auto-verification sign-in: $e');
             emit(state.copyWith(
-              user: user,
-              statusMessage: 'Authentication successful',
-              isCodeSent: false,
-              phoneNumber: null,
-              verificationId: null,
+              statusMessage: 'Error: Authentication failed - $e',
               fields: fields,
               vehicleNumbers: vehicleNumbers,
               rcImageFiles: rcImageFiles,
               rcImages: rcImages,
-            ));
-          } else {
-            debugPrint('Error: User is null after sign-in');
-            emit(state.copyWith(
-              statusMessage: 'Error: Authentication failed',
-              fields: fields,
-              vehicleNumbers: vehicleNumbers,
-              rcImageFiles: rcImageFiles,
-              rcImages: rcImages,
+              aadharImage: state.aadharImage,
             ));
           }
         },
@@ -205,6 +257,7 @@ class PhoneAuthCubit extends Cubit<PhoneAuthState> {
             vehicleNumbers: vehicleNumbers,
             rcImageFiles: rcImageFiles,
             rcImages: rcImages,
+            aadharImage: state.aadharImage,
           ));
         },
         codeSent: (String verificationId, int? resendToken) {
@@ -218,6 +271,7 @@ class PhoneAuthCubit extends Cubit<PhoneAuthState> {
             vehicleNumbers: vehicleNumbers,
             rcImageFiles: rcImageFiles,
             rcImages: rcImages,
+            aadharImage: state.aadharImage,
           ));
         },
         codeAutoRetrievalTimeout: (String verificationId) {
@@ -232,6 +286,7 @@ class PhoneAuthCubit extends Cubit<PhoneAuthState> {
         vehicleNumbers: vehicleNumbers,
         rcImageFiles: rcImageFiles,
         rcImages: rcImages,
+        aadharImage: state.aadharImage,
       ));
     }
   }
@@ -239,7 +294,14 @@ class PhoneAuthCubit extends Cubit<PhoneAuthState> {
   void verifyOtp(String smsCode, String verificationId, BuildContext context) async {
     try {
       debugPrint('Verifying OTP: smsCode=$smsCode, verificationId=$verificationId');
-      emit(state.copyWith(statusMessage: 'Verifying OTP...', fields: state.fields, vehicleNumbers: state.vehicleNumbers, rcImageFiles: state.rcImageFiles, rcImages: state.rcImages));
+      emit(state.copyWith(
+        statusMessage: 'Verifying OTP...',
+        fields: state.fields,
+        vehicleNumbers: state.vehicleNumbers,
+        rcImageFiles: state.rcImageFiles,
+        rcImages: state.rcImages,
+        aadharImage: state.aadharImage,
+      ));
 
       final credential = PhoneAuthProvider.credential(
         verificationId: verificationId,
@@ -253,10 +315,9 @@ class PhoneAuthCubit extends Cubit<PhoneAuthState> {
         final driverRef = FirebaseFirestore.instance.collection('drivers').doc(user.uid);
         final driverDoc = await driverRef.get();
         if (driverDoc.exists) {
-          // If driver data exists, skip saving new data
           debugPrint('Driver data exists, skipping save');
         } else {
-          // Save data if it was a new registration
+          debugPrint('Saving new driver data for user: ${user.uid}');
           await _saveUserDataToFirestore(user.uid);
         }
         emit(state.copyWith(
@@ -269,15 +330,30 @@ class PhoneAuthCubit extends Cubit<PhoneAuthState> {
           vehicleNumbers: state.vehicleNumbers,
           rcImageFiles: state.rcImageFiles,
           rcImages: state.rcImages,
+          aadharImage: state.aadharImage,
         ));
         context.go('/home');
       } else {
         debugPrint('Error: User is null after OTP verification');
-        emit(state.copyWith(statusMessage: 'Error: Authentication failed', fields: state.fields, vehicleNumbers: state.vehicleNumbers, rcImageFiles: state.rcImageFiles, rcImages: state.rcImages));
+        emit(state.copyWith(
+          statusMessage: 'Error: Authentication failed',
+          fields: state.fields,
+          vehicleNumbers: state.vehicleNumbers,
+          rcImageFiles: state.rcImageFiles,
+          rcImages: state.rcImages,
+          aadharImage: state.aadharImage,
+        ));
       }
     } catch (e) {
       debugPrint('Error verifying OTP: $e');
-      emit(state.copyWith(statusMessage: 'Error: $e', fields: state.fields, vehicleNumbers: state.vehicleNumbers, rcImageFiles: state.rcImageFiles, rcImages: state.rcImages));
+      emit(state.copyWith(
+        statusMessage: 'Error: $e',
+        fields: state.fields,
+        vehicleNumbers: state.vehicleNumbers,
+        rcImageFiles: state.rcImageFiles,
+        rcImages: state.rcImages,
+        aadharImage: state.aadharImage,
+      ));
     }
   }
 
@@ -294,46 +370,95 @@ class PhoneAuthCubit extends Cubit<PhoneAuthState> {
       ));
     } catch (e) {
       debugPrint('Error signing out: $e');
-      emit(state.copyWith(statusMessage: 'Error logging out: $e', fields: state.fields, vehicleNumbers: state.vehicleNumbers, rcImageFiles: state.rcImageFiles, rcImages: state.rcImages));
+      emit(state.copyWith(
+        statusMessage: 'Error logging out: $e',
+        fields: state.fields,
+        vehicleNumbers: state.vehicleNumbers,
+        rcImageFiles: state.rcImageFiles,
+        rcImages: state.rcImages,
+        aadharImage: state.aadharImage,
+      ));
     }
   }
 
   Future<void> _saveUserDataToFirestore(String uid) async {
     try {
-      debugPrint('Saving user data to Firestore: uid=$uid, fields=${state.fields}, vehicleNumbers=${state.vehicleNumbers}, rcImageFiles=${state.rcImageFiles}');
-      final rcImages = <String, String>{};
-      for (var entry in state.rcImageFiles.entries) {
-        final vehicleType = entry.key;
-        final image = entry.value;
-        if (image != null) {
-          final storageRef = FirebaseStorage.instance
-              .ref()
-              .child('drivers/$uid/rc_images/$vehicleType-${DateTime.now().millisecondsSinceEpoch}.jpg');
-          await storageRef.putFile(File(image.path));
-          final downloadUrl = await storageRef.getDownloadURL();
-          rcImages[vehicleType] = downloadUrl;
-          debugPrint('Uploaded RC image for $vehicleType: $downloadUrl');
-        }
-      }
-
+      debugPrint('Attempting to save user data to Firestore: uid=$uid, fields=${state.fields}, vehicleNumbers=${state.vehicleNumbers}, rcImageFiles=${state.rcImageFiles.keys}, aadharImage=${state.aadharImage?.path}');
+      
+      // Save profile data first, regardless of image upload success
       final driverRef = FirebaseFirestore.instance.collection('drivers').doc(uid);
-      await driverRef.set({
+      final data = {
         'name': state.fields['name'] ?? '',
         'phone': state.fields['phone']!.startsWith('+91') ? state.fields['phone']! : '+91${state.fields['phone']}',
         'address': state.fields['address'] ?? '',
         'age': state.fields['age'] ?? '',
         'vehicleNumbers': state.vehicleNumbers,
         'vehicleTypes': state.fields['vehicleTypes'] ?? '',
-        'rcImages': rcImages,
+        'aadharNumber': state.fields['aadharNumber'] ?? '',
         'createdAt': FieldValue.serverTimestamp(),
-      }, SetOptions(merge: true));
-      debugPrint('User data saved to Firestore');
+      };
+      debugPrint('Saving initial profile data to Firestore: $data');
+      await driverRef.set(data, SetOptions(merge: true));
+      debugPrint('Initial profile data saved to Firestore successfully');
+
+      // Attempt to upload RC images
+      final rcImages = <String, String>{};
+      for (var entry in state.rcImageFiles.entries) {
+        final vehicleType = entry.key;
+        final image = entry.value;
+        if (image != null) {
+          try {
+            final storageRef = FirebaseStorage.instance
+                .ref()
+                .child('drivers/$uid/rc_images/$vehicleType-${DateTime.now().millisecondsSinceEpoch}.jpg');
+            debugPrint('Uploading RC image for $vehicleType to ${storageRef.fullPath}');
+            await storageRef.putFile(File(image.path));
+            final downloadUrl = await storageRef.getDownloadURL();
+            rcImages[vehicleType] = downloadUrl;
+            debugPrint('Uploaded RC image for $vehicleType: $downloadUrl');
+          } catch (e) {
+            debugPrint('Error uploading RC image for $vehicleType: $e');
+            // Continue to next image instead of failing entirely
+          }
+        }
+      }
+
+      // Attempt to upload Aadhar image
+      String? aadharImageUrl;
+      if (state.aadharImage != null) {
+        try {
+          final storageRef = FirebaseStorage.instance
+              .ref()
+              .child('drivers/$uid/aadhar_image/aadhar-${DateTime.now().millisecondsSinceEpoch}.jpg');
+          debugPrint('Uploading Aadhar image to ${storageRef.fullPath}');
+          await storageRef.putFile(File(state.aadharImage!.path));
+          aadharImageUrl = await storageRef.getDownloadURL();
+          debugPrint('Uploaded Aadhar image: $aadharImageUrl');
+        } catch (e) {
+          debugPrint('Error uploading Aadhar image: $e');
+          // Continue instead of failing entirely
+        }
+      }
+
+      // Update Firestore with image URLs if available
+      if (rcImages.isNotEmpty || aadharImageUrl != null) {
+        final updateData = {
+          if (rcImages.isNotEmpty) 'rcImages': rcImages,
+          if (aadharImageUrl != null) 'aadharImage': aadharImageUrl,
+          'updatedAt': FieldValue.serverTimestamp(),
+        };
+        debugPrint('Updating Firestore with image URLs: $updateData');
+        await driverRef.set(updateData, SetOptions(merge: true));
+        debugPrint('Image URLs saved to Firestore successfully');
+      }
+
       emit(state.copyWith(
         rcImages: rcImages,
         statusMessage: 'User data saved successfully',
         fields: state.fields,
         vehicleNumbers: state.vehicleNumbers,
         rcImageFiles: state.rcImageFiles,
+        aadharImage: state.aadharImage,
       ));
     } catch (e) {
       debugPrint('Error saving to Firestore: $e');
@@ -343,6 +468,7 @@ class PhoneAuthCubit extends Cubit<PhoneAuthState> {
         vehicleNumbers: state.vehicleNumbers,
         rcImageFiles: state.rcImageFiles,
         rcImages: state.rcImages,
+        aadharImage: state.aadharImage,
       ));
     }
   }

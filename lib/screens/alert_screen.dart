@@ -313,7 +313,7 @@ class _AlertScreenState extends State<AlertScreen> {
             _buildInfoRow(Icons.person, 'Contact: ${order.pickupName} - ${order.pickupPhone}'),
             _buildInfoRow(Icons.local_shipping, 'Drop-off: ${order.dropLocation}'),
             _buildInfoRow(Icons.person, 'Contact: ${order.dropName} - ${order.dropPhone}'),
-            _buildInfoRow(Icons.scale, 'Weight: ${order.weightRange}'),
+            // _buildInfoRow(Icons.scale, 'Weight: ${order.weightRange}'),
             _buildInfoRow(Icons.directions_car, 'Vehicle: ${order.vehicleType}'),
             _buildInfoRow(Icons.social_distance, 'Distance to Pickup: ${distanceToPickup.toStringAsFixed(2)} km'),
             _buildInfoRow(Icons.map, 'Total Distance: ${order.distance.toStringAsFixed(2)} km'),

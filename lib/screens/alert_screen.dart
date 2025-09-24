@@ -38,7 +38,7 @@ class _AlertScreenState extends State<AlertScreen> {
   void dispose() {
     _audioPlayer.stop();
     _audioPlayer.dispose();
-    _ordersSubscription?.cancel(); // Cancel the subscription on dispose
+    _ordersSubscription?.cancel();
     super.dispose();
   }
 
@@ -51,7 +51,7 @@ class _AlertScreenState extends State<AlertScreen> {
         .where('createdAt', isGreaterThanOrEqualTo: Timestamp.fromDate(DateTime.now().subtract(const Duration(hours: 1))))
         .snapshots()
         .listen((snapshot) async {
-      if (!mounted) return; // Check if widget is still mounted
+      if (!mounted) return;
 
       final locationState = context.read<LocationCubit>().state;
       if (locationState is! CurrentLocationUpdated) return;
@@ -83,6 +83,32 @@ class _AlertScreenState extends State<AlertScreen> {
       }
     }, onError: (error) {
       print('Error listening to orders: $error');
+    });
+
+    // Listen for accepted or cancelled orders
+    _ordersSubscription = _ordersCollection
+        .where('driverId', isEqualTo: user.uid)
+        .where('status', whereIn: ['accepted', 'cancelled']) // Fixed syntax
+        .snapshots()
+        .listen((snapshot) async {
+      if (!mounted) return;
+
+      for (var doc in snapshot.docChanges) {
+        final order = order_model.Order.fromSnapshot(doc.doc);
+        if (order.status == 'cancelled' && order.cancelledByUser == true) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(
+              content: Text('Order ${order.id} has been cancelled by the user.'),
+              duration: const Duration(seconds: 5),
+            ),
+          );
+          await _audioPlayer.play(AssetSource('sounds/cancel_alert.mp3')); // Optional cancellation sound
+          await Future.delayed(const Duration(seconds: 5));
+          await _audioPlayer.stop();
+        }
+      }
+    }, onError: (error) {
+      print('Error listening to cancellations: $error');
     });
   }
 
@@ -169,7 +195,7 @@ class _AlertScreenState extends State<AlertScreen> {
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(content: Text('Order accepted!')),
       );
-      setState(() {}); // Refresh UI after accepting
+      setState(() {});
     } catch (e) {
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(content: Text('Failed to accept order: $e')),
@@ -200,7 +226,7 @@ class _AlertScreenState extends State<AlertScreen> {
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(content: Text('Order rejected.')),
       );
-      setState(() {}); // Refresh UI after rejecting
+      setState(() {});
     } catch (e) {
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(content: Text('Failed to reject order: $e')),

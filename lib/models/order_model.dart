@@ -21,6 +21,7 @@ class Order {
   final String? driverId;
   final Timestamp? acceptedAt;
   final String? vehicleType;
+  final bool? cancelledByUser; // Added to support cancellation notification
 
   Order({
     required this.id,
@@ -43,6 +44,7 @@ class Order {
     this.driverId,
     this.acceptedAt,
     this.vehicleType,
+    this.cancelledByUser, // Added to the constructor
   });
 
   factory Order.fromSnapshot(DocumentSnapshot snapshot) {
@@ -68,6 +70,7 @@ class Order {
       driverId: data['driverId'],
       acceptedAt: data['acceptedAt'],
       vehicleType: data['vehicleType'],
+      cancelledByUser: data['cancelledByUser'] as bool?, // Added to parse the field
     );
   }
 }

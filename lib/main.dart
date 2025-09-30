@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:firebase_core/firebase_core.dart';
+import 'package:flutter/services.dart';
 import 'package:flutter_screenutil/flutter_screenutil.dart';
 import 'package:phone_authentication/bloc/location_cubit/location_cubit.dart';
 import 'package:phone_authentication/core/navigation.dart';
@@ -14,6 +15,10 @@ void main() async {
     options: DefaultFirebaseOptions.currentPlatform,
   );
   setupLocator(); // Initialize service locator
+     await SystemChrome.setPreferredOrientations([
+    DeviceOrientation.portraitUp,   // ✅ Allow only portrait up
+  ]);
+
   runApp(const MyApp());
 }
 

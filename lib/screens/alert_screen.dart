@@ -88,7 +88,7 @@ class _AlertScreenState extends State<AlertScreen> {
     // Listen for accepted or cancelled orders
     _ordersSubscription = _ordersCollection
         .where('driverId', isEqualTo: user.uid)
-        .where('status', whereIn: ['accepted', 'cancelled']) // Fixed syntax
+        .where('status', whereIn: ['accepted', 'cancelled'])
         .snapshots()
         .listen((snapshot) async {
       if (!mounted) return;
@@ -102,7 +102,6 @@ class _AlertScreenState extends State<AlertScreen> {
               duration: const Duration(seconds: 5),
             ),
           );
-          await _audioPlayer.play(AssetSource('sounds/cancel_alert.mp3')); // Optional cancellation sound
           await Future.delayed(const Duration(seconds: 5));
           await _audioPlayer.stop();
         }
@@ -234,6 +233,75 @@ class _AlertScreenState extends State<AlertScreen> {
     }
   }
 
+  Future<void> _cancelOrder(String orderId) async {
+    final user = FirebaseAuth.instance.currentUser;
+    if (user == null) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Please log in to cancel orders')),
+      );
+      return;
+    }
+
+    try {
+      await FirebaseFirestore.instance.runTransaction((transaction) async {
+        final docRef = _ordersCollection.doc(orderId);
+        final snapshot = await transaction.get(docRef);
+        if (!snapshot.exists) {
+          throw Exception('Order does not exist');
+        }
+        final data = snapshot.data() as Map<String, dynamic>?;
+        if (data == null) {
+          throw Exception('Order data is null');
+        }
+        if (data['status'] != 'accepted' || data['driverId'] != user.uid) {
+          throw Exception('Order cannot be cancelled by driver');
+        }
+
+        transaction.update(docRef, {
+          'status': 'cancelled',
+          'cancelledByDriver': true,
+          'cancelledAt': FieldValue.serverTimestamp(),
+        });
+      });
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Order cancelled by driver!')),
+      );
+      setState(() {});
+    } catch (e) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('Failed to cancel order: $e')),
+      );
+    }
+  }
+
+  Future<void> _showCancelConfirmation(String orderId) async {
+    return showDialog<void>(
+      context: context,
+      barrierDismissible: false,
+      builder: (BuildContext context) {
+        return AlertDialog(
+          title: const Text('Confirm Cancellation'),
+          content: const Text('Are you sure you want to cancel the delivery?'),
+          actions: <Widget>[
+            TextButton(
+              child: const Text('No'),
+              onPressed: () {
+                Navigator.of(context).pop();
+              },
+            ),
+            TextButton(
+              child: const Text('Yes'),
+              onPressed: () async {
+                Navigator.of(context).pop();
+                await _cancelOrder(orderId);
+              },
+            ),
+          ],
+        );
+      },
+    );
+  }
+
   Future<void> _openGoogleMaps(LatLng driverLocation, LatLng destination, String locationType) async {
     try {
       if (destination.latitude == 0.0 || destination.longitude == 0.0) {
@@ -269,6 +337,35 @@ class _AlertScreenState extends State<AlertScreen> {
     );
     final pickupLocation = LatLng(order.pickupLat ?? 0.0, order.pickupLng ?? 0.0);
     final dropLocation = LatLng(order.dropLat ?? 0.0, order.dropLng ?? 0.0);
+
+    if (order.status == 'cancelled' && order.cancelledByUser == true) {
+      return Card(
+        margin: EdgeInsets.symmetric(horizontal: 16.w, vertical: 8.h),
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16.r)),
+        elevation: 8,
+        shadowColor: Colors.black.withOpacity(0.2),
+        child: Padding(
+          padding: EdgeInsets.all(20.w),
+          child: Row(
+            children: [
+              Icon(Icons.cancel, color: Colors.red, size: 30.sp),
+              SizedBox(width: 12.w),
+              Expanded(
+                child: Text(
+                  'The Delivery has been cancelled by user',
+                  style: TextStyle(
+                    fontSize: 16.sp,
+                    fontWeight: FontWeight.bold,
+                    color: Colors.red,
+                  ),
+                ),
+              ),
+            ],
+          ),
+        ),
+      );
+    }
+
     return Card(
       margin: EdgeInsets.symmetric(horizontal: 16.w, vertical: 8.h),
       shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16.r)),
@@ -313,7 +410,6 @@ class _AlertScreenState extends State<AlertScreen> {
             _buildInfoRow(Icons.person, 'Contact: ${order.pickupName} - ${order.pickupPhone}'),
             _buildInfoRow(Icons.local_shipping, 'Drop-off: ${order.dropLocation}'),
             _buildInfoRow(Icons.person, 'Contact: ${order.dropName} - ${order.dropPhone}'),
-            // _buildInfoRow(Icons.scale, 'Weight: ${order.weightRange}'),
             _buildInfoRow(Icons.directions_car, 'Vehicle: ${order.vehicleType}'),
             _buildInfoRow(Icons.social_distance, 'Distance to Pickup: ${distanceToPickup.toStringAsFixed(2)} km'),
             _buildInfoRow(Icons.map, 'Total Distance: ${order.distance.toStringAsFixed(2)} km'),
@@ -395,20 +491,40 @@ class _AlertScreenState extends State<AlertScreen> {
                 ],
               )
             else
-              Container(
-                padding: EdgeInsets.symmetric(vertical: 8.h, horizontal: 12.w),
-                decoration: BoxDecoration(
-                  color: Colors.green.shade100,
-                  borderRadius: BorderRadius.circular(8.r),
-                ),
-                child: Text(
-                  'Accepted',
-                  style: TextStyle(
-                    fontSize: 14.sp,
-                    fontWeight: FontWeight.w600,
-                    color: Colors.green.shade700,
+              Column(
+                children: [
+                  Container(
+                    padding: EdgeInsets.symmetric(vertical: 8.h, horizontal: 12.w),
+                    decoration: BoxDecoration(
+                      color: Colors.green.shade100,
+                      borderRadius: BorderRadius.circular(8.r),
+                    ),
+                    child: Text(
+                      'Accepted',
+                      style: TextStyle(
+                        fontSize: 14.sp,
+                        fontWeight: FontWeight.w600,
+                        color: Colors.green.shade700,
+                      ),
+                    ),
                   ),
-                ),
+                  SizedBox(height: 12.h),
+                  ElevatedButton(
+                    onPressed: () => _showCancelConfirmation(order.id),
+                    style: ElevatedButton.styleFrom(
+                      backgroundColor: Colors.red,
+                      foregroundColor: Colors.white,
+                      padding: EdgeInsets.symmetric(vertical: 12.h),
+                      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12.r)),
+                      elevation: 2,
+                      minimumSize: Size(double.infinity, 48.h),
+                    ),
+                    child: Text(
+                      'Cancel Delivery',
+                      style: TextStyle(fontSize: 16.sp, fontWeight: FontWeight.w600),
+                    ),
+                  ),
+                ],
               ),
           ],
         ),
@@ -752,6 +868,7 @@ class _AlertScreenState extends State<AlertScreen> {
 
                                 final pendingOrders = orders.where((order) => order.status == 'pending').toList();
                                 final acceptedOrders = orders.where((order) => order.status == 'accepted' && order.driverId == user.uid).toList();
+                                final cancelledOrders = orders.where((order) => order.status == 'cancelled' && order.cancelledByUser == true && order.driverId == user.uid).toList();
 
                                 order_model.Order? latestAcceptedOrder;
                                 if (acceptedOrders.isNotEmpty) {
@@ -762,6 +879,7 @@ class _AlertScreenState extends State<AlertScreen> {
                                 final finalOrders = [
                                   ...pendingOrders,
                                   if (latestAcceptedOrder != null) latestAcceptedOrder,
+                                  ...cancelledOrders,
                                 ];
 
                                 if (finalOrders.isEmpty) {
@@ -800,6 +918,8 @@ class _AlertScreenState extends State<AlertScreen> {
                                 finalOrders.sort((a, b) {
                                   if (a.status == 'pending' && b.status != 'pending') return -1;
                                   if (a.status != 'pending' && b.status == 'pending') return 1;
+                                  if (a.status == 'cancelled' && b.status != 'cancelled') return 1;
+                                  if (a.status != 'cancelled' && b.status == 'cancelled') return -1;
                                   return 0;
                                 });
 

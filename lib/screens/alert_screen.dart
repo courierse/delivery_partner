@@ -24,8 +24,10 @@ class AlertScreen extends StatefulWidget {
 class _AlertScreenState extends State<AlertScreen> {
   final CollectionReference _ordersCollection = FirebaseFirestore.instance.collection('orders');
   final AudioPlayer _audioPlayer = AudioPlayer();
-  StreamSubscription<QuerySnapshot>? _ordersSubscription;
+  StreamSubscription<QuerySnapshot>? _pendingOrdersSubscription;
+  StreamSubscription<QuerySnapshot>? _acceptedCancelledOrdersSubscription;
   bool _hasPendingOrders = false;
+  bool _isAudioPlayerInitialized = false;
 
   @override
   void initState() {
@@ -36,19 +38,64 @@ class _AlertScreenState extends State<AlertScreen> {
 
   @override
   void dispose() {
-    _audioPlayer.stop();
-    _audioPlayer.dispose();
-    _ordersSubscription?.cancel();
+    _pendingOrdersSubscription?.cancel();
+    _acceptedCancelledOrdersSubscription?.cancel();
+    if (_isAudioPlayerInitialized) {
+      try {
+        print('Disposing AlertScreen: Stopping audio player');
+        _audioPlayer.stop().catchError((e) {
+          print('Error stopping audio during dispose: $e');
+          return null;
+        });
+        print('Disposing AlertScreen: Disposing audio player');
+        _audioPlayer.dispose().catchError((e) {
+          print('Error disposing audio player: $e');
+          return null;
+        });
+        _isAudioPlayerInitialized = false;
+      } catch (e) {
+        print('Unexpected error during audio player dispose: $e');
+      }
+    }
     super.dispose();
+  }
+
+  Future<void> _safePlayAudio() async {
+    if (!_isAudioPlayerInitialized) {
+      try {
+        print('Attempting to play audio for pending orders');
+        await _audioPlayer.play(AssetSource('sounds/alert.mp3'));
+        _isAudioPlayerInitialized = true;
+        print('Audio played successfully');
+      } catch (e) {
+        print('Error playing audio: $e');
+        _isAudioPlayerInitialized = false;
+      }
+    }
+  }
+
+  Future<void> _safeStopAudio() async {
+    if (_isAudioPlayerInitialized) {
+      try {
+        print('Attempting to stop audio');
+        await _audioPlayer.stop();
+        _isAudioPlayerInitialized = false;
+        print('Audio stopped successfully');
+      } catch (e) {
+        print('Error stopping audio: $e');
+        _isAudioPlayerInitialized = false;
+      }
+    }
   }
 
   void _startListeningForOrders() {
     final user = FirebaseAuth.instance.currentUser;
     if (user == null) return;
 
-    _ordersSubscription = _ordersCollection
+    _pendingOrdersSubscription = _ordersCollection
         .where('status', isEqualTo: 'pending')
-        .where('createdAt', isGreaterThanOrEqualTo: Timestamp.fromDate(DateTime.now().subtract(const Duration(hours: 1))))
+        .where('createdAt',
+            isGreaterThanOrEqualTo: Timestamp.fromDate(DateTime.now().subtract(const Duration(hours: 1))))
         .snapshots()
         .listen((snapshot) async {
       if (!mounted) return;
@@ -71,22 +118,21 @@ class _AlertScreenState extends State<AlertScreen> {
       }).toList();
 
       final hasPendingOrders = newPendingOrders.isNotEmpty;
-      if (hasPendingOrders != _hasPendingOrders) {
+      if (hasPendingOrders != _hasPendingOrders && mounted) {
         setState(() {
           _hasPendingOrders = hasPendingOrders;
         });
         if (hasPendingOrders) {
-          await _audioPlayer.play(AssetSource('sounds/alert.mp3'));
+          await _safePlayAudio();
         } else {
-          await _audioPlayer.stop();
+          await _safeStopAudio();
         }
       }
     }, onError: (error) {
-      print('Error listening to orders: $error');
+      print('Error listening to pending orders: $error');
     });
 
-    // Listen for accepted or cancelled orders
-    _ordersSubscription = _ordersCollection
+    _acceptedCancelledOrdersSubscription = _ordersCollection
         .where('driverId', isEqualTo: user.uid)
         .where('status', whereIn: ['accepted', 'cancelled'])
         .snapshots()
@@ -102,8 +148,7 @@ class _AlertScreenState extends State<AlertScreen> {
               duration: const Duration(seconds: 5),
             ),
           );
-          await Future.delayed(const Duration(seconds: 5));
-          await _audioPlayer.stop();
+          await _safeStopAudio();
         }
       }
     }, onError: (error) {
@@ -147,7 +192,7 @@ class _AlertScreenState extends State<AlertScreen> {
     final driverLocation = LatLng(locationState.latitude, locationState.longitude);
 
     try {
-      await _audioPlayer.stop();
+      await _safeStopAudio();
       await FirebaseFirestore.instance.runTransaction((transaction) async {
         final docRef = _ordersCollection.doc(orderId);
         final snapshot = await transaction.get(docRef);
@@ -212,7 +257,7 @@ class _AlertScreenState extends State<AlertScreen> {
     }
 
     try {
-      await _audioPlayer.stop();
+      await _safeStopAudio();
       await FirebaseFirestore.instance
           .collection('drivers')
           .doc(user.uid)
@@ -263,6 +308,7 @@ class _AlertScreenState extends State<AlertScreen> {
           'cancelledAt': FieldValue.serverTimestamp(),
         });
       });
+      await _safeStopAudio();
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(content: Text('Order cancelled by driver!')),
       );
@@ -410,7 +456,7 @@ class _AlertScreenState extends State<AlertScreen> {
             _buildInfoRow(Icons.person, 'Contact: ${order.pickupName} - ${order.pickupPhone}'),
             _buildInfoRow(Icons.local_shipping, 'Drop-off: ${order.dropLocation}'),
             _buildInfoRow(Icons.person, 'Contact: ${order.dropName} - ${order.dropPhone}'),
-            _buildInfoRow(Icons.directions_car, 'Vehicle: ${order.vehicleType}'),
+            _buildInfoRow(Icons.directions_car, 'Vehicle: ${order.vehicleType ?? 'N/A'}'),
             _buildInfoRow(Icons.social_distance, 'Distance to Pickup: ${distanceToPickup.toStringAsFixed(2)} km'),
             _buildInfoRow(Icons.map, 'Total Distance: ${order.distance.toStringAsFixed(2)} km'),
             _buildInfoRow(Icons.monetization_on, 'Cost: ₹${order.deliveryCost.toStringAsFixed(2)}'),
@@ -704,7 +750,7 @@ class _AlertScreenState extends State<AlertScreen> {
                                     ),
                                     SizedBox(height: 16.h),
                                     Text(
-                                      'Error loading pending orders',
+                                      'Error loading pending orders: ${snapshot.error}',
                                       style: TextStyle(
                                         fontSize: 16.sp,
                                         color: Colors.grey.shade800,
@@ -758,7 +804,7 @@ class _AlertScreenState extends State<AlertScreen> {
                                         ),
                                         SizedBox(height: 16.h),
                                         Text(
-                                          'Error loading orders',
+                                          'Error loading orders: ${combinedSnapshot.error}',
                                           style: TextStyle(
                                             fontSize: 16.sp,
                                             color: Colors.grey.shade800,
@@ -804,7 +850,7 @@ class _AlertScreenState extends State<AlertScreen> {
                                             ),
                                             SizedBox(height: 16.h),
                                             Text(
-                                              'Error loading driver data',
+                                              'Error loading driver data: ${driverSnapshot.error}',
                                               style: TextStyle(
                                                 fontSize: 16.sp,
                                                 color: Colors.grey.shade800,
@@ -883,7 +929,7 @@ class _AlertScreenState extends State<AlertScreen> {
                                 ];
 
                                 if (finalOrders.isEmpty) {
-                                  _audioPlayer.stop();
+                                  _safeStopAudio();
                                   return Center(
                                     child: Card(
                                       elevation: 12,

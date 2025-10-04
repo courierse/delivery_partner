@@ -13,9 +13,43 @@ class DeliveryHistoryScreen extends StatefulWidget {
 }
 
 class _DeliveryHistoryScreenState extends State<DeliveryHistoryScreen> {
-  final CollectionReference _ordersCollection = FirebaseFirestore.instance.collection('orders');
+  final CollectionReference _ordersCollection =
+      FirebaseFirestore.instance.collection('orders');
 
-  Widget _buildHistoryCard(order_model.Order order, bool isAccepted, {Timestamp? rejectedAt}) {
+  Widget _buildHistoryCard(order_model.Order order, String status,
+      {Timestamp? customTime, bool? cancelledByUser}) {
+    Color statusColor;
+    String statusText;
+    Timestamp displayTime;
+
+    switch (status) {
+      case 'accepted':
+        statusColor = Colors.green.shade700;
+        statusText = 'Accepted Delivery';
+        displayTime = order.acceptedAt ?? order.createdAt ?? Timestamp.now();
+        break;
+      case 'completed':
+        statusColor = Colors.green.shade700;
+        statusText = 'Completed Delivery';
+        displayTime = order.completedAt ?? order.acceptedAt ?? order.createdAt ?? Timestamp.now();
+        break;
+      case 'cancelled':
+        statusColor = Colors.red.shade600;
+        statusText =
+            cancelledByUser == true ? 'Cancelled by User' : 'Cancelled by Driver';
+        displayTime = order.cancelledAt ?? order.createdAt ?? Timestamp.now();
+        break;
+      case 'rejected':
+        statusColor = Colors.red.shade600;
+        statusText = 'Rejected Delivery';
+        displayTime = customTime ?? order.createdAt ?? Timestamp.now();
+        break;
+      default:
+        statusColor = Colors.grey.shade700;
+        statusText = 'Unknown Status';
+        displayTime = order.createdAt ?? Timestamp.now();
+    }
+
     return Card(
       margin: EdgeInsets.symmetric(horizontal: 16.w, vertical: 8.h),
       shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16.r)),
@@ -29,26 +63,28 @@ class _DeliveryHistoryScreenState extends State<DeliveryHistoryScreen> {
             Row(
               mainAxisAlignment: MainAxisAlignment.spaceBetween,
               children: [
-                Text(
-                  isAccepted ? 'Accepted Delivery' : 'Rejected Delivery',
-                  style: TextStyle(
-                    fontSize: 18.sp,
-                    fontWeight: FontWeight.bold,
-                    color: isAccepted ? Colors.green.shade700 : Colors.red.shade600,
+                Expanded(
+                  child: Text(
+                    statusText,
+                    style: TextStyle(
+                      fontSize: 18.sp,
+                      fontWeight: FontWeight.bold,
+                      color: statusColor,
+                    ),
                   ),
                 ),
                 Container(
                   padding: EdgeInsets.symmetric(horizontal: 8.w, vertical: 4.h),
                   decoration: BoxDecoration(
-                    color: isAccepted ? Colors.green.shade100 : Colors.red.shade100,
+                    color: statusColor.withOpacity(0.1),
                     borderRadius: BorderRadius.circular(8.r),
                   ),
                   child: Text(
-                    isAccepted ? 'Accepted' : 'Rejected',
+                    status.toUpperCase(),
                     style: TextStyle(
                       fontSize: 12.sp,
                       fontWeight: FontWeight.w600,
-                      color: isAccepted ? Colors.green.shade700 : Colors.red.shade600,
+                      color: statusColor,
                     ),
                   ),
                 ),
@@ -56,23 +92,24 @@ class _DeliveryHistoryScreenState extends State<DeliveryHistoryScreen> {
             ),
             SizedBox(height: 12.h),
             _buildInfoRow(Icons.location_on, 'Pickup: ${order.pickupLocation}'),
-            _buildInfoRow(Icons.person, 'Contact: ${order.pickupName} - ${order.pickupPhone}'),
+            _buildInfoRow(
+                Icons.person, 'Contact: ${order.pickupName} - ${order.pickupPhone}'),
             _buildInfoRow(Icons.local_shipping, 'Drop-off: ${order.dropLocation}'),
-            _buildInfoRow(Icons.person, 'Contact: ${order.dropName} - ${order.dropPhone}'),
-            // _buildInfoRow(Icons.scale, 'Weight: ${order.weightRange}'),
+            _buildInfoRow(
+                Icons.person, 'Contact: ${order.dropName} - ${order.dropPhone}'),
             _buildInfoRow(Icons.directions_car, 'Vehicle: ${order.vehicleType}'),
-            _buildInfoRow(Icons.map, 'Total Distance: ${order.distance.toStringAsFixed(2)} km'),
-            _buildInfoRow(Icons.monetization_on, 'Cost: ₹${order.deliveryCost.toStringAsFixed(2)}'),
-            if (isAccepted && order.acceptedAt != null)
-              _buildInfoRow(
-                Icons.check_circle,
-                'Accepted At: ${order.acceptedAt!.toDate().toString().substring(0, 16)}',
-              ),
-            if (!isAccepted && rejectedAt != null)
-              _buildInfoRow(
-                Icons.cancel,
-                'Rejected At: ${rejectedAt.toDate().toString().substring(0, 16)}',
-              ),
+            _buildInfoRow(
+                Icons.map, 'Total Distance: ${order.distance.toStringAsFixed(2)} km'),
+            _buildInfoRow(
+                Icons.monetization_on, 'Cost: ₹${order.deliveryCost.toStringAsFixed(2)}'),
+            _buildInfoRow(
+              status == 'accepted' || status == 'rejected'
+                  ? Icons.schedule
+                  : status == 'completed'
+                      ? Icons.check_circle
+                      : Icons.cancel,
+              '${status == 'accepted' ? 'Accepted' : status == 'completed' ? 'Completed' : status == 'rejected' ? 'Rejected' : 'Cancelled'} At: ${displayTime.toDate().toString().substring(0, 16)}',
+            ),
           ],
         ),
       ),
@@ -128,7 +165,8 @@ class _DeliveryHistoryScreenState extends State<DeliveryHistoryScreen> {
                     ? Center(
                         child: Card(
                           elevation: 12,
-                          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16.r)),
+                          shape:
+                              RoundedRectangleBorder(borderRadius: BorderRadius.circular(16.r)),
                           child: Padding(
                             padding: EdgeInsets.all(24.w),
                             child: Column(
@@ -157,15 +195,16 @@ class _DeliveryHistoryScreenState extends State<DeliveryHistoryScreen> {
                     : StreamBuilder<QuerySnapshot>(
                         stream: _ordersCollection
                             .where('driverId', isEqualTo: user.uid)
-                            .where('status', isEqualTo: 'accepted')
+                            .where('status', whereIn: ['accepted', 'completed', 'cancelled'])
                             .snapshots(),
-                        builder: (context, acceptedSnapshot) {
-                          if (acceptedSnapshot.hasError) {
-                            final error = acceptedSnapshot.error.toString();
+                        builder: (context, mainSnapshot) {
+                          if (mainSnapshot.hasError) {
+                            final error = mainSnapshot.error.toString();
                             return Center(
                               child: Card(
                                 elevation: 12,
-                                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16.r)),
+                                shape:
+                                    RoundedRectangleBorder(borderRadius: BorderRadius.circular(16.r)),
                                 child: Padding(
                                   padding: EdgeInsets.all(24.w),
                                   child: Column(
@@ -178,7 +217,7 @@ class _DeliveryHistoryScreenState extends State<DeliveryHistoryScreen> {
                                       ),
                                       SizedBox(height: 16.h),
                                       Text(
-                                        'Error loading accepted orders: $error',
+                                        'Error loading orders: $error',
                                         style: TextStyle(
                                           fontSize: 16.sp,
                                           color: Colors.grey.shade800,
@@ -192,13 +231,16 @@ class _DeliveryHistoryScreenState extends State<DeliveryHistoryScreen> {
                                         style: ElevatedButton.styleFrom(
                                           backgroundColor: Colors.blue.shade700,
                                           foregroundColor: Colors.white,
-                                          padding: EdgeInsets.symmetric(horizontal: 32.w, vertical: 12.h),
-                                          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12.r)),
+                                          padding:
+                                              EdgeInsets.symmetric(horizontal: 32.w, vertical: 12.h),
+                                          shape: RoundedRectangleBorder(
+                                              borderRadius: BorderRadius.circular(12.r)),
                                           elevation: 2,
                                         ),
                                         child: Text(
                                           'Retry',
-                                          style: TextStyle(fontSize: 16.sp, fontWeight: FontWeight.w600),
+                                          style:
+                                              TextStyle(fontSize: 16.sp, fontWeight: FontWeight.w600),
                                         ),
                                       ),
                                     ],
@@ -219,7 +261,8 @@ class _DeliveryHistoryScreenState extends State<DeliveryHistoryScreen> {
                                 return Center(
                                   child: Card(
                                     elevation: 12,
-                                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16.r)),
+                                    shape: RoundedRectangleBorder(
+                                        borderRadius: BorderRadius.circular(16.r)),
                                     child: Padding(
                                       padding: EdgeInsets.all(24.w),
                                       child: Column(
@@ -246,13 +289,16 @@ class _DeliveryHistoryScreenState extends State<DeliveryHistoryScreen> {
                                             style: ElevatedButton.styleFrom(
                                               backgroundColor: Colors.blue.shade700,
                                               foregroundColor: Colors.white,
-                                              padding: EdgeInsets.symmetric(horizontal: 32.w, vertical: 12.h),
-                                              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12.r)),
+                                              padding: EdgeInsets.symmetric(
+                                                  horizontal: 32.w, vertical: 12.h),
+                                              shape: RoundedRectangleBorder(
+                                                  borderRadius: BorderRadius.circular(12.r)),
                                               elevation: 2,
                                             ),
                                             child: Text(
                                               'Retry',
-                                              style: TextStyle(fontSize: 16.sp, fontWeight: FontWeight.w600),
+                                              style: TextStyle(
+                                                  fontSize: 16.sp, fontWeight: FontWeight.w600),
                                             ),
                                           ),
                                         ],
@@ -262,19 +308,19 @@ class _DeliveryHistoryScreenState extends State<DeliveryHistoryScreen> {
                                 );
                               }
 
-                              if (!acceptedSnapshot.hasData && !rejectedSnapshot.hasData) {
+                              if (!mainSnapshot.hasData && !rejectedSnapshot.hasData) {
                                 return Center(
                                   child: CircularProgressIndicator(color: Colors.blue.shade700),
                                 );
                               }
 
-                              final acceptedOrders = acceptedSnapshot.hasData
-                                  ? acceptedSnapshot.data!.docs
+                              final mainOrders = mainSnapshot.hasData
+                                  ? mainSnapshot.data!.docs
                                       .map((doc) {
                                         try {
                                           return order_model.Order.fromSnapshot(doc);
                                         } catch (e) {
-                                          print('Error parsing accepted order ${doc.id}: $e');
+                                          print('Error parsing main order ${doc.id}: $e');
                                           return null;
                                         }
                                       })
@@ -292,45 +338,36 @@ class _DeliveryHistoryScreenState extends State<DeliveryHistoryScreen> {
                                       .toList()
                                   : [];
 
-                              if (rejectedOrderIds.isEmpty) {
-                                if (acceptedOrders.isEmpty) {
-                                  return Center(
-                                    child: Card(
-                                      elevation: 12,
-                                      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16.r)),
-                                      child: Padding(
-                                        padding: EdgeInsets.all(24.w),
-                                        child: Column(
-                                          mainAxisSize: MainAxisSize.min,
-                                          children: [
-                                            Icon(
-                                              Icons.info_outline,
-                                              size: 48.sp,
-                                              color: Colors.blue.shade700,
+                              if (rejectedOrderIds.isEmpty && mainOrders.isEmpty) {
+                                return Center(
+                                  child: Card(
+                                    elevation: 12,
+                                    shape: RoundedRectangleBorder(
+                                        borderRadius: BorderRadius.circular(16.r)),
+                                    child: Padding(
+                                      padding: EdgeInsets.all(24.w),
+                                      child: Column(
+                                        mainAxisSize: MainAxisSize.min,
+                                        children: [
+                                          Icon(
+                                            Icons.info_outline,
+                                            size: 48.sp,
+                                            color: Colors.blue.shade700,
+                                          ),
+                                          SizedBox(height: 16.h),
+                                          Text(
+                                            'No delivery history available.',
+                                            style: TextStyle(
+                                              fontSize: 16.sp,
+                                              color: Colors.grey.shade800,
+                                              fontWeight: FontWeight.w600,
                                             ),
-                                            SizedBox(height: 16.h),
-                                            Text(
-                                              'No delivery history available.',
-                                              style: TextStyle(
-                                                fontSize: 16.sp,
-                                                color: Colors.grey.shade800,
-                                                fontWeight: FontWeight.w600,
-                                              ),
-                                              textAlign: TextAlign.center,
-                                            ),
-                                          ],
-                                        ),
+                                            textAlign: TextAlign.center,
+                                          ),
+                                        ],
                                       ),
                                     ),
-                                  );
-                                }
-                                return ListView.builder(
-                                  padding: EdgeInsets.symmetric(vertical: 8.h),
-                                  itemCount: acceptedOrders.length,
-                                  itemBuilder: (context, index) {
-                                    final order = acceptedOrders[index];
-                                    return _buildHistoryCard(order, true);
-                                  },
+                                  ),
                                 );
                               }
 
@@ -338,7 +375,8 @@ class _DeliveryHistoryScreenState extends State<DeliveryHistoryScreen> {
                                 future: Future.wait(
                                   rejectedOrderIds.map((rejected) async {
                                     try {
-                                      final doc = await _ordersCollection.doc(rejected['orderId']).get();
+                                      final doc =
+                                          await _ordersCollection.doc(rejected['orderId']).get();
                                       if (doc.exists) {
                                         return order_model.Order.fromSnapshot(doc);
                                       }
@@ -362,70 +400,40 @@ class _DeliveryHistoryScreenState extends State<DeliveryHistoryScreen> {
                                       .where((entry) => entry.value != null)
                                       .map((entry) => {
                                             'order': entry.value as order_model.Order,
-                                            'rejectedAt': rejectedOrderIds[entry.key]['rejectedAt'] as Timestamp,
+                                            'rejectedAt': rejectedOrderIds[entry.key]['rejectedAt']
+                                                as Timestamp,
                                           })
                                       .toList();
 
-                                  final allOrders = [
-                                    ...acceptedOrders.map((order) => {'order': order, 'isAccepted': true}),
+                                  final allEntries = [
+                                    ...mainOrders.map((order) => {
+                                          'order': order,
+                                          'status': order.status ?? 'unknown',
+                                          'cancelledByUser': order.cancelledByUser,
+                                          'time': _getOrderTimestamp(order),
+                                        }),
                                     ...rejectedOrders.map((entry) => {
                                           'order': entry['order'] as order_model.Order,
-                                          'isAccepted': false,
-                                          'rejectedAt': entry['rejectedAt'] as Timestamp,
+                                          'status': 'rejected',
+                                          'time': entry['rejectedAt'] as Timestamp,
                                         }),
                                   ];
 
-                                  if (allOrders.isEmpty) {
-                                    return Center(
-                                      child: Card(
-                                        elevation: 12,
-                                        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16.r)),
-                                        child: Padding(
-                                          padding: EdgeInsets.all(24.w),
-                                          child: Column(
-                                            mainAxisSize: MainAxisSize.min,
-                                            children: [
-                                              Icon(
-                                                Icons.info_outline,
-                                                size: 48.sp,
-                                                color: Colors.blue.shade700,
-                                              ),
-                                              SizedBox(height: 16.h),
-                                              Text(
-                                                'No delivery history available.',
-                                                style: TextStyle(
-                                                  fontSize: 16.sp,
-                                                  color: Colors.grey.shade800,
-                                                  fontWeight: FontWeight.w600,
-                                                ),
-                                                textAlign: TextAlign.center,
-                                              ),
-                                            ],
-                                          ),
-                                        ),
-                                      ),
-                                    );
-                                  }
-
-                                  allOrders.sort((a, b) {
-                                    final aTime = a['isAccepted']
-                                        ? (a['order'] as order_model.Order).acceptedAt ?? Timestamp.now()
-                                        : a['rejectedAt'] as Timestamp;
-                                    final bTime = b['isAccepted']
-                                        ? (b['order'] as order_model.Order).acceptedAt ?? Timestamp.now()
-                                        : b['rejectedAt'] as Timestamp;
-                                    return bTime.compareTo(aTime); // Sort by most recent
-                                  });
+                                  allEntries.sort((a, b) =>
+                                      (b['time'] as Timestamp).compareTo(a['time'] as Timestamp));
 
                                   return ListView.builder(
                                     padding: EdgeInsets.symmetric(vertical: 8.h),
-                                    itemCount: allOrders.length,
+                                    itemCount: allEntries.length,
                                     itemBuilder: (context, index) {
-                                      final entry = allOrders[index];
+                                      final entry = allEntries[index];
                                       final order = entry['order'] as order_model.Order;
-                                      final isAccepted = entry['isAccepted'] as bool;
-                                      final rejectedAt = entry['rejectedAt'] as Timestamp?;
-                                      return _buildHistoryCard(order, isAccepted, rejectedAt: rejectedAt);
+                                      final status = entry['status'] as String;
+                                      final cancelledByUser = entry['cancelledByUser'] as bool?;
+                                      final customTime =
+                                          status == 'rejected' ? entry['time'] as Timestamp : null;
+                                      return _buildHistoryCard(order, status,
+                                          customTime: customTime, cancelledByUser: cancelledByUser);
                                     },
                                   );
                                 },
@@ -440,5 +448,16 @@ class _DeliveryHistoryScreenState extends State<DeliveryHistoryScreen> {
         ),
       ),
     );
+  }
+
+  Timestamp _getOrderTimestamp(order_model.Order order) {
+    if (order.status == 'completed' && order.completedAt != null) {
+      return order.completedAt!;
+    } else if (order.status == 'cancelled' && order.cancelledAt != null) {
+      return order.cancelledAt!;
+    } else if (order.status == 'accepted' && order.acceptedAt != null) {
+      return order.acceptedAt!;
+    }
+    return order.createdAt ?? Timestamp.now();
   }
 }

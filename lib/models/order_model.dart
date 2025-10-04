@@ -20,8 +20,10 @@ class Order {
   final Timestamp createdAt;
   final String? driverId;
   final Timestamp? acceptedAt;
+  final Timestamp? completedAt; // Added for completed orders
+  final Timestamp? cancelledAt; // Added for cancelled orders
   final String? vehicleType;
-  final bool? cancelledByUser; // Added to support cancellation notification
+  final bool? cancelledByUser;
 
   Order({
     required this.id,
@@ -43,8 +45,10 @@ class Order {
     required this.createdAt,
     this.driverId,
     this.acceptedAt,
+    this.completedAt, // Added to constructor
+    this.cancelledAt, // Added to constructor
     this.vehicleType,
-    this.cancelledByUser, // Added to the constructor
+    this.cancelledByUser,
   });
 
   factory Order.fromSnapshot(DocumentSnapshot snapshot) {
@@ -69,8 +73,10 @@ class Order {
       createdAt: data['createdAt'] ?? Timestamp.now(),
       driverId: data['driverId'],
       acceptedAt: data['acceptedAt'],
+      completedAt: data['completedAt'], // Added to parse completedAt
+      cancelledAt: data['cancelledAt'], // Added to parse cancelledAt
       vehicleType: data['vehicleType'],
-      cancelledByUser: data['cancelledByUser'] as bool?, // Added to parse the field
+      cancelledByUser: data['cancelledByUser'] as bool?,
     );
   }
 }

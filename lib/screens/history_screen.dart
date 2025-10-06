@@ -2,7 +2,6 @@ import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_screenutil/flutter_screenutil.dart';
-import 'package:phone_authentication/constants/colors.dart';
 import 'package:phone_authentication/models/order_model.dart' as order_model;
 
 class DeliveryHistoryScreen extends StatefulWidget {
@@ -26,28 +25,43 @@ class _DeliveryHistoryScreenState extends State<DeliveryHistoryScreen> {
       case 'accepted':
         statusColor = Colors.green.shade700;
         statusText = 'Accepted Delivery';
-        displayTime = order.acceptedAt ?? order.createdAt ?? Timestamp.now();
+        displayTime = order.acceptedAt ?? order.createdAt;
         break;
-      case 'completed':
+      case 'picked_up':
         statusColor = Colors.green.shade700;
-        statusText = 'Completed Delivery';
-        displayTime = order.completedAt ?? order.acceptedAt ?? order.createdAt ?? Timestamp.now();
+        statusText = 'Order Picked Up';
+        displayTime = order.pickedUpAt ?? order.acceptedAt ?? order.createdAt;
+        break;
+      case 'on_the_way':
+        statusColor = Colors.green.shade700;
+        statusText = 'Driver On the Way';
+        displayTime = order.onTheWayAt ?? order.pickedUpAt ?? order.acceptedAt ?? order.createdAt;
+        break;
+      case 'reached':
+        statusColor = Colors.green.shade700;
+        statusText = 'Driver Reached';
+        displayTime = order.reachedAt ?? order.onTheWayAt ?? order.pickedUpAt ?? order.acceptedAt ?? order.createdAt;
+        break;
+      case 'delivered':
+        statusColor = Colors.green.shade700;
+        statusText = 'Delivered';
+        displayTime = order.deliveredAt ?? order.reachedAt ?? order.onTheWayAt ?? order.pickedUpAt ?? order.acceptedAt ?? order.createdAt;
         break;
       case 'cancelled':
         statusColor = Colors.red.shade600;
         statusText =
             cancelledByUser == true ? 'Cancelled by User' : 'Cancelled by Driver';
-        displayTime = order.cancelledAt ?? order.createdAt ?? Timestamp.now();
+        displayTime = order.cancelledAt ?? order.createdAt;
         break;
       case 'rejected':
         statusColor = Colors.red.shade600;
         statusText = 'Rejected Delivery';
-        displayTime = customTime ?? order.createdAt ?? Timestamp.now();
+        displayTime = customTime ?? order.createdAt;
         break;
       default:
         statusColor = Colors.grey.shade700;
         statusText = 'Unknown Status';
-        displayTime = order.createdAt ?? Timestamp.now();
+        displayTime = order.createdAt;
     }
 
     return Card(
@@ -97,7 +111,8 @@ class _DeliveryHistoryScreenState extends State<DeliveryHistoryScreen> {
             _buildInfoRow(Icons.local_shipping, 'Drop-off: ${order.dropLocation}'),
             _buildInfoRow(
                 Icons.person, 'Contact: ${order.dropName} - ${order.dropPhone}'),
-            _buildInfoRow(Icons.directions_car, 'Vehicle: ${order.vehicleType}'),
+            _buildInfoRow(Icons.directions_car, 'Vehicle: ${order.vehicleType ?? 'N/A'}'),
+            _buildInfoRow(Icons.scale, 'Weight: ${order.weightRange}'),
             _buildInfoRow(
                 Icons.map, 'Total Distance: ${order.distance.toStringAsFixed(2)} km'),
             _buildInfoRow(
@@ -105,10 +120,10 @@ class _DeliveryHistoryScreenState extends State<DeliveryHistoryScreen> {
             _buildInfoRow(
               status == 'accepted' || status == 'rejected'
                   ? Icons.schedule
-                  : status == 'completed'
+                  : status == 'delivered'
                       ? Icons.check_circle
                       : Icons.cancel,
-              '${status == 'accepted' ? 'Accepted' : status == 'completed' ? 'Completed' : status == 'rejected' ? 'Rejected' : 'Cancelled'} At: ${displayTime.toDate().toString().substring(0, 16)}',
+              '${statusText} At: ${displayTime.toDate().toString().substring(0, 16)}',
             ),
           ],
         ),
@@ -195,11 +210,19 @@ class _DeliveryHistoryScreenState extends State<DeliveryHistoryScreen> {
                     : StreamBuilder<QuerySnapshot>(
                         stream: _ordersCollection
                             .where('driverId', isEqualTo: user.uid)
-                            .where('status', whereIn: ['accepted', 'completed', 'cancelled'])
+                            .where('status', whereIn: [
+                              'accepted',
+                              'picked_up',
+                              'on_the_way',
+                              'reached',
+                              'delivered',
+                              'cancelled'
+                            ])
                             .snapshots(),
                         builder: (context, mainSnapshot) {
                           if (mainSnapshot.hasError) {
                             final error = mainSnapshot.error.toString();
+                            print('Main orders error: $error');
                             return Center(
                               child: Card(
                                 elevation: 12,
@@ -258,6 +281,7 @@ class _DeliveryHistoryScreenState extends State<DeliveryHistoryScreen> {
                                 .snapshots(),
                             builder: (context, rejectedSnapshot) {
                               if (rejectedSnapshot.hasError) {
+                                print('Rejected orders error: ${rejectedSnapshot.error}');
                                 return Center(
                                   child: Card(
                                     elevation: 12,
@@ -297,8 +321,8 @@ class _DeliveryHistoryScreenState extends State<DeliveryHistoryScreen> {
                                             ),
                                             child: Text(
                                               'Retry',
-                                              style: TextStyle(
-                                                  fontSize: 16.sp, fontWeight: FontWeight.w600),
+                                              style:
+                                                  TextStyle(fontSize: 16.sp, fontWeight: FontWeight.w600),
                                             ),
                                           ),
                                         ],
@@ -378,7 +402,10 @@ class _DeliveryHistoryScreenState extends State<DeliveryHistoryScreen> {
                                       final doc =
                                           await _ordersCollection.doc(rejected['orderId']).get();
                                       if (doc.exists) {
-                                        return order_model.Order.fromSnapshot(doc);
+                                        final order = order_model.Order.fromSnapshot(doc);
+                                        if (order.status == 'pending') {
+                                          return order;
+                                        }
                                       }
                                       return null;
                                     } catch (e) {
@@ -408,7 +435,7 @@ class _DeliveryHistoryScreenState extends State<DeliveryHistoryScreen> {
                                   final allEntries = [
                                     ...mainOrders.map((order) => {
                                           'order': order,
-                                          'status': order.status ?? 'unknown',
+                                          'status': order.status,
                                           'cancelledByUser': order.cancelledByUser,
                                           'time': _getOrderTimestamp(order),
                                         }),
@@ -451,13 +478,19 @@ class _DeliveryHistoryScreenState extends State<DeliveryHistoryScreen> {
   }
 
   Timestamp _getOrderTimestamp(order_model.Order order) {
-    if (order.status == 'completed' && order.completedAt != null) {
-      return order.completedAt!;
+    if (order.status == 'delivered' && order.deliveredAt != null) {
+      return order.deliveredAt!;
+    } else if (order.status == 'reached' && order.reachedAt != null) {
+      return order.reachedAt!;
+    } else if (order.status == 'on_the_way' && order.onTheWayAt != null) {
+      return order.onTheWayAt!;
+    } else if (order.status == 'picked_up' && order.pickedUpAt != null) {
+      return order.pickedUpAt!;
     } else if (order.status == 'cancelled' && order.cancelledAt != null) {
       return order.cancelledAt!;
     } else if (order.status == 'accepted' && order.acceptedAt != null) {
       return order.acceptedAt!;
     }
-    return order.createdAt ?? Timestamp.now();
+    return order.createdAt;
   }
 }

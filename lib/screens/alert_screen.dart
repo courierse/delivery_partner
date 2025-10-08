@@ -167,7 +167,7 @@ class _AlertScreenState extends State<AlertScreen> {
             'accepted',
             'driver_reached',
             'order_picked',
-            'reached',
+            'on_the_way',
             'delivered',
             'cancelled',
           ],
@@ -340,8 +340,8 @@ class _AlertScreenState extends State<AlertScreen> {
     const validTransitions = {
       'accepted': ['driver_reached', 'cancelled'],
       'driver_reached': ['order_picked', 'cancelled'],
-      'order_picked': ['reached', 'cancelled'],
-      'reached': ['delivered', 'cancelled'],
+      'order_picked': ['on_the_way', 'cancelled'],
+      'on_the_way': ['delivered', 'cancelled'],
       'delivered': ['completed'],
     };
     return validTransitions[currentStatus]?.contains(newStatus) ?? false;
@@ -402,7 +402,7 @@ class _AlertScreenState extends State<AlertScreen> {
               'accepted',
               'driver_reached',
               'order_picked',
-              'reached',
+              'on_the_way',
             ].contains(data['status']) ||
             data['driverId'] != user.uid) {
           throw Exception('Order cannot be cancelled by driver');
@@ -785,7 +785,7 @@ class _AlertScreenState extends State<AlertScreen> {
                     ),
                   if (order.status == 'order_picked')
                     ElevatedButton(
-                      onPressed: () => _updateOrderStatus(order.id, 'reached'),
+                      onPressed: () => _updateOrderStatus(order.id, 'on_the_way'),
                       style: ElevatedButton.styleFrom(
                         backgroundColor: Colors.green.shade600,
                         foregroundColor: Colors.white,
@@ -797,14 +797,14 @@ class _AlertScreenState extends State<AlertScreen> {
                         minimumSize: Size(double.infinity, 48.h),
                       ),
                       child: Text(
-                        'Driver Reached',
+                        'On The Way',
                         style: TextStyle(
                           fontSize: 16.sp,
                           fontWeight: FontWeight.w600,
                         ),
                       ),
                     ),
-                  if (order.status == 'reached')
+                  if (order.status == 'on_the_way')
                     ElevatedButton(
                       onPressed:
                           () => _updateOrderStatus(order.id, 'delivered'),
@@ -869,8 +869,8 @@ class _AlertScreenState extends State<AlertScreen> {
         return 'Driver has reached the pickup location.';
       case 'order_picked':
         return 'Order Picked Up';
-      case 'reached':
-        return 'Driver Reached';
+      case 'on_the_way':
+        return 'Driver is on the way to deliver the order';
       case 'delivered':
         return 'Order Delivered';
       case 'completed':
@@ -888,8 +888,8 @@ class _AlertScreenState extends State<AlertScreen> {
         return 'Driver Reached';
       case 'order_picked':
         return 'Order Picked Up';
-      case 'reached':
-        return 'Reached';
+      case 'on_the_way':
+        return 'On The Way';
       case 'delivered':
         return 'Delivered';
       case 'completed':
@@ -904,7 +904,7 @@ class _AlertScreenState extends State<AlertScreen> {
       case 'accepted':
       case 'driver_reached':
       case 'order_picked':
-      case 'reached':
+      case 'on_the_way':
       case 'delivered':
       case 'completed':
         return Colors.green.shade700;
@@ -1155,7 +1155,7 @@ class _AlertScreenState extends State<AlertScreen> {
                                     'accepted',
                                     'driver_reached',
                                     'order_picked',
-                                    'reached',
+                                    'on_the_way',
                                     'delivered',
                                   ],
                                 )
@@ -1343,7 +1343,7 @@ class _AlertScreenState extends State<AlertScreen> {
                                       if (order.status == 'order_picked' &&
                                           order.driverId == user.uid)
                                         return true;
-                                      if (order.status == 'reached' &&
+                                      if (order.status == 'on_the_way' &&
                                           order.driverId == user.uid)
                                         return true;
                                       if (order.status == 'delivered' &&
@@ -1386,7 +1386,7 @@ class _AlertScreenState extends State<AlertScreen> {
                                                 'accepted',
                                                 'driver_reached',
                                                 'order_picked',
-                                                'reached',
+                                                'on_the_way',
                                                 'delivered',
                                               ].contains(order.status) &&
                                               order.driverId == user.uid,

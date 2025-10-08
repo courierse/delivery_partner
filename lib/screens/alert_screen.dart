@@ -22,7 +22,8 @@ class AlertScreen extends StatefulWidget {
 }
 
 class _AlertScreenState extends State<AlertScreen> {
-  final CollectionReference _ordersCollection = FirebaseFirestore.instance.collection('orders');
+  final CollectionReference _ordersCollection = FirebaseFirestore.instance
+      .collection('orders');
   final AudioPlayer _audioPlayer = AudioPlayer();
   StreamSubscription<QuerySnapshot>? _pendingOrdersSubscription;
   StreamSubscription<QuerySnapshot>? _acceptedCancelledOrdersSubscription;
@@ -94,66 +95,108 @@ class _AlertScreenState extends State<AlertScreen> {
 
     _pendingOrdersSubscription = _ordersCollection
         .where('status', isEqualTo: 'pending')
-        .where('createdAt',
-            isGreaterThanOrEqualTo: Timestamp.fromDate(DateTime.now().subtract(const Duration(hours: 1))))
+        .where(
+          'createdAt',
+          isGreaterThanOrEqualTo: Timestamp.fromDate(
+            DateTime.now().subtract(const Duration(hours: 1)),
+          ),
+        )
         .snapshots()
-        .listen((snapshot) async {
-      if (!mounted) return;
+        .listen(
+          (snapshot) async {
+            if (!mounted) return;
 
-      final locationState = context.read<LocationCubit>().state;
-      if (locationState is! CurrentLocationUpdated) return;
+            final locationState = context.read<LocationCubit>().state;
+            if (locationState is! CurrentLocationUpdated) return;
 
-      final driverLocation = LatLng(locationState.latitude, locationState.longitude);
-      final driverSnapshot = await FirebaseFirestore.instance.collection('drivers').doc(user.uid).get();
-      final driverData = driverSnapshot.data() as Map<String, dynamic>?;
-      final vehicleTypes = (driverData?['vehicleTypes'] as String?)?.split(', ')?.toList() ?? [];
+            final driverLocation = LatLng(
+              locationState.latitude,
+              locationState.longitude,
+            );
+            final driverSnapshot =
+                await FirebaseFirestore.instance
+                    .collection('drivers')
+                    .doc(user.uid)
+                    .get();
+            final driverData = driverSnapshot.data() as Map<String, dynamic>?;
+            final vehicleTypes =
+                (driverData?['vehicleTypes'] as String?)
+                    ?.split(', ')
+                    ?.toList() ??
+                [];
 
-      final newPendingOrders = snapshot.docs.where((doc) {
-        final order = order_model.Order.fromSnapshot(doc);
-        if (order.vehicleType == null || order.vehicleType!.isEmpty || !vehicleTypes.contains(order.vehicleType)) return false;
-        if (order.pickupLat == null || order.pickupLng == null) return false;
-        final pickupLoc = LatLng(order.pickupLat!, order.pickupLng!);
-        final distance = _calculateDistance(driverLocation, pickupLoc);
-        return distance <= 5.0;
-      }).toList();
+            final newPendingOrders =
+                snapshot.docs.where((doc) {
+                  final order = order_model.Order.fromSnapshot(doc);
+                  if (order.vehicleType == null ||
+                      order.vehicleType!.isEmpty ||
+                      !vehicleTypes.contains(order.vehicleType))
+                    return false;
+                  if (order.pickupLat == null || order.pickupLng == null)
+                    return false;
+                  final pickupLoc = LatLng(order.pickupLat!, order.pickupLng!);
+                  final distance = _calculateDistance(
+                    driverLocation,
+                    pickupLoc,
+                  );
+                  return distance <= 5.0;
+                }).toList();
 
-      final hasPendingOrders = newPendingOrders.isNotEmpty;
-      if (hasPendingOrders != _hasPendingOrders && mounted) {
-        setState(() {
-          _hasPendingOrders = hasPendingOrders;
-        });
-        if (hasPendingOrders) {
-          await _safePlayAudio();
-        } else {
-          await _safeStopAudio();
-        }
-      }
-    }, onError: (error) {
-      print('Error listening to pending orders: $error');
-    });
+            final hasPendingOrders = newPendingOrders.isNotEmpty;
+            if (hasPendingOrders != _hasPendingOrders && mounted) {
+              setState(() {
+                _hasPendingOrders = hasPendingOrders;
+              });
+              if (hasPendingOrders) {
+                await _safePlayAudio();
+              } else {
+                await _safeStopAudio();
+              }
+            }
+          },
+          onError: (error) {
+            print('Error listening to pending orders: $error');
+          },
+        );
 
     _acceptedCancelledOrdersSubscription = _ordersCollection
         .where('driverId', isEqualTo: user.uid)
-        .where('status', whereIn: ['accepted', 'picked_up', 'on_the_way', 'reached', 'delivered', 'cancelled'])
+        .where(
+          'status',
+          whereIn: [
+            'accepted',
+            'driver_reached',
+            'order_picked',
+            'reached',
+            'delivered',
+            'cancelled',
+          ],
+        )
         .snapshots()
-        .listen((snapshot) async {
-      if (!mounted) return;
+        .listen(
+          (snapshot) async {
+            if (!mounted) return;
 
-      for (var doc in snapshot.docChanges) {
-        final order = order_model.Order.fromSnapshot(doc.doc);
-        if (order.status == 'cancelled' && order.cancelledByUser == true) {
-          ScaffoldMessenger.of(context).showSnackBar(
-            SnackBar(
-              content: Text('Order ${order.id} has been cancelled by the user.'),
-              duration: const Duration(seconds: 5),
-            ),
-          );
-          await _safeStopAudio();
-        }
-      }
-    }, onError: (error) {
-      print('Error listening to cancellations: $error');
-    });
+            for (var doc in snapshot.docChanges) {
+              final order = order_model.Order.fromSnapshot(doc.doc);
+              if (order.status == 'cancelled' &&
+                  order.cancelledByUser == true) {
+                ScaffoldMessenger.of(context).showSnackBar(
+                  SnackBar(
+                    content: Text(
+                      'Order ${order.id} has been cancelled by the user.',
+                    ),
+                    duration: const Duration(seconds: 5),
+                  ),
+                );
+                await _safeStopAudio();
+              }
+            }
+          },
+          onError: (error) {
+            print('Error listening to cancellations: $error');
+          },
+        );
   }
 
   double _calculateDistance(LatLng start, LatLng end) {
@@ -166,7 +209,8 @@ class _AlertScreenState extends State<AlertScreen> {
     final double dLat = lat2 - lat1;
     final double dLon = lon2 - lon1;
 
-    final double a = sin(dLat / 2) * sin(dLat / 2) +
+    final double a =
+        sin(dLat / 2) * sin(dLat / 2) +
         cos(lat1) * cos(lat2) * sin(dLon / 2) * sin(dLon / 2);
     final double c = 2 * atan2(sqrt(a), sqrt(1 - a));
     return earthRadius * c;
@@ -189,7 +233,10 @@ class _AlertScreenState extends State<AlertScreen> {
       return;
     }
 
-    final driverLocation = LatLng(locationState.latitude, locationState.longitude);
+    final driverLocation = LatLng(
+      locationState.latitude,
+      locationState.longitude,
+    );
 
     try {
       await _safeStopAudio();
@@ -208,7 +255,9 @@ class _AlertScreenState extends State<AlertScreen> {
           throw Exception('Order is not pending');
         }
 
-        final driverRef = FirebaseFirestore.instance.collection('drivers').doc(user.uid);
+        final driverRef = FirebaseFirestore.instance
+            .collection('drivers')
+            .doc(user.uid);
         final driverSnap = await transaction.get(driverRef);
         if (!driverSnap.exists) {
           throw Exception('Driver data not found');
@@ -227,24 +276,20 @@ class _AlertScreenState extends State<AlertScreen> {
           'statusUpdatedAt': FieldValue.serverTimestamp(),
         });
 
-        transaction.set(
-          driverRef,
-          {
-            'latitude': driverLocation.latitude,
-            'longitude': driverLocation.longitude,
-            'updatedAt': FieldValue.serverTimestamp(),
-          },
-          SetOptions(merge: true),
-        );
+        transaction.set(driverRef, {
+          'latitude': driverLocation.latitude,
+          'longitude': driverLocation.longitude,
+          'updatedAt': FieldValue.serverTimestamp(),
+        }, SetOptions(merge: true));
       });
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Order accepted!')),
-      );
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(const SnackBar(content: Text('Order accepted!')));
       setState(() {});
     } catch (e) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('Failed to accept order: $e')),
-      );
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(SnackBar(content: Text('Failed to accept order: $e')));
     }
   }
 
@@ -293,9 +338,9 @@ class _AlertScreenState extends State<AlertScreen> {
 
   bool _isValidStatusTransition(String currentStatus, String newStatus) {
     const validTransitions = {
-      'accepted': ['picked_up', 'cancelled'],
-      'picked_up': ['on_the_way', 'cancelled'],
-      'on_the_way': ['reached', 'cancelled'],
+      'accepted': ['driver_reached', 'cancelled'],
+      'driver_reached': ['order_picked', 'cancelled'],
+      'order_picked': ['reached', 'cancelled'],
       'reached': ['delivered', 'cancelled'],
       'delivered': ['completed'],
     };
@@ -319,17 +364,17 @@ class _AlertScreenState extends State<AlertScreen> {
           .collection('rejected_orders')
           .doc(orderId)
           .set({
-        'orderId': orderId,
-        'rejectedAt': FieldValue.serverTimestamp(),
-      });
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Order rejected.')),
-      );
+            'orderId': orderId,
+            'rejectedAt': FieldValue.serverTimestamp(),
+          });
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(const SnackBar(content: Text('Order rejected.')));
       setState(() {});
     } catch (e) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('Failed to reject order: $e')),
-      );
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(SnackBar(content: Text('Failed to reject order: $e')));
     }
   }
 
@@ -353,7 +398,13 @@ class _AlertScreenState extends State<AlertScreen> {
         if (data == null) {
           throw Exception('Order data is null');
         }
-        if (!['accepted', 'picked_up', 'on_the_way', 'reached'].contains(data['status']) || data['driverId'] != user.uid) {
+        if (![
+              'accepted',
+              'driver_reached',
+              'order_picked',
+              'reached',
+            ].contains(data['status']) ||
+            data['driverId'] != user.uid) {
           throw Exception('Order cannot be cancelled by driver');
         }
 
@@ -370,9 +421,9 @@ class _AlertScreenState extends State<AlertScreen> {
       );
       setState(() {});
     } catch (e) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('Failed to cancel order: $e')),
-      );
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(SnackBar(content: Text('Failed to cancel order: $e')));
     }
   }
 
@@ -404,7 +455,11 @@ class _AlertScreenState extends State<AlertScreen> {
     );
   }
 
-  Future<void> _openGoogleMaps(LatLng driverLocation, LatLng destination, String locationType) async {
+  Future<void> _openGoogleMaps(
+    LatLng driverLocation,
+    LatLng destination,
+    String locationType,
+  ) async {
     try {
       if (destination.latitude == 0.0 || destination.longitude == 0.0) {
         ScaffoldMessenger.of(context).showSnackBar(
@@ -427,23 +482,34 @@ class _AlertScreenState extends State<AlertScreen> {
     } catch (e) {
       print('Error launching Google Maps for $locationType: $e');
       ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('Error opening Google Maps for $locationType: $e')),
+        SnackBar(
+          content: Text('Error opening Google Maps for $locationType: $e'),
+        ),
       );
     }
   }
 
-  Widget _buildOrderCard(order_model.Order order, bool isPending, LatLng driverLocation) {
+  Widget _buildOrderCard(
+    order_model.Order order,
+    bool isPending,
+    LatLng driverLocation,
+  ) {
     final distanceToPickup = _calculateDistance(
       driverLocation,
       LatLng(order.pickupLat ?? 0.0, order.pickupLng ?? 0.0),
     );
-    final pickupLocation = LatLng(order.pickupLat ?? 0.0, order.pickupLng ?? 0.0);
+    final pickupLocation = LatLng(
+      order.pickupLat ?? 0.0,
+      order.pickupLng ?? 0.0,
+    );
     final dropLocation = LatLng(order.dropLat ?? 0.0, order.dropLng ?? 0.0);
 
     if (order.status == 'cancelled' && order.cancelledByUser == true) {
       return Card(
         margin: EdgeInsets.symmetric(horizontal: 16.w, vertical: 8.h),
-        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16.r)),
+        shape: RoundedRectangleBorder(
+          borderRadius: BorderRadius.circular(16.r),
+        ),
         elevation: 8,
         shadowColor: Colors.black.withOpacity(0.2),
         child: Padding(
@@ -482,16 +548,24 @@ class _AlertScreenState extends State<AlertScreen> {
               mainAxisAlignment: MainAxisAlignment.spaceBetween,
               children: [
                 Text(
-                  isPending ? 'New Delivery Request' : _getStatusTitle(order.status),
+                  isPending
+                      ? 'New Delivery Request'
+                      : _getStatusTitle(order.status),
                   style: TextStyle(
                     fontSize: 18.sp,
                     fontWeight: FontWeight.bold,
-                    color: isPending ? Colors.blue.shade900 : Colors.green.shade700,
+                    color:
+                        isPending
+                            ? Colors.blue.shade900
+                            : Colors.green.shade700,
                   ),
                 ),
                 if (isPending)
                   Container(
-                    padding: EdgeInsets.symmetric(horizontal: 8.w, vertical: 4.h),
+                    padding: EdgeInsets.symmetric(
+                      horizontal: 8.w,
+                      vertical: 4.h,
+                    ),
                     decoration: BoxDecoration(
                       color: Colors.blue.shade100,
                       borderRadius: BorderRadius.circular(8.r),
@@ -509,45 +583,86 @@ class _AlertScreenState extends State<AlertScreen> {
             ),
             SizedBox(height: 12.h),
             _buildInfoRow(Icons.location_on, 'Pickup: ${order.pickupLocation}'),
-            _buildInfoRow(Icons.person, 'Contact: ${order.pickupName} - ${order.pickupPhone}'),
-            _buildInfoRow(Icons.local_shipping, 'Drop-off: ${order.dropLocation}'),
-            _buildInfoRow(Icons.person, 'Contact: ${order.dropName} - ${order.dropPhone}'),
-            _buildInfoRow(Icons.directions_car, 'Vehicle: ${order.vehicleType ?? 'N/A'}'),
-            _buildInfoRow(Icons.social_distance, 'Distance to Pickup: ${distanceToPickup.toStringAsFixed(2)} km'),
-            _buildInfoRow(Icons.map, 'Total Distance: ${order.distance.toStringAsFixed(2)} km'),
-            _buildInfoRow(Icons.monetization_on, 'Cost: ₹${order.deliveryCost.toStringAsFixed(2)}'),
+            _buildInfoRow(
+              Icons.person,
+              'Contact: ${order.pickupName} - ${order.pickupPhone}',
+            ),
+            _buildInfoRow(
+              Icons.local_shipping,
+              'Drop-off: ${order.dropLocation}',
+            ),
+            _buildInfoRow(
+              Icons.person,
+              'Contact: ${order.dropName} - ${order.dropPhone}',
+            ),
+            _buildInfoRow(
+              Icons.directions_car,
+              'Vehicle: ${order.vehicleType ?? 'N/A'}',
+            ),
+            _buildInfoRow(
+              Icons.social_distance,
+              'Distance to Pickup: ${distanceToPickup.toStringAsFixed(2)} km',
+            ),
+            _buildInfoRow(
+              Icons.map,
+              'Total Distance: ${order.distance.toStringAsFixed(2)} km',
+            ),
+            _buildInfoRow(
+              Icons.monetization_on,
+              'Cost: ₹${order.deliveryCost.toStringAsFixed(2)}',
+            ),
             SizedBox(height: 16.h),
             Column(
               children: [
                 ElevatedButton(
-                  onPressed: () => _openGoogleMaps(driverLocation, pickupLocation, 'pickup'),
+                  onPressed:
+                      () => _openGoogleMaps(
+                        driverLocation,
+                        pickupLocation,
+                        'pickup',
+                      ),
                   style: ElevatedButton.styleFrom(
                     backgroundColor: Colors.blue.shade500,
                     foregroundColor: Colors.white,
                     padding: EdgeInsets.symmetric(vertical: 12.h),
-                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12.r)),
+                    shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(12.r),
+                    ),
                     elevation: 2,
                     minimumSize: Size(double.infinity, 48.h),
                   ),
                   child: Text(
                     'See Pickup on Google Maps',
-                    style: TextStyle(fontSize: 16.sp, fontWeight: FontWeight.w600),
+                    style: TextStyle(
+                      fontSize: 16.sp,
+                      fontWeight: FontWeight.w600,
+                    ),
                   ),
                 ),
                 SizedBox(height: 12.h),
                 ElevatedButton(
-                  onPressed: () => _openGoogleMaps(driverLocation, dropLocation, 'drop-off'),
+                  onPressed:
+                      () => _openGoogleMaps(
+                        driverLocation,
+                        dropLocation,
+                        'drop-off',
+                      ),
                   style: ElevatedButton.styleFrom(
                     backgroundColor: Colors.blue.shade600,
                     foregroundColor: Colors.white,
                     padding: EdgeInsets.symmetric(vertical: 12.h),
-                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12.r)),
+                    shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(12.r),
+                    ),
                     elevation: 2,
                     minimumSize: Size(double.infinity, 48.h),
                   ),
                   child: Text(
                     'See Drop-off on Google Maps',
-                    style: TextStyle(fontSize: 16.sp, fontWeight: FontWeight.w600),
+                    style: TextStyle(
+                      fontSize: 16.sp,
+                      fontWeight: FontWeight.w600,
+                    ),
                   ),
                 ),
               ],
@@ -564,12 +679,17 @@ class _AlertScreenState extends State<AlertScreen> {
                         backgroundColor: Colors.blue.shade700,
                         foregroundColor: Colors.white,
                         padding: EdgeInsets.symmetric(vertical: 12.h),
-                        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12.r)),
+                        shape: RoundedRectangleBorder(
+                          borderRadius: BorderRadius.circular(12.r),
+                        ),
                         elevation: 2,
                       ),
                       child: Text(
                         'Accept',
-                        style: TextStyle(fontSize: 16.sp, fontWeight: FontWeight.w600),
+                        style: TextStyle(
+                          fontSize: 16.sp,
+                          fontWeight: FontWeight.w600,
+                        ),
                       ),
                     ),
                   ),
@@ -581,12 +701,17 @@ class _AlertScreenState extends State<AlertScreen> {
                         backgroundColor: Colors.grey.shade200,
                         foregroundColor: Colors.grey.shade800,
                         padding: EdgeInsets.symmetric(vertical: 12.h),
-                        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12.r)),
+                        shape: RoundedRectangleBorder(
+                          borderRadius: BorderRadius.circular(12.r),
+                        ),
                         elevation: 2,
                       ),
                       child: Text(
                         'Reject',
-                        style: TextStyle(fontSize: 16.sp, fontWeight: FontWeight.w600),
+                        style: TextStyle(
+                          fontSize: 16.sp,
+                          fontWeight: FontWeight.w600,
+                        ),
                       ),
                     ),
                   ),
@@ -596,7 +721,10 @@ class _AlertScreenState extends State<AlertScreen> {
               Column(
                 children: [
                   Container(
-                    padding: EdgeInsets.symmetric(vertical: 8.h, horizontal: 12.w),
+                    padding: EdgeInsets.symmetric(
+                      vertical: 8.h,
+                      horizontal: 12.w,
+                    ),
                     decoration: BoxDecoration(
                       color: _getStatusColor(order.status).withOpacity(0.1),
                       borderRadius: BorderRadius.circular(8.r),
@@ -613,69 +741,93 @@ class _AlertScreenState extends State<AlertScreen> {
                   SizedBox(height: 12.h),
                   if (order.status == 'accepted')
                     ElevatedButton(
-                      onPressed: () => _updateOrderStatus(order.id, 'picked_up'),
+                      onPressed:
+                          () => _updateOrderStatus(order.id, 'driver_reached'),
                       style: ElevatedButton.styleFrom(
                         backgroundColor: Colors.green.shade600,
                         foregroundColor: Colors.white,
                         padding: EdgeInsets.symmetric(vertical: 12.h),
-                        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12.r)),
+                        shape: RoundedRectangleBorder(
+                          borderRadius: BorderRadius.circular(12.r),
+                        ),
                         elevation: 2,
                         minimumSize: Size(double.infinity, 48.h),
                       ),
                       child: Text(
-                        'Order Picked Up',
-                        style: TextStyle(fontSize: 16.sp, fontWeight: FontWeight.w600),
+                        'Reached',
+                        style: TextStyle(
+                          fontSize: 16.sp,
+                          fontWeight: FontWeight.w600,
+                        ),
                       ),
                     ),
-                  if (order.status == 'picked_up')
+                  if (order.status == 'driver_reached')
                     ElevatedButton(
-                      onPressed: () => _updateOrderStatus(order.id, 'on_the_way'),
+                      onPressed:
+                          () => _updateOrderStatus(order.id, 'order_picked'),
                       style: ElevatedButton.styleFrom(
                         backgroundColor: Colors.green.shade600,
                         foregroundColor: Colors.white,
                         padding: EdgeInsets.symmetric(vertical: 12.h),
-                        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12.r)),
+                        shape: RoundedRectangleBorder(
+                          borderRadius: BorderRadius.circular(12.r),
+                        ),
                         elevation: 2,
                         minimumSize: Size(double.infinity, 48.h),
                       ),
                       child: Text(
-                        'Driver On The Way',
-                        style: TextStyle(fontSize: 16.sp, fontWeight: FontWeight.w600),
+                        'Order Picked',
+                        style: TextStyle(
+                          fontSize: 16.sp,
+                          fontWeight: FontWeight.w600,
+                        ),
                       ),
                     ),
-                  if (order.status == 'on_the_way')
+                  if (order.status == 'order_picked')
                     ElevatedButton(
                       onPressed: () => _updateOrderStatus(order.id, 'reached'),
                       style: ElevatedButton.styleFrom(
                         backgroundColor: Colors.green.shade600,
                         foregroundColor: Colors.white,
                         padding: EdgeInsets.symmetric(vertical: 12.h),
-                        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12.r)),
+                        shape: RoundedRectangleBorder(
+                          borderRadius: BorderRadius.circular(12.r),
+                        ),
                         elevation: 2,
                         minimumSize: Size(double.infinity, 48.h),
                       ),
                       child: Text(
                         'Driver Reached',
-                        style: TextStyle(fontSize: 16.sp, fontWeight: FontWeight.w600),
+                        style: TextStyle(
+                          fontSize: 16.sp,
+                          fontWeight: FontWeight.w600,
+                        ),
                       ),
                     ),
                   if (order.status == 'reached')
                     ElevatedButton(
-                      onPressed: () => _updateOrderStatus(order.id, 'delivered'),
+                      onPressed:
+                          () => _updateOrderStatus(order.id, 'delivered'),
                       style: ElevatedButton.styleFrom(
                         backgroundColor: Colors.green.shade600,
                         foregroundColor: Colors.white,
                         padding: EdgeInsets.symmetric(vertical: 12.h),
-                        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12.r)),
+                        shape: RoundedRectangleBorder(
+                          borderRadius: BorderRadius.circular(12.r),
+                        ),
                         elevation: 2,
                         minimumSize: Size(double.infinity, 48.h),
                       ),
                       child: Text(
                         'Order Delivered',
-                        style: TextStyle(fontSize: 16.sp, fontWeight: FontWeight.w600),
+                        style: TextStyle(
+                          fontSize: 16.sp,
+                          fontWeight: FontWeight.w600,
+                        ),
                       ),
                     ),
-                  if (order.status != 'delivered' && order.status != 'completed')
+                  if (order.status != 'delivered' &&
+                      order.status != 'completed')
                     Column(
                       children: [
                         SizedBox(height: 12.h),
@@ -685,13 +837,18 @@ class _AlertScreenState extends State<AlertScreen> {
                             backgroundColor: Colors.red,
                             foregroundColor: Colors.white,
                             padding: EdgeInsets.symmetric(vertical: 12.h),
-                            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12.r)),
+                            shape: RoundedRectangleBorder(
+                              borderRadius: BorderRadius.circular(12.r),
+                            ),
                             elevation: 2,
                             minimumSize: Size(double.infinity, 48.h),
                           ),
                           child: Text(
                             'Cancel Delivery',
-                            style: TextStyle(fontSize: 16.sp, fontWeight: FontWeight.w600),
+                            style: TextStyle(
+                              fontSize: 16.sp,
+                              fontWeight: FontWeight.w600,
+                            ),
                           ),
                         ),
                       ],
@@ -708,10 +865,10 @@ class _AlertScreenState extends State<AlertScreen> {
     switch (status) {
       case 'accepted':
         return 'Accepted Delivery';
-      case 'picked_up':
+      case 'driver_reached':
+        return 'Driver has reached the pickup location.';
+      case 'order_picked':
         return 'Order Picked Up';
-      case 'on_the_way':
-        return 'Driver On The Way';
       case 'reached':
         return 'Driver Reached';
       case 'delivered':
@@ -727,10 +884,10 @@ class _AlertScreenState extends State<AlertScreen> {
     switch (status) {
       case 'accepted':
         return 'Accepted';
-      case 'picked_up':
-        return 'Picked Up';
-      case 'on_the_way':
-        return 'On The Way';
+      case 'driver_reached':
+        return 'Driver Reached';
+      case 'order_picked':
+        return 'Order Picked Up';
       case 'reached':
         return 'Reached';
       case 'delivered':
@@ -745,8 +902,8 @@ class _AlertScreenState extends State<AlertScreen> {
   Color _getStatusColor(String status) {
     switch (status) {
       case 'accepted':
-      case 'picked_up':
-      case 'on_the_way':
+      case 'driver_reached':
+      case 'order_picked':
       case 'reached':
       case 'delivered':
       case 'completed':
@@ -794,7 +951,9 @@ class _AlertScreenState extends State<AlertScreen> {
                     padding: EdgeInsets.all(24.w),
                     child: Card(
                       elevation: 12,
-                      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16.r)),
+                      shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(16.r),
+                      ),
                       child: Padding(
                         padding: EdgeInsets.all(24.w),
                         child: Column(
@@ -818,23 +977,41 @@ class _AlertScreenState extends State<AlertScreen> {
                             SizedBox(height: 16.h),
                             ElevatedButton(
                               onPressed: () async {
-                                if (locationState.message.contains('permanently denied')) {
-                                  print('Opening app settings for location permission');
+                                if (locationState.message.contains(
+                                  'permanently denied',
+                                )) {
+                                  print(
+                                    'Opening app settings for location permission',
+                                  );
                                   await Geolocator.openAppSettings();
                                 } else {
-                                  context.read<LocationCubit>().getCurrentLocation();
+                                  context
+                                      .read<LocationCubit>()
+                                      .getCurrentLocation();
                                 }
                               },
                               style: ElevatedButton.styleFrom(
                                 backgroundColor: Colors.blue.shade700,
                                 foregroundColor: Colors.white,
-                                padding: EdgeInsets.symmetric(horizontal: 32.w, vertical: 12.h),
-                                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12.r)),
+                                padding: EdgeInsets.symmetric(
+                                  horizontal: 32.w,
+                                  vertical: 12.h,
+                                ),
+                                shape: RoundedRectangleBorder(
+                                  borderRadius: BorderRadius.circular(12.r),
+                                ),
                                 elevation: 2,
                               ),
                               child: Text(
-                                locationState.message.contains('permanently denied') ? 'Open Settings' : 'Retry',
-                                style: TextStyle(fontSize: 16.sp, fontWeight: FontWeight.w600),
+                                locationState.message.contains(
+                                      'permanently denied',
+                                    )
+                                    ? 'Open Settings'
+                                    : 'Retry',
+                                style: TextStyle(
+                                  fontSize: 16.sp,
+                                  fontWeight: FontWeight.w600,
+                                ),
                               ),
                             ),
                           ],
@@ -849,9 +1026,16 @@ class _AlertScreenState extends State<AlertScreen> {
                 );
               }
 
-              final driverLocation = LatLng(locationState.latitude, locationState.longitude);
-              print('Driver location: ${driverLocation.latitude}, ${driverLocation.longitude}');
-              final recentThreshold = Timestamp.fromDate(DateTime.now().subtract(const Duration(hours: 1)));
+              final driverLocation = LatLng(
+                locationState.latitude,
+                locationState.longitude,
+              );
+              print(
+                'Driver location: ${driverLocation.latitude}, ${driverLocation.longitude}',
+              );
+              final recentThreshold = Timestamp.fromDate(
+                DateTime.now().subtract(const Duration(hours: 1)),
+              );
               final user = FirebaseAuth.instance.currentUser;
 
               if (user == null) {
@@ -860,7 +1044,9 @@ class _AlertScreenState extends State<AlertScreen> {
                     padding: EdgeInsets.all(24.w),
                     child: Card(
                       elevation: 12,
-                      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16.r)),
+                      shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(16.r),
+                      ),
                       child: Padding(
                         padding: EdgeInsets.all(24.w),
                         child: Column(
@@ -892,7 +1078,10 @@ class _AlertScreenState extends State<AlertScreen> {
               return Column(
                 children: [
                   Padding(
-                    padding: EdgeInsets.symmetric(vertical: 16.h, horizontal: 24.w),
+                    padding: EdgeInsets.symmetric(
+                      vertical: 16.h,
+                      horizontal: 24.w,
+                    ),
                     child: Text(
                       'Available Deliveries',
                       style: TextStyle(
@@ -904,18 +1093,24 @@ class _AlertScreenState extends State<AlertScreen> {
                   ),
                   Expanded(
                     child: StreamBuilder<QuerySnapshot>(
-                      stream: FirebaseFirestore.instance
-                          .collection('orders')
-                          .where('status', isEqualTo: 'pending')
-                          .where('createdAt', isGreaterThanOrEqualTo: recentThreshold)
-                          .snapshots(),
+                      stream:
+                          FirebaseFirestore.instance
+                              .collection('orders')
+                              .where('status', isEqualTo: 'pending')
+                              .where(
+                                'createdAt',
+                                isGreaterThanOrEqualTo: recentThreshold,
+                              )
+                              .snapshots(),
                       builder: (context, snapshot) {
                         if (snapshot.hasError) {
                           print('Pending orders error: ${snapshot.error}');
                           return Center(
                             child: Card(
                               elevation: 12,
-                              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16.r)),
+                              shape: RoundedRectangleBorder(
+                                borderRadius: BorderRadius.circular(16.r),
+                              ),
                               child: Padding(
                                 padding: EdgeInsets.all(24.w),
                                 child: Column(
@@ -944,32 +1139,55 @@ class _AlertScreenState extends State<AlertScreen> {
                         }
                         if (!snapshot.hasData) {
                           return Center(
-                            child: CircularProgressIndicator(color: Colors.blue.shade700),
+                            child: CircularProgressIndicator(
+                              color: Colors.blue.shade700,
+                            ),
                           );
                         }
 
                         final pendingDocs = snapshot.data!.docs;
-                        final acceptedSnapshot = FirebaseFirestore.instance
-                            .collection('orders')
-                            .where('status', whereIn: ['accepted', 'picked_up', 'on_the_way', 'reached', 'delivered'])
-                            .where('driverId', isEqualTo: user.uid)
-                            .where('createdAt', isGreaterThanOrEqualTo: recentThreshold)
-                            .get();
-                        final rejectedSnapshot = FirebaseFirestore.instance
-                            .collection('drivers')
-                            .doc(user.uid)
-                            .collection('rejected_orders')
-                            .get();
+                        final acceptedSnapshot =
+                            FirebaseFirestore.instance
+                                .collection('orders')
+                                .where(
+                                  'status',
+                                  whereIn: [
+                                    'accepted',
+                                    'driver_reached',
+                                    'order_picked',
+                                    'reached',
+                                    'delivered',
+                                  ],
+                                )
+                                .where('driverId', isEqualTo: user.uid)
+                                .where(
+                                  'createdAt',
+                                  isGreaterThanOrEqualTo: recentThreshold,
+                                )
+                                .get();
+                        final rejectedSnapshot =
+                            FirebaseFirestore.instance
+                                .collection('drivers')
+                                .doc(user.uid)
+                                .collection('rejected_orders')
+                                .get();
 
                         return FutureBuilder<List<dynamic>>(
-                          future: Future.wait([acceptedSnapshot, rejectedSnapshot]),
+                          future: Future.wait([
+                            acceptedSnapshot,
+                            rejectedSnapshot,
+                          ]),
                           builder: (context, combinedSnapshot) {
                             if (combinedSnapshot.hasError) {
-                              print('Combined snapshot error: ${combinedSnapshot.error}');
+                              print(
+                                'Combined snapshot error: ${combinedSnapshot.error}',
+                              );
                               return Center(
                                 child: Card(
                                   elevation: 12,
-                                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16.r)),
+                                  shape: RoundedRectangleBorder(
+                                    borderRadius: BorderRadius.circular(16.r),
+                                  ),
                                   child: Padding(
                                     padding: EdgeInsets.all(24.w),
                                     child: Column(
@@ -998,24 +1216,41 @@ class _AlertScreenState extends State<AlertScreen> {
                             }
                             if (!combinedSnapshot.hasData) {
                               return Center(
-                                child: CircularProgressIndicator(color: Colors.blue.shade700),
+                                child: CircularProgressIndicator(
+                                  color: Colors.blue.shade700,
+                                ),
                               );
                             }
 
-                            final acceptedDocs = combinedSnapshot.data![0] as QuerySnapshot;
-                            final rejectedDocs = combinedSnapshot.data![1] as QuerySnapshot;
-                            final rejectedOrderIds = rejectedDocs.docs.map((doc) => doc['orderId'] as String).toSet();
+                            final acceptedDocs =
+                                combinedSnapshot.data![0] as QuerySnapshot;
+                            final rejectedDocs =
+                                combinedSnapshot.data![1] as QuerySnapshot;
+                            final rejectedOrderIds =
+                                rejectedDocs.docs
+                                    .map((doc) => doc['orderId'] as String)
+                                    .toSet();
 
-                            final driverSnapshot = FirebaseFirestore.instance.collection('drivers').doc(user.uid).get();
+                            final driverSnapshot =
+                                FirebaseFirestore.instance
+                                    .collection('drivers')
+                                    .doc(user.uid)
+                                    .get();
                             return FutureBuilder<DocumentSnapshot>(
                               future: driverSnapshot,
                               builder: (context, driverSnapshot) {
                                 if (driverSnapshot.hasError) {
-                                  print('Driver data error: ${driverSnapshot.error}');
+                                  print(
+                                    'Driver data error: ${driverSnapshot.error}',
+                                  );
                                   return Center(
                                     child: Card(
                                       elevation: 12,
-                                      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16.r)),
+                                      shape: RoundedRectangleBorder(
+                                        borderRadius: BorderRadius.circular(
+                                          16.r,
+                                        ),
+                                      ),
                                       child: Padding(
                                         padding: EdgeInsets.all(24.w),
                                         child: Column(
@@ -1042,11 +1277,16 @@ class _AlertScreenState extends State<AlertScreen> {
                                     ),
                                   );
                                 }
-                                if (!driverSnapshot.hasData || !driverSnapshot.data!.exists) {
+                                if (!driverSnapshot.hasData ||
+                                    !driverSnapshot.data!.exists) {
                                   return Center(
                                     child: Card(
                                       elevation: 12,
-                                      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16.r)),
+                                      shape: RoundedRectangleBorder(
+                                        borderRadius: BorderRadius.circular(
+                                          16.r,
+                                        ),
+                                      ),
                                       child: Padding(
                                         padding: EdgeInsets.all(24.w),
                                         child: Column(
@@ -1074,39 +1314,113 @@ class _AlertScreenState extends State<AlertScreen> {
                                   );
                                 }
 
-                                final driverData = driverSnapshot.data!.data() as Map<String, dynamic>?;
-                                final vehicleTypes = (driverData?['vehicleTypes'] as String?)?.split(', ')?.toList() ?? [];
+                                final driverData =
+                                    driverSnapshot.data!.data()
+                                        as Map<String, dynamic>?;
+                                final vehicleTypes =
+                                    (driverData?['vehicleTypes'] as String?)
+                                        ?.split(', ')
+                                        ?.toList() ??
+                                    [];
 
-                                final orders = [
-                                  ...pendingDocs.map((doc) => order_model.Order.fromSnapshot(doc)),
-                                  ...acceptedDocs.docs.map((doc) => order_model.Order.fromSnapshot(doc)),
-                                ].where((order) {
-                                  if (order.status == 'accepted' && order.driverId == user.uid) return true;
-                                  if (order.status == 'picked_up' && order.driverId == user.uid) return true;
-                                  if (order.status == 'on_the_way' && order.driverId == user.uid) return true;
-                                  if (order.status == 'reached' && order.driverId == user.uid) return true;
-                                  if (order.status == 'delivered' && order.driverId == user.uid) return true;
-                                  if (order.status != 'pending') return false;
-                                  if (order.vehicleType == null || order.vehicleType!.isEmpty || !vehicleTypes.contains(order.vehicleType)) return false;
-                                  if (order.pickupLat == null || order.pickupLng == null) return false;
-                                  final pickupLoc = LatLng(order.pickupLat!, order.pickupLng!);
-                                  final distance = _calculateDistance(driverLocation, pickupLoc);
-                                  return distance <= 5.0 && !rejectedOrderIds.contains(order.id);
-                                }).toList();
+                                final orders =
+                                    [
+                                      ...pendingDocs.map(
+                                        (doc) =>
+                                            order_model.Order.fromSnapshot(doc),
+                                      ),
+                                      ...acceptedDocs.docs.map(
+                                        (doc) =>
+                                            order_model.Order.fromSnapshot(doc),
+                                      ),
+                                    ].where((order) {
+                                      if (order.status == 'accepted' &&
+                                          order.driverId == user.uid)
+                                        return true;
+                                      if (order.status == 'driver_reached' &&
+                                          order.driverId == user.uid)
+                                        return true;
+                                      if (order.status == 'order_picked' &&
+                                          order.driverId == user.uid)
+                                        return true;
+                                      if (order.status == 'reached' &&
+                                          order.driverId == user.uid)
+                                        return true;
+                                      if (order.status == 'delivered' &&
+                                          order.driverId == user.uid)
+                                        return true;
+                                      if (order.status != 'pending')
+                                        return false;
+                                      if (order.vehicleType == null ||
+                                          order.vehicleType!.isEmpty ||
+                                          !vehicleTypes.contains(
+                                            order.vehicleType,
+                                          ))
+                                        return false;
+                                      if (order.pickupLat == null ||
+                                          order.pickupLng == null)
+                                        return false;
+                                      final pickupLoc = LatLng(
+                                        order.pickupLat!,
+                                        order.pickupLng!,
+                                      );
+                                      final distance = _calculateDistance(
+                                        driverLocation,
+                                        pickupLoc,
+                                      );
+                                      return distance <= 5.0 &&
+                                          !rejectedOrderIds.contains(order.id);
+                                    }).toList();
 
-                                final pendingOrders = orders.where((order) => order.status == 'pending').toList();
-                                final acceptedOrders = orders.where((order) => ['accepted', 'picked_up', 'on_the_way', 'reached', 'delivered'].contains(order.status) && order.driverId == user.uid).toList();
-                                final cancelledOrders = orders.where((order) => order.status == 'cancelled' && order.cancelledByUser == true && order.driverId == user.uid).toList();
+                                final pendingOrders =
+                                    orders
+                                        .where(
+                                          (order) => order.status == 'pending',
+                                        )
+                                        .toList();
+                                final acceptedOrders =
+                                    orders
+                                        .where(
+                                          (order) =>
+                                              [
+                                                'accepted',
+                                                'driver_reached',
+                                                'order_picked',
+                                                'reached',
+                                                'delivered',
+                                              ].contains(order.status) &&
+                                              order.driverId == user.uid,
+                                        )
+                                        .toList();
+                                final cancelledOrders =
+                                    orders
+                                        .where(
+                                          (order) =>
+                                              order.status == 'cancelled' &&
+                                              order.cancelledByUser == true &&
+                                              order.driverId == user.uid,
+                                        )
+                                        .toList();
 
                                 order_model.Order? latestAcceptedOrder;
                                 if (acceptedOrders.isNotEmpty) {
-                                  acceptedOrders.sort((a, b) => (b.statusUpdatedAt ?? b.acceptedAt ?? Timestamp.now()).compareTo(a.statusUpdatedAt ?? a.acceptedAt ?? Timestamp.now()));
+                                  acceptedOrders.sort(
+                                    (a, b) => (b.statusUpdatedAt ??
+                                            b.acceptedAt ??
+                                            Timestamp.now())
+                                        .compareTo(
+                                          a.statusUpdatedAt ??
+                                              a.acceptedAt ??
+                                              Timestamp.now(),
+                                        ),
+                                  );
                                   latestAcceptedOrder = acceptedOrders.first;
                                 }
 
                                 final finalOrders = [
                                   ...pendingOrders,
-                                  if (latestAcceptedOrder != null) latestAcceptedOrder,
+                                  if (latestAcceptedOrder != null)
+                                    latestAcceptedOrder,
                                   ...cancelledOrders,
                                 ];
 
@@ -1115,7 +1429,11 @@ class _AlertScreenState extends State<AlertScreen> {
                                   return Center(
                                     child: Card(
                                       elevation: 12,
-                                      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16.r)),
+                                      shape: RoundedRectangleBorder(
+                                        borderRadius: BorderRadius.circular(
+                                          16.r,
+                                        ),
+                                      ),
                                       child: Padding(
                                         padding: EdgeInsets.all(24.w),
                                         child: Column(
@@ -1144,10 +1462,24 @@ class _AlertScreenState extends State<AlertScreen> {
                                 }
 
                                 finalOrders.sort((a, b) {
-                                  if (a.status == 'pending' && !['pending', 'cancelled'].contains(b.status)) return -1;
-                                  if (!['pending', 'cancelled'].contains(a.status) && b.status == 'pending') return 1;
-                                  if (a.status == 'cancelled' && b.status != 'cancelled') return 1;
-                                  if (a.status != 'cancelled' && b.status == 'cancelled') return -1;
+                                  if (a.status == 'pending' &&
+                                      ![
+                                        'pending',
+                                        'cancelled',
+                                      ].contains(b.status))
+                                    return -1;
+                                  if (![
+                                        'pending',
+                                        'cancelled',
+                                      ].contains(a.status) &&
+                                      b.status == 'pending')
+                                    return 1;
+                                  if (a.status == 'cancelled' &&
+                                      b.status != 'cancelled')
+                                    return 1;
+                                  if (a.status != 'cancelled' &&
+                                      b.status == 'cancelled')
+                                    return -1;
                                   return 0;
                                 });
 
@@ -1157,7 +1489,11 @@ class _AlertScreenState extends State<AlertScreen> {
                                   itemBuilder: (context, index) {
                                     final order = finalOrders[index];
                                     final isPending = order.status == 'pending';
-                                    return _buildOrderCard(order, isPending, driverLocation);
+                                    return _buildOrderCard(
+                                      order,
+                                      isPending,
+                                      driverLocation,
+                                    );
                                   },
                                 );
                               },

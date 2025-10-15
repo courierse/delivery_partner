@@ -30,6 +30,7 @@ class _AlertScreenState extends State<AlertScreen> {
   bool _hasPendingOrders = false;
   bool _isAudioPlayerInitialized = false;
   bool _isOnDuty = false;
+  Timer? _waitingTimer;
 
   @override
   void initState() {
@@ -44,6 +45,7 @@ class _AlertScreenState extends State<AlertScreen> {
     print('AlertScreen: dispose called');
     _pendingOrdersSubscription?.cancel();
     _acceptedCancelledOrdersSubscription?.cancel();
+    _waitingTimer?.cancel();
     if (_isAudioPlayerInitialized) {
       try {
         print('Disposing AlertScreen: Stopping audio player');
@@ -62,6 +64,74 @@ class _AlertScreenState extends State<AlertScreen> {
       }
     }
     super.dispose();
+  }
+
+  // Waiting time rules for each vehicle type
+  final Map<String, Map<String, dynamic>> _waitingRules = {
+    '2 Wheeler': {'intervalMinutes': 1, 'fareIncrement': 2.0},
+    'E-Loader': {'intervalMinutes': 2, 'fareIncrement': 3.0},
+    '3 Wheeler': {'intervalMinutes': 1, 'fareIncrement': 2.5},
+    'Tata Ace': {'intervalMinutes': 1, 'fareIncrement': 3.5},
+    '8 Feet': {'intervalMinutes': 90, 'fareIncrement': 5.0},
+    '10 Feet': {'intervalMinutes': 100, 'fareIncrement': 6.0},
+    '14 Feet': {'intervalMinutes': 200, 'fareIncrement': 7.0},
+    '17 Feet': {'intervalMinutes': 300, 'fareIncrement': 7.0},
+  };
+
+  Future<void> _startWaitingTimer(String orderId, String vehicleType, double initialFare) async {
+    if (_waitingTimer != null) {
+      _waitingTimer!.cancel();
+    }
+
+    final rule = _waitingRules[vehicleType];
+    if (rule == null) {
+      print('No waiting rules found for vehicle type: $vehicleType');
+      return;
+    }
+
+    final intervalSeconds = rule['intervalMinutes'] * 60;
+    final fareIncrement = rule['fareIncrement'] as double;
+
+    _waitingTimer = Timer.periodic(Duration(seconds: intervalSeconds), (timer) async {
+      if (!mounted) {
+        timer.cancel();
+        return;
+      }
+
+      try {
+        await FirebaseFirestore.instance.runTransaction((transaction) async {
+          final docRef = _ordersCollection.doc(orderId);
+          final snapshot = await transaction.get(docRef);
+          if (!snapshot.exists) {
+            timer.cancel();
+            return;
+          }
+          final data = snapshot.data() as Map<String, dynamic>?;
+          if (data == null || data['status'] != 'driver_reached') {
+            timer.cancel();
+            return;
+          }
+
+          final currentFare = (data['deliveryCost'] as double?) ?? initialFare;
+          final newFare = currentFare + fareIncrement;
+
+          print('Updating fare for order $orderId: $currentFare -> $newFare');
+          transaction.update(docRef, {
+            'deliveryCost': newFare,
+            'fareUpdatedAt': FieldValue.serverTimestamp(),
+          });
+        });
+      } catch (e) {
+        print('Error updating fare for order $orderId: $e');
+      }
+    });
+  }
+
+  Future<void> _stopWaitingTimer() async {
+    if (_waitingTimer != null) {
+      _waitingTimer!.cancel();
+      _waitingTimer = null;
+    }
   }
 
   Future<void> _loadDutyStatus() async {
@@ -89,7 +159,6 @@ class _AlertScreenState extends State<AlertScreen> {
     if (user == null) return false;
 
     try {
-      // Check for pending orders within 5km
       final pendingSnapshot = await _ordersCollection
           .where('status', isEqualTo: 'pending')
           .where('createdAt', isGreaterThanOrEqualTo: Timestamp.fromDate(DateTime.now().subtract(const Duration(hours: 1))))
@@ -112,13 +181,11 @@ class _AlertScreenState extends State<AlertScreen> {
         return distance <= 5.0;
       });
 
-      // Check for active orders (not delivered or completed) assigned to the driver
       final activeSnapshot = await _ordersCollection
           .where('driverId', isEqualTo: user.uid)
           .where('status', whereIn: ['accepted', 'driver_reached', 'order_picked', 'on_the_way'])
           .get();
 
-      // Allow going off duty if there are no pending orders and no active orders
       return !hasPendingOrders && activeSnapshot.docs.isEmpty;
     } catch (e) {
       print('Error checking off-duty eligibility: $e');
@@ -138,7 +205,6 @@ class _AlertScreenState extends State<AlertScreen> {
     }
 
     if (!newValue) {
-      // Check if driver can go off duty
       final canGoOffDuty = await _canGoOffDuty();
       if (!canGoOffDuty) {
         if (mounted) {
@@ -158,7 +224,7 @@ class _AlertScreenState extends State<AlertScreen> {
       if (mounted) {
         setState(() {
           _isOnDuty = newValue;
-          _hasPendingOrders = false; // Reset pending orders flag when toggling duty status
+          _hasPendingOrders = false;
         });
         if (_isOnDuty) {
           _startListeningForOrders();
@@ -171,6 +237,7 @@ class _AlertScreenState extends State<AlertScreen> {
           _pendingOrdersSubscription = null;
           _acceptedCancelledOrdersSubscription = null;
           await _safeStopAudio();
+          await _stopWaitingTimer();
           ScaffoldMessenger.of(context).showSnackBar(
             const SnackBar(content: Text('You are now OFF Duty')),
           );
@@ -275,6 +342,9 @@ class _AlertScreenState extends State<AlertScreen> {
                 SnackBar(content: Text('Order ${order.id} has been cancelled by the user.'), duration: const Duration(seconds: 5)),
               );
               await _safeStopAudio();
+              await _stopWaitingTimer();
+            } else if (order.status != 'driver_reached') {
+              await _stopWaitingTimer();
             }
           }
         }, onError: (error) {
@@ -384,6 +454,19 @@ class _AlertScreenState extends State<AlertScreen> {
           'statusUpdatedAt': FieldValue.serverTimestamp(),
         });
       });
+
+      if (newStatus == 'driver_reached') {
+        final doc = await _ordersCollection.doc(orderId).get();
+        final data = doc.data() as Map<String, dynamic>?;
+        if (data != null) {
+          final vehicleType = data['vehicleType'] as String? ?? 'Unknown';
+          final initialFare = (data['deliveryCost'] as double?) ?? 0.0;
+          await _startWaitingTimer(orderId, vehicleType, initialFare);
+        }
+      } else if (newStatus != 'driver_reached') {
+        await _stopWaitingTimer();
+      }
+
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('Order status updated to $newStatus')));
         setState(() {});
@@ -460,6 +543,7 @@ class _AlertScreenState extends State<AlertScreen> {
         });
       });
       await _safeStopAudio();
+      await _stopWaitingTimer();
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Order cancelled by driver!')));
         setState(() {});
@@ -532,219 +616,234 @@ class _AlertScreenState extends State<AlertScreen> {
     final distanceToPickup = _calculateDistance(driverLocation, LatLng(order.pickupLat ?? 0.0, order.pickupLng ?? 0.0));
     final pickupLocation = LatLng(order.pickupLat ?? 0.0, order.pickupLng ?? 0.0);
     final dropLocation = LatLng(order.dropLat ?? 0.0, order.dropLng ?? 0.0);
+    final isWaiting = order.status == 'driver_reached';
 
-    if (order.status == 'cancelled' && order.cancelledByUser == true) {
-      return Card(
-        margin: EdgeInsets.symmetric(horizontal: 16.w, vertical: 8.h),
-        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16.r)),
-        elevation: 8,
-        shadowColor: Colors.black.withOpacity(0.2),
-        child: Padding(
-          padding: EdgeInsets.all(20.w),
-          child: Row(
-            children: [
-              Icon(Icons.cancel, color: Colors.red, size: 30.sp),
-              SizedBox(width: 12.w),
-              Expanded(
-                child: Text(
-                  'The Delivery has been cancelled by user',
-                  style: TextStyle(fontSize: 16.sp, fontWeight: FontWeight.bold, color: Colors.red),
-                ),
-              ),
-            ],
-          ),
-        ),
-      );
-    }
+    return StreamBuilder<DocumentSnapshot>(
+      stream: _ordersCollection.doc(order.id).snapshots(),
+      builder: (context, snapshot) {
+        double currentFare = order.deliveryCost;
+        if (snapshot.hasData && snapshot.data!.exists) {
+          final data = snapshot.data!.data() as Map<String, dynamic>?;
+          currentFare = (data?['deliveryCost'] as double?) ?? order.deliveryCost;
+          print('Order ${order.id} fare updated to: $currentFare');
+        }
 
-    return Card(
-      margin: EdgeInsets.symmetric(horizontal: 16.w, vertical: 8.h),
-      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16.r)),
-      elevation: 8,
-      shadowColor: Colors.black.withOpacity(0.2),
-      child: Padding(
-        padding: EdgeInsets.all(20.w),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Row(
-              mainAxisAlignment: MainAxisAlignment.spaceBetween,
-              children: [
-                Text(
-                  isPending ? 'New Delivery Request' : _getStatusTitle(order.status),
-                  style: TextStyle(fontSize: 18.sp, fontWeight: FontWeight.bold, color: isPending ? Colors.blue.shade900 : Colors.green.shade700),
-                ),
-                if (isPending)
-                  Container(
-                    padding: EdgeInsets.symmetric(horizontal: 8.w, vertical: 4.h),
-                    decoration: BoxDecoration(color: Colors.blue.shade100, borderRadius: BorderRadius.circular(8.r)),
-                    child: Text(
-                      'New',
-                      style: TextStyle(fontSize: 12.sp, fontWeight: FontWeight.w600, color: Colors.blue.shade900),
-                    ),
-                  ),
-              ],
-            ),
-            SizedBox(height: 12.h),
-            _buildInfoRow(Icons.location_on, 'Pickup: ${order.pickupLocation}'),
-            _buildInfoRow(Icons.person, 'Contact: ${order.pickupName} - ${order.pickupPhone}'),
-            _buildInfoRow(Icons.local_shipping, 'Drop-off: ${order.dropLocation}'),
-            _buildInfoRow(Icons.person, 'Contact: ${order.dropName} - ${order.dropPhone}'),
-            _buildInfoRow(Icons.directions_car, 'Vehicle: ${order.vehicleType ?? 'N/A'}'),
-            _buildInfoRow(Icons.social_distance, 'Distance to Pickup: ${distanceToPickup.toStringAsFixed(2)} km'),
-            _buildInfoRow(Icons.map, 'Total Distance: ${order.distance.toStringAsFixed(2)} km'),
-            _buildInfoRow(Icons.monetization_on, 'Cost: ₹${order.deliveryCost.toStringAsFixed(2)}'),
-            SizedBox(height: 16.h),
-            Column(
-              children: [
-                ElevatedButton(
-                  onPressed: () => _openGoogleMaps(driverLocation, pickupLocation, 'pickup'),
-                  style: ElevatedButton.styleFrom(
-                    backgroundColor: Colors.blue.shade500,
-                    foregroundColor: Colors.white,
-                    padding: EdgeInsets.symmetric(vertical: 12.h),
-                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12.r)),
-                    elevation: 2,
-                    minimumSize: Size(double.infinity, 48.h),
-                  ),
-                  child: Text('See Pickup on Google Maps', style: TextStyle(fontSize: 16.sp, fontWeight: FontWeight.w600)),
-                ),
-                SizedBox(height: 12.h),
-                ElevatedButton(
-                  onPressed: () => _openGoogleMaps(driverLocation, dropLocation, 'drop-off'),
-                  style: ElevatedButton.styleFrom(
-                    backgroundColor: Colors.blue.shade600,
-                    foregroundColor: Colors.white,
-                    padding: EdgeInsets.symmetric(vertical: 12.h),
-                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12.r)),
-                    elevation: 2,
-                    minimumSize: Size(double.infinity, 48.h),
-                  ),
-                  child: Text('See Drop-off on Google Maps', style: TextStyle(fontSize: 16.sp, fontWeight: FontWeight.w600)),
-                ),
-              ],
-            ),
-            SizedBox(height: 12.h),
-            if (isPending)
-              Row(
-                mainAxisAlignment: MainAxisAlignment.spaceEvenly,
+        if (order.status == 'cancelled' && order.cancelledByUser == true) {
+          return Card(
+            margin: EdgeInsets.symmetric(horizontal: 16.w, vertical: 8.h),
+            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16.r)),
+            elevation: 8,
+            shadowColor: Colors.black.withOpacity(0.2),
+            child: Padding(
+              padding: EdgeInsets.all(20.w),
+              child: Row(
                 children: [
-                  Expanded(
-                    child: ElevatedButton(
-                      onPressed: () => _acceptOrder(order.id),
-                      style: ElevatedButton.styleFrom(
-                        backgroundColor: Colors.blue.shade700,
-                        foregroundColor: Colors.white,
-                        padding: EdgeInsets.symmetric(vertical: 12.h),
-                        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12.r)),
-                        elevation: 2,
-                      ),
-                      child: Text('Accept', style: TextStyle(fontSize: 16.sp, fontWeight: FontWeight.w600)),
-                    ),
-                  ),
+                  Icon(Icons.cancel, color: Colors.red, size: 30.sp),
                   SizedBox(width: 12.w),
                   Expanded(
-                    child: ElevatedButton(
-                      onPressed: () => _rejectOrder(order.id),
-                      style: ElevatedButton.styleFrom(
-                        backgroundColor: Colors.grey.shade200,
-                        foregroundColor: Colors.grey.shade800,
-                        padding: EdgeInsets.symmetric(vertical: 12.h),
-                        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12.r)),
-                        elevation: 2,
-                      ),
-                      child: Text('Reject', style: TextStyle(fontSize: 16.sp, fontWeight: FontWeight.w600)),
+                    child: Text(
+                      'The Delivery has been cancelled by user',
+                      style: TextStyle(fontSize: 16.sp, fontWeight: FontWeight.bold, color: Colors.red),
                     ),
                   ),
                 ],
-              )
-            else
-              Column(
-                children: [
-                  Container(
-                    padding: EdgeInsets.symmetric(vertical: 8.h, horizontal: 12.w),
-                    decoration: BoxDecoration(color: _getStatusColor(order.status).withOpacity(0.1), borderRadius: BorderRadius.circular(8.r)),
-                    child: Text(
-                      _getStatusDisplayText(order.status),
-                      style: TextStyle(fontSize: 14.sp, fontWeight: FontWeight.w600, color: _getStatusColor(order.status)),
+              ),
+            ),
+          );
+        }
+
+        return Card(
+          margin: EdgeInsets.symmetric(horizontal: 16.w, vertical: 8.h),
+          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16.r)),
+          elevation: 8,
+          shadowColor: Colors.black.withOpacity(0.2),
+          child: Padding(
+            padding: EdgeInsets.all(20.w),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Row(
+                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                  children: [
+                    Text(
+                      isPending ? 'New Delivery Request' : _getStatusTitle(order.status),
+                      style: TextStyle(fontSize: 18.sp, fontWeight: FontWeight.bold, color: isPending ? Colors.blue.shade900 : Colors.green.shade700),
                     ),
-                  ),
-                  SizedBox(height: 12.h),
-                  if (order.status == 'accepted')
+                    if (isPending)
+                      Container(
+                        padding: EdgeInsets.symmetric(horizontal: 8.w, vertical: 4.h),
+                        decoration: BoxDecoration(color: Colors.blue.shade100, borderRadius: BorderRadius.circular(8.r)),
+                        child: Text(
+                          'New',
+                          style: TextStyle(fontSize: 12.sp, fontWeight: FontWeight.w600, color: Colors.blue.shade900),
+                        ),
+                      ),
+                  ],
+                ),
+                SizedBox(height: 12.h),
+                _buildInfoRow(Icons.location_on, 'Pickup: ${order.pickupLocation}'),
+                _buildInfoRow(Icons.person, 'Contact: ${order.pickupName} - ${order.pickupPhone}'),
+                _buildInfoRow(Icons.local_shipping, 'Drop-off: ${order.dropLocation}'),
+                _buildInfoRow(Icons.person, 'Contact: ${order.dropName} - ${order.dropPhone}'),
+                _buildInfoRow(Icons.directions_car, 'Vehicle: ${order.vehicleType ?? 'N/A'}'),
+                _buildInfoRow(Icons.social_distance, 'Distance to Pickup: ${distanceToPickup.toStringAsFixed(2)} km'),
+                _buildInfoRow(Icons.map, 'Total Distance: ${order.distance.toStringAsFixed(2)} km'),
+                _buildInfoRow(Icons.monetization_on, 'Cost: ₹${currentFare.toStringAsFixed(2)}'),
+                if (isWaiting)
+                  _buildInfoRow(Icons.timer, 'Waiting Time Active', 'Fare updating every ${_waitingRules[order.vehicleType ?? 'Unknown']?['intervalMinutes']} minute(s)'),
+                SizedBox(height: 16.h),
+                Column(
+                  children: [
                     ElevatedButton(
-                      onPressed: () => _updateOrderStatus(order.id, 'driver_reached'),
+                      onPressed: () => _openGoogleMaps(driverLocation, pickupLocation, 'pickup'),
                       style: ElevatedButton.styleFrom(
-                        backgroundColor: Colors.green.shade600,
+                        backgroundColor: Colors.blue.shade500,
                         foregroundColor: Colors.white,
                         padding: EdgeInsets.symmetric(vertical: 12.h),
                         shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12.r)),
                         elevation: 2,
                         minimumSize: Size(double.infinity, 48.h),
                       ),
-                      child: Text('Reached', style: TextStyle(fontSize: 16.sp, fontWeight: FontWeight.w600)),
+                      child: Text('See Pickup on Google Maps', style: TextStyle(fontSize: 16.sp, fontWeight: FontWeight.w600)),
                     ),
-                  if (order.status == 'driver_reached')
+                    SizedBox(height: 12.h),
                     ElevatedButton(
-                      onPressed: () => _updateOrderStatus(order.id, 'order_picked'),
+                      onPressed: () => _openGoogleMaps(driverLocation, dropLocation, 'drop-off'),
                       style: ElevatedButton.styleFrom(
-                        backgroundColor: Colors.green.shade600,
+                        backgroundColor: Colors.blue.shade600,
                         foregroundColor: Colors.white,
                         padding: EdgeInsets.symmetric(vertical: 12.h),
                         shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12.r)),
                         elevation: 2,
                         minimumSize: Size(double.infinity, 48.h),
                       ),
-                      child: Text('Order Picked', style: TextStyle(fontSize: 16.sp, fontWeight: FontWeight.w600)),
+                      child: Text('See Drop-off on Google Maps', style: TextStyle(fontSize: 16.sp, fontWeight: FontWeight.w600)),
                     ),
-                  if (order.status == 'order_picked')
-                    ElevatedButton(
-                      onPressed: () => _updateOrderStatus(order.id, 'on_the_way'),
-                      style: ElevatedButton.styleFrom(
-                        backgroundColor: Colors.green.shade600,
-                        foregroundColor: Colors.white,
-                        padding: EdgeInsets.symmetric(vertical: 12.h),
-                        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12.r)),
-                        elevation: 2,
-                        minimumSize: Size(double.infinity, 48.h),
-                      ),
-                      child: Text('On The Way', style: TextStyle(fontSize: 16.sp, fontWeight: FontWeight.w600)),
-                    ),
-                  if (order.status == 'on_the_way')
-                    ElevatedButton(
-                      onPressed: () => _updateOrderStatus(order.id, 'delivered'),
-                      style: ElevatedButton.styleFrom(
-                        backgroundColor: Colors.green.shade600,
-                        foregroundColor: Colors.white,
-                        padding: EdgeInsets.symmetric(vertical: 12.h),
-                        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12.r)),
-                        elevation: 2,
-                        minimumSize: Size(double.infinity, 48.h),
-                      ),
-                      child: Text('Order Delivered', style: TextStyle(fontSize: 16.sp, fontWeight: FontWeight.w600)),
-                    ),
-                  if (order.status != 'delivered' && order.status != 'completed')
-                    Column(
-                      children: [
-                        SizedBox(height: 12.h),
-                        ElevatedButton(
-                          onPressed: () => _showCancelConfirmation(order.id),
+                  ],
+                ),
+                SizedBox(height: 12.h),
+                if (isPending)
+                  Row(
+                    mainAxisAlignment: MainAxisAlignment.spaceEvenly,
+                    children: [
+                      Expanded(
+                        child: ElevatedButton(
+                          onPressed: () => _acceptOrder(order.id),
                           style: ElevatedButton.styleFrom(
-                            backgroundColor: Colors.red,
+                            backgroundColor: Colors.blue.shade700,
+                            foregroundColor: Colors.white,
+                            padding: EdgeInsets.symmetric(vertical: 12.h),
+                            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12.r)),
+                            elevation: 2,
+                          ),
+                          child: Text('Accept', style: TextStyle(fontSize: 16.sp, fontWeight: FontWeight.w600)),
+                        ),
+                      ),
+                      SizedBox(width: 12.w),
+                      Expanded(
+                        child: ElevatedButton(
+                          onPressed: () => _rejectOrder(order.id),
+                          style: ElevatedButton.styleFrom(
+                            backgroundColor: Colors.grey.shade200,
+                            foregroundColor: Colors.grey.shade800,
+                            padding: EdgeInsets.symmetric(vertical: 12.h),
+                            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12.r)),
+                            elevation: 2,
+                          ),
+                          child: Text('Reject', style: TextStyle(fontSize: 16.sp, fontWeight: FontWeight.w600)),
+                        ),
+                      ),
+                    ],
+                  )
+                else
+                  Column(
+                    children: [
+                      Container(
+                        padding: EdgeInsets.symmetric(vertical: 8.h, horizontal: 12.w),
+                        decoration: BoxDecoration(color: _getStatusColor(order.status).withOpacity(0.1), borderRadius: BorderRadius.circular(8.r)),
+                        child: Text(
+                          _getStatusDisplayText(order.status),
+                          style: TextStyle(fontSize: 14.sp, fontWeight: FontWeight.w600, color: _getStatusColor(order.status)),
+                        ),
+                      ),
+                      SizedBox(height: 12.h),
+                      if (order.status == 'accepted')
+                        ElevatedButton(
+                          onPressed: () => _updateOrderStatus(order.id, 'driver_reached'),
+                          style: ElevatedButton.styleFrom(
+                            backgroundColor: Colors.green.shade600,
                             foregroundColor: Colors.white,
                             padding: EdgeInsets.symmetric(vertical: 12.h),
                             shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12.r)),
                             elevation: 2,
                             minimumSize: Size(double.infinity, 48.h),
                           ),
-                          child: Text('Cancel Delivery', style: TextStyle(fontSize: 16.sp, fontWeight: FontWeight.w600)),
+                          child: Text('Driver Reached', style: TextStyle(fontSize: 16.sp, fontWeight: FontWeight.w600)),
                         ),
-                      ],
-                    ),
-                ],
-              ),
-          ],
-        ),
-      ),
+                      if (order.status == 'driver_reached')
+                        ElevatedButton(
+                          onPressed: () => _updateOrderStatus(order.id, 'order_picked'),
+                          style: ElevatedButton.styleFrom(
+                            backgroundColor: Colors.green.shade600,
+                            foregroundColor: Colors.white,
+                            padding: EdgeInsets.symmetric(vertical: 12.h),
+                            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12.r)),
+                            elevation: 2,
+                            minimumSize: Size(double.infinity, 48.h),
+                          ),
+                          child: Text('Order Picked', style: TextStyle(fontSize: 16.sp, fontWeight: FontWeight.w600)),
+                        ),
+                      if (order.status == 'order_picked')
+                        ElevatedButton(
+                          onPressed: () => _updateOrderStatus(order.id, 'on_the_way'),
+                          style: ElevatedButton.styleFrom(
+                            backgroundColor: Colors.green.shade600,
+                            foregroundColor: Colors.white,
+                            padding: EdgeInsets.symmetric(vertical: 12.h),
+                            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12.r)),
+                            elevation: 2,
+                            minimumSize: Size(double.infinity, 48.h),
+                          ),
+                          child: Text('On The Way', style: TextStyle(fontSize: 16.sp, fontWeight: FontWeight.w600)),
+                        ),
+                      if (order.status == 'on_the_way')
+                        ElevatedButton(
+                          onPressed: () => _updateOrderStatus(order.id, 'delivered'),
+                          style: ElevatedButton.styleFrom(
+                            backgroundColor: Colors.green.shade600,
+                            foregroundColor: Colors.white,
+                            padding: EdgeInsets.symmetric(vertical: 12.h),
+                            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12.r)),
+                            elevation: 2,
+                            minimumSize: Size(double.infinity, 48.h),
+                          ),
+                          child: Text('Order Delivered', style: TextStyle(fontSize: 16.sp, fontWeight: FontWeight.w600)),
+                        ),
+                      if (order.status != 'delivered' && order.status != 'completed')
+                        Column(
+                          children: [
+                            SizedBox(height: 12.h),
+                            ElevatedButton(
+                              onPressed: () => _showCancelConfirmation(order.id),
+                              style: ElevatedButton.styleFrom(
+                                backgroundColor: Colors.red,
+                                foregroundColor: Colors.white,
+                                padding: EdgeInsets.symmetric(vertical: 12.h),
+                                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12.r)),
+                                elevation: 2,
+                                minimumSize: Size(double.infinity, 48.h),
+                              ),
+                              child: Text('Cancel Delivery', style: TextStyle(fontSize: 16.sp, fontWeight: FontWeight.w600)),
+                            ),
+                          ],
+                        ),
+                    ],
+                  ),
+              ],
+            ),
+          ),
+        );
+      },
     );
   }
 
@@ -753,7 +852,7 @@ class _AlertScreenState extends State<AlertScreen> {
       case 'accepted':
         return 'Accepted Delivery';
       case 'driver_reached':
-        return 'Driver has reached the pickup location.';
+        return 'Reached Pickup Location';
       case 'order_picked':
         return 'Order Picked Up';
       case 'on_the_way':
@@ -800,14 +899,26 @@ class _AlertScreenState extends State<AlertScreen> {
     }
   }
 
-  Widget _buildInfoRow(IconData icon, String text) {
+  Widget _buildInfoRow(IconData icon, String text, [String? subText]) {
     return Padding(
       padding: EdgeInsets.symmetric(vertical: 4.h),
       child: Row(
         children: [
           Icon(icon, size: 20.sp, color: Colors.blue.shade700),
           SizedBox(width: 8.w),
-          Expanded(child: Text(text, style: TextStyle(fontSize: 14.sp, color: Colors.grey.shade800))),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(text, style: TextStyle(fontSize: 14.sp, color: Colors.grey.shade800)),
+                if (subText != null)
+                  Text(
+                    subText,
+                    style: TextStyle(fontSize: 12.sp, color: Colors.grey.shade600),
+                  ),
+              ],
+            ),
+          ),
         ],
       ),
     );
@@ -1068,7 +1179,6 @@ class _AlertScreenState extends State<AlertScreen> {
                                   }
                                   if (!driverSnapshot.hasData || !driverSnapshot.data!.exists) {
                                     return Center(
-                                      // Zouhair
                                       child: Card(
                                         elevation: 12,
                                         shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16.r)),

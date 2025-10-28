@@ -82,4 +82,33 @@ class Order {
       statusUpdatedAt: data['statusUpdatedAt'],
     );
   }
+
+  factory Order.fromFirestore(Map<String, dynamic> data) {
+    return Order(
+      id: data['id'] ?? '',
+      pickupLocation: data['pickupLocation'] ?? '',
+      pickupLat: data['pickupLat']?.toDouble(),
+      pickupLng: data['pickupLng']?.toDouble(),
+      dropLocation: data['dropLocation'] ?? '',
+      dropLat: data['dropLat']?.toDouble(),
+      dropLng: data['dropLng']?.toDouble(),
+      pickupName: data['pickupName'] ?? '',
+      pickupPhone: data['pickupPhone'] ?? '',
+      dropName: data['dropName'] ?? '',
+      dropPhone: data['dropPhone'] ?? '',
+      weightRange: data['weightRange'] ?? '',
+      userId: data['userId'] ?? '',
+      status: data['status'] ?? 'pending',
+      distance: data['distance']?.toDouble() ?? 0.0,
+      deliveryCost: data['deliveryCost']?.toDouble() ?? 0.0,
+      createdAt: data['createdAt'] ?? Timestamp.now(),
+      driverId: data['driverId'],
+      acceptedAt: data['acceptedAt'],
+      completedAt: data['completedAt'],
+      cancelledAt: data['cancelledAt'],
+      vehicleType: data['vehicleType'],
+      cancelledByUser: data['cancelledByUser'] as bool?,
+      statusUpdatedAt: data['statusUpdatedAt'],
+    );
+  }
 }

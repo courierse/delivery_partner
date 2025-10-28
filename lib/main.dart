@@ -8,15 +8,15 @@ import 'package:phone_authentication/firebase_options.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:phone_authentication/bloc/profile_cubit.dart';
 import 'package:phone_authentication/services/service_locator.dart';
+import 'package:phone_authentication/services/notification_service.dart';
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
-  await Firebase.initializeApp(
-    options: DefaultFirebaseOptions.currentPlatform,
-  );
+  await Firebase.initializeApp(options: DefaultFirebaseOptions.currentPlatform);
   setupLocator(); // Initialize service locator
-     await SystemChrome.setPreferredOrientations([
-    DeviceOrientation.portraitUp,   // ✅ Allow only portrait up
+  await NotificationService().initialize(); // Initialize notifications
+  await SystemChrome.setPreferredOrientations([
+    DeviceOrientation.portraitUp, // ✅ Allow only portrait up
   ]);
 
   runApp(const MyApp());
@@ -34,19 +34,16 @@ class MyApp extends StatelessWidget {
       builder: (context, child) {
         return MultiBlocProvider(
           providers: [
+            BlocProvider(create: (context) => PhoneAuthCubit()),
             BlocProvider(
-              create: (context) => PhoneAuthCubit(),
-            ),
-            BlocProvider(
-              create: (context) => locator<LocationCubit>()..getCurrentLocation(),
+              create:
+                  (context) => locator<LocationCubit>()..getCurrentLocation(),
             ),
           ],
           child: MaterialApp.router(
             title: 'Phone Auth UI Demo',
             debugShowCheckedModeBanner: false,
-            theme: ThemeData(
-              primarySwatch: Colors.blue,
-            ),
+            theme: ThemeData(primarySwatch: Colors.blue),
             routerConfig: router,
           ),
         );

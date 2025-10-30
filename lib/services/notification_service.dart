@@ -1,9 +1,8 @@
-import 'dart:async';
 import 'dart:math';
 import 'package:firebase_messaging/firebase_messaging.dart';
 import 'package:flutter_local_notifications/flutter_local_notifications.dart';
-import 'package:phone_authentication/firebase_options.dart';
 import 'package:firebase_core/firebase_core.dart' as firebase_core;
+import 'package:phone_authentication/firebase_options.dart';
 
 class NotificationService {
   static final NotificationService _instance = NotificationService._internal();
@@ -11,8 +10,7 @@ class NotificationService {
   NotificationService._internal();
 
   final FirebaseMessaging _fcm = FirebaseMessaging.instance;
-  final FlutterLocalNotificationsPlugin _localNotifications =
-      FlutterLocalNotificationsPlugin();
+  final FlutterLocalNotificationsPlugin _localNotifications = FlutterLocalNotificationsPlugin();
 
   bool _isInitialized = false;
   String? _fcmToken;
@@ -21,186 +19,132 @@ class NotificationService {
     if (_isInitialized) return;
 
     try {
-      // Request permissions
-      final NotificationSettings settings = await _fcm.requestPermission(
+      // Request permission
+      final settings = await _fcm.requestPermission(
         alert: true,
         badge: true,
         sound: true,
-        provisional: false,
       );
 
-      if (settings.authorizationStatus == AuthorizationStatus.authorized) {
-        print('User granted notification permission');
-      } else if (settings.authorizationStatus ==
-          AuthorizationStatus.provisional) {
-        print('User granted provisional notification permission');
+      if (settings.authorizationStatus == AuthorizationStatus.denied) {
+        print('Notification permission denied');
+        return;
       }
 
       // Initialize local notifications
-      const AndroidInitializationSettings initializationSettingsAndroid =
-          AndroidInitializationSettings('@mipmap/ic_launcher');
-
-      const DarwinInitializationSettings initializationSettingsIOS =
-          DarwinInitializationSettings(
-            requestAlertPermission: true,
-            requestBadgePermission: true,
-            requestSoundPermission: true,
-          );
-
-      const InitializationSettings initializationSettings =
-          InitializationSettings(
-            android: initializationSettingsAndroid,
-            iOS: initializationSettingsIOS,
-          );
+      const androidInit = AndroidInitializationSettings('@mipmap/ic_launcher');
+      const iosInit = DarwinInitializationSettings(
+        requestAlertPermission: true,
+        requestBadgePermission: true,
+        requestSoundPermission: true,
+      );
+      const initSettings = InitializationSettings(android: androidInit, iOS: iosInit);
 
       await _localNotifications.initialize(
-        initializationSettings,
-        onDidReceiveNotificationResponse: (details) {
-          print('Notification tapped: ${details.payload}');
+        initSettings,
+        onDidReceiveNotificationResponse: (response) {
+          final orderId = response.payload;
+          if (orderId != null) {
+            print('Notification tapped: Order ID = $orderId');
+          }
         },
       );
 
-      // Create notification channel for Android
-      const AndroidNotificationChannel channel = AndroidNotificationChannel(
-        'high_importance_channel',
-        'High Importance Notifications',
-        description: 'This channel is used for important notifications.',
-        importance: Importance.high,
+      // Create channel
+      const channel = AndroidNotificationChannel(
+        'order_channel',
+        'Delivery Alerts',
+        description: 'New delivery requests',
+        importance: Importance.max,
         playSound: true,
+        sound: RawResourceAndroidNotificationSound('alert'),
         enableVibration: true,
       );
 
-      await _localNotifications
-          .resolvePlatformSpecificImplementation<
-            AndroidFlutterLocalNotificationsPlugin
-          >()
-          ?.createNotificationChannel(channel);
+      final androidPlugin = _localNotifications.resolvePlatformSpecificImplementation<AndroidFlutterLocalNotificationsPlugin>();
+      await androidPlugin?.createNotificationChannel(channel);
 
       // Get FCM token
       _fcmToken = await _fcm.getToken();
       print('FCM Token: $_fcmToken');
 
-      // Listen for token refresh
-      _fcm.onTokenRefresh.listen((newToken) {
-        _fcmToken = newToken;
-        print('FCM Token refreshed: $_fcmToken');
+      // Token refresh
+      _fcm.onTokenRefresh.listen((token) {
+        _fcmToken = token;
+        print('FCM Token refreshed: $token');
       });
 
-      // Handle foreground messages
-      FirebaseMessaging.onMessage.listen(_handleForegroundMessage);
+      // Foreground messages
+      FirebaseMessaging.onMessage.listen((message) {
+        print('Foreground FCM: ${message.data}');
+        _showFromData(message.data);
+      });
 
-      // Handle notification taps when app is terminated
-      FirebaseMessaging.onMessageOpenedApp.listen(_handleMessageOpenedApp);
+      // App opened from notification
+      FirebaseMessaging.onMessageOpenedApp.listen((message) {
+        print('App opened from FCM: ${message.data}');
+        _showFromData(message.data);
+      });
 
-      // Check if app was opened from a notification
-      final RemoteMessage? initialMessage = await _fcm.getInitialMessage();
-      if (initialMessage != null) {
-        _handleMessageOpenedApp(initialMessage);
+      // Initial message
+      final initial = await _fcm.getInitialMessage();
+      if (initial != null) {
+        _showFromData(initial.data);
       }
-
-      // Set background message handler
-      FirebaseMessaging.onBackgroundMessage(firebaseMessagingBackgroundHandler);
 
       _isInitialized = true;
     } catch (e) {
-      print('Error initializing notification service: $e');
+      print('Notification init error: $e');
     }
   }
 
-  void _handleForegroundMessage(RemoteMessage message) {
-    print('Foreground message received: ${message.messageId}');
-    showLocalNotification(
-      title: message.notification?.title ?? 'New Order Alert',
-      body: message.notification?.body ?? '',
-      payload: message.data.toString(),
-    );
-  }
+  void _showFromData(Map<String, dynamic> data) {
+    if (data.isEmpty) return;
 
-  void _handleMessageOpenedApp(RemoteMessage message) {
-    print('Message opened app: ${message.messageId}');
-    // Handle navigation if needed
-  }
+    final orderId = data['orderId'] ?? 'unknown';
+    final title = data['title'] ?? 'New Delivery Request';
+    final body = data['body'] ?? 'Check app for details';
 
-  Future<void> showLocalNotification({
-    required String title,
-    required String body,
-    String? payload,
-  }) async {
-    const AndroidNotificationDetails androidPlatformChannelSpecifics =
-        AndroidNotificationDetails(
-          'high_importance_channel',
-          'High Importance Notifications',
-          channelDescription:
-              'This channel is used for important notifications.',
-          importance: Importance.high,
-          priority: Priority.high,
-          showWhen: true,
-          enableVibration: true,
-          playSound: true,
-          icon: '@mipmap/ic_launcher',
-        );
-
-    const DarwinNotificationDetails iOSPlatformChannelSpecifics =
-        DarwinNotificationDetails(
-          presentAlert: true,
-          presentBadge: true,
-          presentSound: true,
-        );
-
-    const NotificationDetails platformChannelSpecifics = NotificationDetails(
-      android: androidPlatformChannelSpecifics,
-      iOS: iOSPlatformChannelSpecifics,
-    );
-
-    await _localNotifications.show(
-      Random().nextInt(100000),
-      title,
-      body,
-      platformChannelSpecifics,
-      payload: payload,
+    showOrderNotification(
+      orderId: orderId,
+      title: title,
+      body: body,
+      pickupLocation: data['pickupAddress'] ?? 'Unknown',
+      dropLocation: data['dropAddress'] ?? 'Unknown',
+      distance: data['distance'] ?? '0.0',
+      vehicleType: data['vehicleType'] ?? 'Unknown',
     );
   }
 
   Future<void> showOrderNotification({
     required String orderId,
+    required String title,
+    required String body,
     required String pickupLocation,
     required String dropLocation,
     required String distance,
     required String vehicleType,
   }) async {
-    final title = '🚚 New Delivery Request';
-    final body = '''
-📍 Pickup: $pickupLocation
-🎯 Drop: $dropLocation
-📏 Distance: $distance km
-🚗 Vehicle: $vehicleType
-''';
+    const androidDetails = AndroidNotificationDetails(
+      'order_channel',
+      'Delivery Alerts',
+      channelDescription: 'New delivery requests',
+      importance: Importance.max,
+      priority: Priority.high,
+      playSound: true,
+      sound: RawResourceAndroidNotificationSound('alert'),
+      enableVibration: true,
+      icon: '@mipmap/ic_launcher',
+      styleInformation: BigTextStyleInformation(''),
+    );
 
-    const AndroidNotificationDetails androidDetails =
-        AndroidNotificationDetails(
-          'high_importance_channel',
-          'High Importance Notifications',
-          channelDescription:
-              'This channel is used for important notifications.',
-          importance: Importance.high,
-          priority: Priority.high,
-          showWhen: true,
-          enableVibration: true,
-          playSound: true,
-          icon: '@mipmap/ic_launcher',
-          styleInformation: BigTextStyleInformation(''),
-        );
-
-    const DarwinNotificationDetails iOSDetails = DarwinNotificationDetails(
+    const iosDetails = DarwinNotificationDetails(
       presentAlert: true,
       presentBadge: true,
       presentSound: true,
     );
 
-    const NotificationDetails details = NotificationDetails(
-      android: androidDetails,
-      iOS: iOSDetails,
-    );
+    const details = NotificationDetails(android: androidDetails, iOS: iosDetails);
 
     await _localNotifications.show(
       orderId.hashCode,
@@ -212,42 +156,30 @@ class NotificationService {
   }
 
   String? get fcmToken => _fcmToken;
-
-  Future<void> saveFcmTokenToFirebase(String userId) async {
-    if (_fcmToken == null) return;
-
-    try {
-      // You would typically save this to Firestore
-      print('FCM Token saved for user: $userId');
-    } catch (e) {
-      print('Error saving FCM token: $e');
-    }
-  }
 }
 
-// Background message handler (must be top-level function)
+// BACKGROUND HANDLER (MUST BE TOP-LEVEL)
 @pragma('vm:entry-point')
 Future<void> firebaseMessagingBackgroundHandler(RemoteMessage message) async {
   await firebase_core.Firebase.initializeApp(
     options: DefaultFirebaseOptions.currentPlatform,
   );
-  print('Background message received: ${message.messageId}');
-  print('Title: ${message.notification?.title}');
-  print('Body: ${message.notification?.body}');
-  print('Data: ${message.data}');
-}
 
-// Helper function to calculate distance (same as in alert_screen.dart)
-double calculateDistance(double lat1, double lon1, double lat2, double lon2) {
-  const double earthRadius = 6371;
-  final double dLat = (lat2 - lat1) * pi / 180;
-  final double dLon = (lon2 - lon1) * pi / 180;
-  final double a =
-      sin(dLat / 2) * sin(dLat / 2) +
-      cos(lat1 * pi / 180) *
-          cos(lat2 * pi / 180) *
-          sin(dLon / 2) *
-          sin(dLon / 2);
-  final double c = 2 * atan2(sqrt(a), sqrt(1 - a));
-  return earthRadius * c;
+  print('Background FCM: ${message.data}');
+
+  final data = message.data;
+  if (data.isEmpty) return;
+
+  final service = NotificationService();
+  await service.initialize();
+
+  await service.showOrderNotification(
+    orderId: data['orderId'] ?? 'unknown',
+    title: data['title'] ?? 'New Delivery Request',
+    body: data['body'] ?? 'Pickup: Unknown\nDrop: Unknown',
+    pickupLocation: data['pickupAddress'] ?? 'Unknown',
+    dropLocation: data['dropAddress'] ?? 'Unknown',
+    distance: data['distance'] ?? '0.0',
+    vehicleType: data['vehicleType'] ?? 'Unknown',
+  );
 }

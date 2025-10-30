@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:firebase_core/firebase_core.dart';
+import 'package:firebase_messaging/firebase_messaging.dart'; // ADD THIS
 import 'package:flutter/services.dart';
 import 'package:flutter_screenutil/flutter_screenutil.dart';
 import 'package:phone_authentication/bloc/location_cubit/location_cubit.dart';
@@ -13,11 +14,14 @@ import 'package:phone_authentication/services/notification_service.dart';
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
   await Firebase.initializeApp(options: DefaultFirebaseOptions.currentPlatform);
-  setupLocator(); // Initialize service locator
-  await NotificationService().initialize(); // Initialize notifications
-  await SystemChrome.setPreferredOrientations([
-    DeviceOrientation.portraitUp, // ✅ Allow only portrait up
-  ]);
+  setupLocator();
+
+  await NotificationService().initialize();
+
+  // CRITICAL: Background handler
+  FirebaseMessaging.onBackgroundMessage(firebaseMessagingBackgroundHandler);
+
+  await SystemChrome.setPreferredOrientations([DeviceOrientation.portraitUp]);
 
   runApp(const MyApp());
 }
@@ -36,8 +40,7 @@ class MyApp extends StatelessWidget {
           providers: [
             BlocProvider(create: (context) => PhoneAuthCubit()),
             BlocProvider(
-              create:
-                  (context) => locator<LocationCubit>()..getCurrentLocation(),
+              create: (context) => locator<LocationCubit>()..getCurrentLocation(),
             ),
           ],
           child: MaterialApp.router(

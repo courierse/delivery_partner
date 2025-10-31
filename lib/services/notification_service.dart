@@ -171,6 +171,12 @@ Future<void> firebaseMessagingBackgroundHandler(RemoteMessage message) async {
 
   print('Background FCM: ${message.data}');
 
+  // If a notification payload is present, Android will show it in the system tray.
+  // Avoid creating a duplicate local notification.
+  if (message.notification != null) {
+    return;
+  }
+
   final data = message.data;
   if (data.isEmpty) return;
 

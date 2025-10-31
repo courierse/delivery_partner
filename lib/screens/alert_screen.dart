@@ -310,10 +310,7 @@ class _AlertScreenState extends State<AlertScreen> {
         });
         if (hasPendingOrders) {
           await _safePlayAudio();
-          for (final order in newPendingOrders) {
-            final orderData = order.data() as Map<String, dynamic>;
-            await _sendOrderNotification(orderData, driverLocation);
-          }
+          // FCM will deliver notifications; avoid duplicate local notifications here.
         } else {
           await _safeStopAudio();
         }

@@ -41,10 +41,13 @@
             android:name="flutterEmbedding"
             android:value="2" />
         
-        <!-- Firebase Cloud Messaging notification channel -->
+        <!-- Firebase Cloud Messaging default notification channel and icon -->
         <meta-data
             android:name="com.google.firebase.messaging.default_notification_channel_id"
-            android:value="high_importance_channel" />
+            android:value="order_channel" />
+        <meta-data
+            android:name="com.google.firebase.messaging.default_notification_icon"
+            android:resource="@mipmap/ic_launcher" />
     </application>
 
     <!-- Queries for URL handling to support url_launcher for Google Maps -->

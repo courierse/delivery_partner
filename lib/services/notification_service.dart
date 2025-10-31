@@ -1,5 +1,7 @@
 import 'dart:math';
 import 'package:firebase_messaging/firebase_messaging.dart';
+import 'package:cloud_firestore/cloud_firestore.dart';
+import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter_local_notifications/flutter_local_notifications.dart';
 import 'package:firebase_core/firebase_core.dart' as firebase_core;
 import 'package:phone_authentication/firebase_options.dart';
@@ -64,14 +66,16 @@ class NotificationService {
       final androidPlugin = _localNotifications.resolvePlatformSpecificImplementation<AndroidFlutterLocalNotificationsPlugin>();
       await androidPlugin?.createNotificationChannel(channel);
 
-      // Get FCM token
+      // Get FCM token and persist to driver profile if logged in
       _fcmToken = await _fcm.getToken();
       print('FCM Token: $_fcmToken');
+      await _persistTokenToDriver(_fcmToken);
 
       // Token refresh
-      _fcm.onTokenRefresh.listen((token) {
+      _fcm.onTokenRefresh.listen((token) async {
         _fcmToken = token;
         print('FCM Token refreshed: $token');
+        await _persistTokenToDriver(token);
       });
 
       // Foreground messages
@@ -182,4 +186,20 @@ Future<void> firebaseMessagingBackgroundHandler(RemoteMessage message) async {
     distance: data['distance'] ?? '0.0',
     vehicleType: data['vehicleType'] ?? 'Unknown',
   );
+}
+
+Future<void> _persistTokenToDriver(String? token) async {
+  if (token == null || token.isEmpty) return;
+  final user = FirebaseAuth.instance.currentUser;
+  if (user == null) return;
+  try {
+    await FirebaseFirestore.instance.collection('drivers').doc(user.uid).set({
+      'fcmToken': token,
+      'updatedAt': FieldValue.serverTimestamp(),
+    }, SetOptions(merge: true));
+  } catch (e) {
+    // Swallow errors to avoid breaking init flow
+    // Consider adding your own logging infrastructure here
+    // print('Failed to persist FCM token: $e');
+  }
 }

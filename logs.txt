@@ -1,0 +1,758 @@
+[
+  {
+    "textPayload": "Function execution started",
+    "insertId": "1ux5m79fa7ck1y",
+    "resource": {
+      "type": "cloud_function",
+      "labels": {
+        "project_id": "phoneauth-d2c0e",
+        "function_name": "notifyNearbyDrivers",
+        "region": "us-central1"
+      }
+    },
+    "timestamp": "2025-10-31T06:07:08.767532370Z",
+    "severity": "DEBUG",
+    "labels": {
+      "runtime_version": "nodejs20_20251026_20_19_5_RC00",
+      "execution_id": "ze9qhc63uljo"
+    },
+    "logName": "projects/phoneauth-d2c0e/logs/cloudfunctions.googleapis.com%2Fcloud-functions",
+    "trace": "projects/phoneauth-d2c0e/traces/f2c41786409ff82d9206f421429ad6a7",
+    "receiveTimestamp": "2025-10-31T06:07:08.776356977Z"
+  },
+  {
+    "textPayload": "New pending order: YZO9Sia332pnvf6OivyL",
+    "insertId": "6904520c000be44da6f01373",
+    "resource": {
+      "type": "cloud_function",
+      "labels": {
+        "project_id": "phoneauth-d2c0e",
+        "function_name": "notifyNearbyDrivers",
+        "region": "us-central1"
+      }
+    },
+    "timestamp": "2025-10-31T06:07:08.779341Z",
+    "labels": {
+      "runtime_version": "nodejs20_20251026_20_19_5_RC00",
+      "execution_id": "ze9qhc63uljo",
+      "instance_id": "001477829655018ac6747a20128aa43418e276678bcb8df8bb6523a149805768738b38ed4e68df1d64f257952094ce92a59c9de4f0a31792c3d95f883013f4c84834124b0749000b6168f6f372d4"
+    },
+    "logName": "projects/phoneauth-d2c0e/logs/cloudfunctions.googleapis.com%2Fcloud-functions",
+    "trace": "projects/phoneauth-d2c0e/traces/f2c41786409ff82d9206f421429ad6a7",
+    "receiveTimestamp": "2025-10-31T06:07:09.108674686Z"
+  },
+  {
+    "textPayload": "Error in notifyNearbyDrivers: FirebaseMessagingError: An unknown server error was returned. Raw server response: \"<!DOCTYPE html>",
+    "insertId": "6904520e0009862f1a7354d6",
+    "resource": {
+      "type": "cloud_function",
+      "labels": {
+        "project_id": "phoneauth-d2c0e",
+        "region": "us-central1",
+        "function_name": "notifyNearbyDrivers"
+      }
+    },
+    "timestamp": "2025-10-31T06:07:10.624175Z",
+    "labels": {
+      "instance_id": "001477829655018ac6747a20128aa43418e276678bcb8df8bb6523a149805768738b38ed4e68df1d64f257952094ce92a59c9de4f0a31792c3d95f883013f4c84834124b0749000b6168f6f372d4",
+      "execution_id": "ze9qhc63uljo",
+      "runtime_version": "nodejs20_20251026_20_19_5_RC00"
+    },
+    "logName": "projects/phoneauth-d2c0e/logs/cloudfunctions.googleapis.com%2Fcloud-functions",
+    "trace": "projects/phoneauth-d2c0e/traces/f2c41786409ff82d9206f421429ad6a7",
+    "receiveTimestamp": "2025-10-31T06:07:10.771685678Z"
+  },
+  {
+    "textPayload": "<html lang=en>",
+    "insertId": "6904520e0009863e96f709c0",
+    "resource": {
+      "type": "cloud_function",
+      "labels": {
+        "region": "us-central1",
+        "function_name": "notifyNearbyDrivers",
+        "project_id": "phoneauth-d2c0e"
+      }
+    },
+    "timestamp": "2025-10-31T06:07:10.624190Z",
+    "labels": {
+      "runtime_version": "nodejs20_20251026_20_19_5_RC00",
+      "execution_id": "ze9qhc63uljo",
+      "instance_id": "001477829655018ac6747a20128aa43418e276678bcb8df8bb6523a149805768738b38ed4e68df1d64f257952094ce92a59c9de4f0a31792c3d95f883013f4c84834124b0749000b6168f6f372d4"
+    },
+    "logName": "projects/phoneauth-d2c0e/logs/cloudfunctions.googleapis.com%2Fcloud-functions",
+    "trace": "projects/phoneauth-d2c0e/traces/f2c41786409ff82d9206f421429ad6a7",
+    "receiveTimestamp": "2025-10-31T06:07:10.771685678Z"
+  },
+  {
+    "textPayload": "  <meta charset=utf-8>",
+    "insertId": "6904520e0009864394706393",
+    "resource": {
+      "type": "cloud_function",
+      "labels": {
+        "region": "us-central1",
+        "function_name": "notifyNearbyDrivers",
+        "project_id": "phoneauth-d2c0e"
+      }
+    },
+    "timestamp": "2025-10-31T06:07:10.624195Z",
+    "labels": {
+      "instance_id": "001477829655018ac6747a20128aa43418e276678bcb8df8bb6523a149805768738b38ed4e68df1d64f257952094ce92a59c9de4f0a31792c3d95f883013f4c84834124b0749000b6168f6f372d4",
+      "execution_id": "ze9qhc63uljo",
+      "runtime_version": "nodejs20_20251026_20_19_5_RC00"
+    },
+    "logName": "projects/phoneauth-d2c0e/logs/cloudfunctions.googleapis.com%2Fcloud-functions",
+    "trace": "projects/phoneauth-d2c0e/traces/f2c41786409ff82d9206f421429ad6a7",
+    "receiveTimestamp": "2025-10-31T06:07:10.771685678Z"
+  },
+  {
+    "textPayload": "  <meta name=viewport content=\"initial-scale=1, minimum-scale=1, width=device-width\">",
+    "insertId": "6904520e00098647677e654b",
+    "resource": {
+      "type": "cloud_function",
+      "labels": {
+        "region": "us-central1",
+        "function_name": "notifyNearbyDrivers",
+        "project_id": "phoneauth-d2c0e"
+      }
+    },
+    "timestamp": "2025-10-31T06:07:10.624199Z",
+    "labels": {
+      "execution_id": "ze9qhc63uljo",
+      "runtime_version": "nodejs20_20251026_20_19_5_RC00",
+      "instance_id": "001477829655018ac6747a20128aa43418e276678bcb8df8bb6523a149805768738b38ed4e68df1d64f257952094ce92a59c9de4f0a31792c3d95f883013f4c84834124b0749000b6168f6f372d4"
+    },
+    "logName": "projects/phoneauth-d2c0e/logs/cloudfunctions.googleapis.com%2Fcloud-functions",
+    "trace": "projects/phoneauth-d2c0e/traces/f2c41786409ff82d9206f421429ad6a7",
+    "receiveTimestamp": "2025-10-31T06:07:10.771685678Z"
+  },
+  {
+    "textPayload": "  <title>Error 404 (Not Found)!!1</title>",
+    "insertId": "6904520e0009864d7fc8b30c",
+    "resource": {
+      "type": "cloud_function",
+      "labels": {
+        "project_id": "phoneauth-d2c0e",
+        "function_name": "notifyNearbyDrivers",
+        "region": "us-central1"
+      }
+    },
+    "timestamp": "2025-10-31T06:07:10.624205Z",
+    "labels": {
+      "runtime_version": "nodejs20_20251026_20_19_5_RC00",
+      "execution_id": "ze9qhc63uljo",
+      "instance_id": "001477829655018ac6747a20128aa43418e276678bcb8df8bb6523a149805768738b38ed4e68df1d64f257952094ce92a59c9de4f0a31792c3d95f883013f4c84834124b0749000b6168f6f372d4"
+    },
+    "logName": "projects/phoneauth-d2c0e/logs/cloudfunctions.googleapis.com%2Fcloud-functions",
+    "trace": "projects/phoneauth-d2c0e/traces/f2c41786409ff82d9206f421429ad6a7",
+    "receiveTimestamp": "2025-10-31T06:07:10.771685678Z"
+  },
+  {
+    "textPayload": "  <style>",
+    "insertId": "6904520e000986502ebe04c3",
+    "resource": {
+      "type": "cloud_function",
+      "labels": {
+        "project_id": "phoneauth-d2c0e",
+        "function_name": "notifyNearbyDrivers",
+        "region": "us-central1"
+      }
+    },
+    "timestamp": "2025-10-31T06:07:10.624208Z",
+    "labels": {
+      "instance_id": "001477829655018ac6747a20128aa43418e276678bcb8df8bb6523a149805768738b38ed4e68df1d64f257952094ce92a59c9de4f0a31792c3d95f883013f4c84834124b0749000b6168f6f372d4",
+      "runtime_version": "nodejs20_20251026_20_19_5_RC00",
+      "execution_id": "ze9qhc63uljo"
+    },
+    "logName": "projects/phoneauth-d2c0e/logs/cloudfunctions.googleapis.com%2Fcloud-functions",
+    "trace": "projects/phoneauth-d2c0e/traces/f2c41786409ff82d9206f421429ad6a7",
+    "receiveTimestamp": "2025-10-31T06:07:10.771685678Z"
+  },
+  {
+    "textPayload": "    *{margin:0;padding:0}html,code{font:15px/22px arial,sans-serif}html{background:#fff;color:#222;padding:15px}body{margin:7% auto 0;max-width:390px;min-height:180px;padding:30px 0 15px}* > body{background:url(//www.google.com/images/errors/robot.png) 100% 5px no-repeat;padding-right:205px}p{margin:11px 0 22px;overflow:hidden}ins{color:#777;text-decoration:none}a img{border:0}@media screen and (max-width:772px){body{background:none;margin-top:0;max-width:none;padding-right:0}}#logo{background:url(//www.google.com/images/branding/googlelogo/1x/googlelogo_color_150x54dp.png) no-repeat;margin-left:-5px}@media only screen and (min-resolution:192dpi){#logo{background:url(//www.google.com/images/branding/googlelogo/2x/googlelogo_color_150x54dp.png) no-repeat 0% 0%/100% 100%;-moz-border-image:url(//www.google.com/images/branding/googlelogo/2x/googlelogo_color_150x54dp.png) 0}}@media only screen and (-webkit-min-device-pixel-ratio:2){#logo{background:url(//www.google.com/images/branding/googlelogo/2x/googlelogo_color_150x54dp.png) no-repeat;-webkit-background-size:100% 100%}}#logo{display:inline-block;height:54px;width:150px}",
+    "insertId": "6904520e0009865705b10fc5",
+    "resource": {
+      "type": "cloud_function",
+      "labels": {
+        "project_id": "phoneauth-d2c0e",
+        "function_name": "notifyNearbyDrivers",
+        "region": "us-central1"
+      }
+    },
+    "timestamp": "2025-10-31T06:07:10.624215Z",
+    "labels": {
+      "execution_id": "ze9qhc63uljo",
+      "instance_id": "001477829655018ac6747a20128aa43418e276678bcb8df8bb6523a149805768738b38ed4e68df1d64f257952094ce92a59c9de4f0a31792c3d95f883013f4c84834124b0749000b6168f6f372d4",
+      "runtime_version": "nodejs20_20251026_20_19_5_RC00"
+    },
+    "logName": "projects/phoneauth-d2c0e/logs/cloudfunctions.googleapis.com%2Fcloud-functions",
+    "trace": "projects/phoneauth-d2c0e/traces/f2c41786409ff82d9206f421429ad6a7",
+    "receiveTimestamp": "2025-10-31T06:07:10.771685678Z"
+  },
+  {
+    "textPayload": "  </style>",
+    "insertId": "6904520e0009865b5f5d8d8b",
+    "resource": {
+      "type": "cloud_function",
+      "labels": {
+        "project_id": "phoneauth-d2c0e",
+        "function_name": "notifyNearbyDrivers",
+        "region": "us-central1"
+      }
+    },
+    "timestamp": "2025-10-31T06:07:10.624219Z",
+    "labels": {
+      "instance_id": "001477829655018ac6747a20128aa43418e276678bcb8df8bb6523a149805768738b38ed4e68df1d64f257952094ce92a59c9de4f0a31792c3d95f883013f4c84834124b0749000b6168f6f372d4",
+      "runtime_version": "nodejs20_20251026_20_19_5_RC00",
+      "execution_id": "ze9qhc63uljo"
+    },
+    "logName": "projects/phoneauth-d2c0e/logs/cloudfunctions.googleapis.com%2Fcloud-functions",
+    "trace": "projects/phoneauth-d2c0e/traces/f2c41786409ff82d9206f421429ad6a7",
+    "receiveTimestamp": "2025-10-31T06:07:10.771685678Z"
+  },
+  {
+    "textPayload": "  <a href=//www.google.com/><span id=logo aria-label=Google></span></a>",
+    "insertId": "6904520e0009865fe7f29984",
+    "resource": {
+      "type": "cloud_function",
+      "labels": {
+        "region": "us-central1",
+        "function_name": "notifyNearbyDrivers",
+        "project_id": "phoneauth-d2c0e"
+      }
+    },
+    "timestamp": "2025-10-31T06:07:10.624223Z",
+    "labels": {
+      "instance_id": "001477829655018ac6747a20128aa43418e276678bcb8df8bb6523a149805768738b38ed4e68df1d64f257952094ce92a59c9de4f0a31792c3d95f883013f4c84834124b0749000b6168f6f372d4",
+      "execution_id": "ze9qhc63uljo",
+      "runtime_version": "nodejs20_20251026_20_19_5_RC00"
+    },
+    "logName": "projects/phoneauth-d2c0e/logs/cloudfunctions.googleapis.com%2Fcloud-functions",
+    "trace": "projects/phoneauth-d2c0e/traces/f2c41786409ff82d9206f421429ad6a7",
+    "receiveTimestamp": "2025-10-31T06:07:10.771685678Z"
+  },
+  {
+    "textPayload": "  <p><b>404.</b> <ins>That’s an error.</ins>",
+    "insertId": "6904520e000986630d39b633",
+    "resource": {
+      "type": "cloud_function",
+      "labels": {
+        "project_id": "phoneauth-d2c0e",
+        "function_name": "notifyNearbyDrivers",
+        "region": "us-central1"
+      }
+    },
+    "timestamp": "2025-10-31T06:07:10.624227Z",
+    "labels": {
+      "runtime_version": "nodejs20_20251026_20_19_5_RC00",
+      "execution_id": "ze9qhc63uljo",
+      "instance_id": "001477829655018ac6747a20128aa43418e276678bcb8df8bb6523a149805768738b38ed4e68df1d64f257952094ce92a59c9de4f0a31792c3d95f883013f4c84834124b0749000b6168f6f372d4"
+    },
+    "logName": "projects/phoneauth-d2c0e/logs/cloudfunctions.googleapis.com%2Fcloud-functions",
+    "trace": "projects/phoneauth-d2c0e/traces/f2c41786409ff82d9206f421429ad6a7",
+    "receiveTimestamp": "2025-10-31T06:07:10.771685678Z"
+  },
+  {
+    "textPayload": "  <p>The requested URL <code>/batch</code> was not found on this server.  <ins>That’s all we know.</ins>",
+    "insertId": "6904520e0009866744627ac8",
+    "resource": {
+      "type": "cloud_function",
+      "labels": {
+        "project_id": "phoneauth-d2c0e",
+        "region": "us-central1",
+        "function_name": "notifyNearbyDrivers"
+      }
+    },
+    "timestamp": "2025-10-31T06:07:10.624231Z",
+    "labels": {
+      "instance_id": "001477829655018ac6747a20128aa43418e276678bcb8df8bb6523a149805768738b38ed4e68df1d64f257952094ce92a59c9de4f0a31792c3d95f883013f4c84834124b0749000b6168f6f372d4",
+      "execution_id": "ze9qhc63uljo",
+      "runtime_version": "nodejs20_20251026_20_19_5_RC00"
+    },
+    "logName": "projects/phoneauth-d2c0e/logs/cloudfunctions.googleapis.com%2Fcloud-functions",
+    "trace": "projects/phoneauth-d2c0e/traces/f2c41786409ff82d9206f421429ad6a7",
+    "receiveTimestamp": "2025-10-31T06:07:10.771685678Z"
+  },
+  {
+    "textPayload": "\". Status code: 404.",
+    "insertId": "6904520e0009866bd0086ee4",
+    "resource": {
+      "type": "cloud_function",
+      "labels": {
+        "region": "us-central1",
+        "project_id": "phoneauth-d2c0e",
+        "function_name": "notifyNearbyDrivers"
+      }
+    },
+    "timestamp": "2025-10-31T06:07:10.624235Z",
+    "labels": {
+      "instance_id": "001477829655018ac6747a20128aa43418e276678bcb8df8bb6523a149805768738b38ed4e68df1d64f257952094ce92a59c9de4f0a31792c3d95f883013f4c84834124b0749000b6168f6f372d4",
+      "execution_id": "ze9qhc63uljo",
+      "runtime_version": "nodejs20_20251026_20_19_5_RC00"
+    },
+    "logName": "projects/phoneauth-d2c0e/logs/cloudfunctions.googleapis.com%2Fcloud-functions",
+    "trace": "projects/phoneauth-d2c0e/traces/f2c41786409ff82d9206f421429ad6a7",
+    "receiveTimestamp": "2025-10-31T06:07:10.771685678Z"
+  },
+  {
+    "textPayload": "    at createFirebaseError (/workspace/node_modules/firebase-admin/lib/messaging/messaging-errors-internal.js:57:12)",
+    "insertId": "6904520e00098671190cacf6",
+    "resource": {
+      "type": "cloud_function",
+      "labels": {
+        "project_id": "phoneauth-d2c0e",
+        "function_name": "notifyNearbyDrivers",
+        "region": "us-central1"
+      }
+    },
+    "timestamp": "2025-10-31T06:07:10.624241Z",
+    "labels": {
+      "execution_id": "ze9qhc63uljo",
+      "instance_id": "001477829655018ac6747a20128aa43418e276678bcb8df8bb6523a149805768738b38ed4e68df1d64f257952094ce92a59c9de4f0a31792c3d95f883013f4c84834124b0749000b6168f6f372d4",
+      "runtime_version": "nodejs20_20251026_20_19_5_RC00"
+    },
+    "logName": "projects/phoneauth-d2c0e/logs/cloudfunctions.googleapis.com%2Fcloud-functions",
+    "trace": "projects/phoneauth-d2c0e/traces/f2c41786409ff82d9206f421429ad6a7",
+    "receiveTimestamp": "2025-10-31T06:07:10.771685678Z"
+  },
+  {
+    "textPayload": "    at /workspace/node_modules/firebase-admin/lib/messaging/messaging-api-request-internal.js:165:75",
+    "insertId": "6904520e000986759e74e497",
+    "resource": {
+      "type": "cloud_function",
+      "labels": {
+        "region": "us-central1",
+        "project_id": "phoneauth-d2c0e",
+        "function_name": "notifyNearbyDrivers"
+      }
+    },
+    "timestamp": "2025-10-31T06:07:10.624245Z",
+    "labels": {
+      "instance_id": "001477829655018ac6747a20128aa43418e276678bcb8df8bb6523a149805768738b38ed4e68df1d64f257952094ce92a59c9de4f0a31792c3d95f883013f4c84834124b0749000b6168f6f372d4",
+      "runtime_version": "nodejs20_20251026_20_19_5_RC00",
+      "execution_id": "ze9qhc63uljo"
+    },
+    "logName": "projects/phoneauth-d2c0e/logs/cloudfunctions.googleapis.com%2Fcloud-functions",
+    "trace": "projects/phoneauth-d2c0e/traces/f2c41786409ff82d9206f421429ad6a7",
+    "receiveTimestamp": "2025-10-31T06:07:10.771685678Z"
+  },
+  {
+    "textPayload": "    at process.processTicksAndRejections (node:internal/process/task_queues:95:5)",
+    "insertId": "6904520e00098679bd520754",
+    "resource": {
+      "type": "cloud_function",
+      "labels": {
+        "region": "us-central1",
+        "function_name": "notifyNearbyDrivers",
+        "project_id": "phoneauth-d2c0e"
+      }
+    },
+    "timestamp": "2025-10-31T06:07:10.624249Z",
+    "labels": {
+      "execution_id": "ze9qhc63uljo",
+      "runtime_version": "nodejs20_20251026_20_19_5_RC00",
+      "instance_id": "001477829655018ac6747a20128aa43418e276678bcb8df8bb6523a149805768738b38ed4e68df1d64f257952094ce92a59c9de4f0a31792c3d95f883013f4c84834124b0749000b6168f6f372d4"
+    },
+    "logName": "projects/phoneauth-d2c0e/logs/cloudfunctions.googleapis.com%2Fcloud-functions",
+    "trace": "projects/phoneauth-d2c0e/traces/f2c41786409ff82d9206f421429ad6a7",
+    "receiveTimestamp": "2025-10-31T06:07:10.771685678Z"
+  },
+  {
+    "textPayload": "    at async /workspace/index.js:85:20 {",
+    "insertId": "6904520e0009867c6ea09178",
+    "resource": {
+      "type": "cloud_function",
+      "labels": {
+        "function_name": "notifyNearbyDrivers",
+        "region": "us-central1",
+        "project_id": "phoneauth-d2c0e"
+      }
+    },
+    "timestamp": "2025-10-31T06:07:10.624252Z",
+    "labels": {
+      "execution_id": "ze9qhc63uljo",
+      "runtime_version": "nodejs20_20251026_20_19_5_RC00",
+      "instance_id": "001477829655018ac6747a20128aa43418e276678bcb8df8bb6523a149805768738b38ed4e68df1d64f257952094ce92a59c9de4f0a31792c3d95f883013f4c84834124b0749000b6168f6f372d4"
+    },
+    "logName": "projects/phoneauth-d2c0e/logs/cloudfunctions.googleapis.com%2Fcloud-functions",
+    "trace": "projects/phoneauth-d2c0e/traces/f2c41786409ff82d9206f421429ad6a7",
+    "receiveTimestamp": "2025-10-31T06:07:10.771685678Z"
+  },
+  {
+    "textPayload": "  errorInfo: {",
+    "insertId": "6904520e0009867f9490b253",
+    "resource": {
+      "type": "cloud_function",
+      "labels": {
+        "region": "us-central1",
+        "project_id": "phoneauth-d2c0e",
+        "function_name": "notifyNearbyDrivers"
+      }
+    },
+    "timestamp": "2025-10-31T06:07:10.624255Z",
+    "labels": {
+      "instance_id": "001477829655018ac6747a20128aa43418e276678bcb8df8bb6523a149805768738b38ed4e68df1d64f257952094ce92a59c9de4f0a31792c3d95f883013f4c84834124b0749000b6168f6f372d4",
+      "execution_id": "ze9qhc63uljo",
+      "runtime_version": "nodejs20_20251026_20_19_5_RC00"
+    },
+    "logName": "projects/phoneauth-d2c0e/logs/cloudfunctions.googleapis.com%2Fcloud-functions",
+    "trace": "projects/phoneauth-d2c0e/traces/f2c41786409ff82d9206f421429ad6a7",
+    "receiveTimestamp": "2025-10-31T06:07:10.771685678Z"
+  },
+  {
+    "textPayload": "    code: 'messaging/unknown-error',",
+    "insertId": "6904520e0009868344e89817",
+    "resource": {
+      "type": "cloud_function",
+      "labels": {
+        "project_id": "phoneauth-d2c0e",
+        "function_name": "notifyNearbyDrivers",
+        "region": "us-central1"
+      }
+    },
+    "timestamp": "2025-10-31T06:07:10.624259Z",
+    "labels": {
+      "instance_id": "001477829655018ac6747a20128aa43418e276678bcb8df8bb6523a149805768738b38ed4e68df1d64f257952094ce92a59c9de4f0a31792c3d95f883013f4c84834124b0749000b6168f6f372d4",
+      "execution_id": "ze9qhc63uljo",
+      "runtime_version": "nodejs20_20251026_20_19_5_RC00"
+    },
+    "logName": "projects/phoneauth-d2c0e/logs/cloudfunctions.googleapis.com%2Fcloud-functions",
+    "trace": "projects/phoneauth-d2c0e/traces/f2c41786409ff82d9206f421429ad6a7",
+    "receiveTimestamp": "2025-10-31T06:07:10.771685678Z"
+  },
+  {
+    "textPayload": "    message: 'An unknown server error was returned. Raw server response: \"<!DOCTYPE html>\\n' +",
+    "insertId": "6904520e0009868734c88c05",
+    "resource": {
+      "type": "cloud_function",
+      "labels": {
+        "function_name": "notifyNearbyDrivers",
+        "region": "us-central1",
+        "project_id": "phoneauth-d2c0e"
+      }
+    },
+    "timestamp": "2025-10-31T06:07:10.624263Z",
+    "labels": {
+      "execution_id": "ze9qhc63uljo",
+      "runtime_version": "nodejs20_20251026_20_19_5_RC00",
+      "instance_id": "001477829655018ac6747a20128aa43418e276678bcb8df8bb6523a149805768738b38ed4e68df1d64f257952094ce92a59c9de4f0a31792c3d95f883013f4c84834124b0749000b6168f6f372d4"
+    },
+    "logName": "projects/phoneauth-d2c0e/logs/cloudfunctions.googleapis.com%2Fcloud-functions",
+    "trace": "projects/phoneauth-d2c0e/traces/f2c41786409ff82d9206f421429ad6a7",
+    "receiveTimestamp": "2025-10-31T06:07:10.771685678Z"
+  },
+  {
+    "textPayload": "      '<html lang=en>\\n' +",
+    "insertId": "6904520e0009868bcb6a0c1c",
+    "resource": {
+      "type": "cloud_function",
+      "labels": {
+        "region": "us-central1",
+        "function_name": "notifyNearbyDrivers",
+        "project_id": "phoneauth-d2c0e"
+      }
+    },
+    "timestamp": "2025-10-31T06:07:10.624267Z",
+    "labels": {
+      "runtime_version": "nodejs20_20251026_20_19_5_RC00",
+      "execution_id": "ze9qhc63uljo",
+      "instance_id": "001477829655018ac6747a20128aa43418e276678bcb8df8bb6523a149805768738b38ed4e68df1d64f257952094ce92a59c9de4f0a31792c3d95f883013f4c84834124b0749000b6168f6f372d4"
+    },
+    "logName": "projects/phoneauth-d2c0e/logs/cloudfunctions.googleapis.com%2Fcloud-functions",
+    "trace": "projects/phoneauth-d2c0e/traces/f2c41786409ff82d9206f421429ad6a7",
+    "receiveTimestamp": "2025-10-31T06:07:10.771685678Z"
+  },
+  {
+    "textPayload": "      '  <meta charset=utf-8>\\n' +",
+    "insertId": "6904520e0009868ec3a729bd",
+    "resource": {
+      "type": "cloud_function",
+      "labels": {
+        "project_id": "phoneauth-d2c0e",
+        "region": "us-central1",
+        "function_name": "notifyNearbyDrivers"
+      }
+    },
+    "timestamp": "2025-10-31T06:07:10.624270Z",
+    "labels": {
+      "runtime_version": "nodejs20_20251026_20_19_5_RC00",
+      "instance_id": "001477829655018ac6747a20128aa43418e276678bcb8df8bb6523a149805768738b38ed4e68df1d64f257952094ce92a59c9de4f0a31792c3d95f883013f4c84834124b0749000b6168f6f372d4",
+      "execution_id": "ze9qhc63uljo"
+    },
+    "logName": "projects/phoneauth-d2c0e/logs/cloudfunctions.googleapis.com%2Fcloud-functions",
+    "trace": "projects/phoneauth-d2c0e/traces/f2c41786409ff82d9206f421429ad6a7",
+    "receiveTimestamp": "2025-10-31T06:07:10.771685678Z"
+  },
+  {
+    "textPayload": "      '  <meta name=viewport content=\"initial-scale=1, minimum-scale=1, width=device-width\">\\n' +",
+    "insertId": "6904520e0009869260a8db01",
+    "resource": {
+      "type": "cloud_function",
+      "labels": {
+        "project_id": "phoneauth-d2c0e",
+        "function_name": "notifyNearbyDrivers",
+        "region": "us-central1"
+      }
+    },
+    "timestamp": "2025-10-31T06:07:10.624274Z",
+    "labels": {
+      "runtime_version": "nodejs20_20251026_20_19_5_RC00",
+      "execution_id": "ze9qhc63uljo",
+      "instance_id": "001477829655018ac6747a20128aa43418e276678bcb8df8bb6523a149805768738b38ed4e68df1d64f257952094ce92a59c9de4f0a31792c3d95f883013f4c84834124b0749000b6168f6f372d4"
+    },
+    "logName": "projects/phoneauth-d2c0e/logs/cloudfunctions.googleapis.com%2Fcloud-functions",
+    "trace": "projects/phoneauth-d2c0e/traces/f2c41786409ff82d9206f421429ad6a7",
+    "receiveTimestamp": "2025-10-31T06:07:10.771685678Z"
+  },
+  {
+    "textPayload": "      '  <title>Error 404 (Not Found)!!1</title>\\n' +",
+    "insertId": "6904520e0009869793f78b91",
+    "resource": {
+      "type": "cloud_function",
+      "labels": {
+        "region": "us-central1",
+        "project_id": "phoneauth-d2c0e",
+        "function_name": "notifyNearbyDrivers"
+      }
+    },
+    "timestamp": "2025-10-31T06:07:10.624279Z",
+    "labels": {
+      "execution_id": "ze9qhc63uljo",
+      "runtime_version": "nodejs20_20251026_20_19_5_RC00",
+      "instance_id": "001477829655018ac6747a20128aa43418e276678bcb8df8bb6523a149805768738b38ed4e68df1d64f257952094ce92a59c9de4f0a31792c3d95f883013f4c84834124b0749000b6168f6f372d4"
+    },
+    "logName": "projects/phoneauth-d2c0e/logs/cloudfunctions.googleapis.com%2Fcloud-functions",
+    "trace": "projects/phoneauth-d2c0e/traces/f2c41786409ff82d9206f421429ad6a7",
+    "receiveTimestamp": "2025-10-31T06:07:10.771685678Z"
+  },
+  {
+    "textPayload": "      '  <style>\\n' +",
+    "insertId": "6904520e0009869b7d66a38e",
+    "resource": {
+      "type": "cloud_function",
+      "labels": {
+        "function_name": "notifyNearbyDrivers",
+        "project_id": "phoneauth-d2c0e",
+        "region": "us-central1"
+      }
+    },
+    "timestamp": "2025-10-31T06:07:10.624283Z",
+    "labels": {
+      "instance_id": "001477829655018ac6747a20128aa43418e276678bcb8df8bb6523a149805768738b38ed4e68df1d64f257952094ce92a59c9de4f0a31792c3d95f883013f4c84834124b0749000b6168f6f372d4",
+      "runtime_version": "nodejs20_20251026_20_19_5_RC00",
+      "execution_id": "ze9qhc63uljo"
+    },
+    "logName": "projects/phoneauth-d2c0e/logs/cloudfunctions.googleapis.com%2Fcloud-functions",
+    "trace": "projects/phoneauth-d2c0e/traces/f2c41786409ff82d9206f421429ad6a7",
+    "receiveTimestamp": "2025-10-31T06:07:10.771685678Z"
+  },
+  {
+    "textPayload": "      '    *{margin:0;padding:0}html,code{font:15px/22px arial,sans-serif}html{background:#fff;color:#222;padding:15px}body{margin:7% auto 0;max-width:390px;min-height:180px;padding:30px 0 15px}* > body{background:url(//www.google.com/images/errors/robot.png) 100% 5px no-repeat;padding-right:205px}p{margin:11px 0 22px;overflow:hidden}ins{color:#777;text-decoration:none}a img{border:0}@media screen and (max-width:772px){body{background:none;margin-top:0;max-width:none;padding-right:0}}#logo{background:url(//www.google.com/images/branding/googlelogo/1x/googlelogo_color_150x54dp.png) no-repeat;margin-left:-5px}@media only screen and (min-resolution:192dpi){#logo{background:url(//www.google.com/images/branding/googlelogo/2x/googlelogo_color_150x54dp.png) no-repeat 0% 0%/100% 100%;-moz-border-image:url(//www.google.com/images/branding/googlelogo/2x/googlelogo_color_150x54dp.png) 0}}@media only screen and (-webkit-min-device-pixel-ratio:2){#logo{background:url(//www.google.com/images/branding/googlelogo/2x/googlelogo_color_150x54dp.png) no-repeat;-webkit-background-size:100% 100%}}#logo{display:inline-block;height:54px;width:150px}\\n' +",
+    "insertId": "6904520e000986a13c22847b",
+    "resource": {
+      "type": "cloud_function",
+      "labels": {
+        "function_name": "notifyNearbyDrivers",
+        "project_id": "phoneauth-d2c0e",
+        "region": "us-central1"
+      }
+    },
+    "timestamp": "2025-10-31T06:07:10.624289Z",
+    "labels": {
+      "execution_id": "ze9qhc63uljo",
+      "instance_id": "001477829655018ac6747a20128aa43418e276678bcb8df8bb6523a149805768738b38ed4e68df1d64f257952094ce92a59c9de4f0a31792c3d95f883013f4c84834124b0749000b6168f6f372d4",
+      "runtime_version": "nodejs20_20251026_20_19_5_RC00"
+    },
+    "logName": "projects/phoneauth-d2c0e/logs/cloudfunctions.googleapis.com%2Fcloud-functions",
+    "trace": "projects/phoneauth-d2c0e/traces/f2c41786409ff82d9206f421429ad6a7",
+    "receiveTimestamp": "2025-10-31T06:07:10.771685678Z"
+  },
+  {
+    "textPayload": "      '  </style>\\n' +",
+    "insertId": "6904520e000986a57a50c234",
+    "resource": {
+      "type": "cloud_function",
+      "labels": {
+        "function_name": "notifyNearbyDrivers",
+        "project_id": "phoneauth-d2c0e",
+        "region": "us-central1"
+      }
+    },
+    "timestamp": "2025-10-31T06:07:10.624293Z",
+    "labels": {
+      "execution_id": "ze9qhc63uljo",
+      "instance_id": "001477829655018ac6747a20128aa43418e276678bcb8df8bb6523a149805768738b38ed4e68df1d64f257952094ce92a59c9de4f0a31792c3d95f883013f4c84834124b0749000b6168f6f372d4",
+      "runtime_version": "nodejs20_20251026_20_19_5_RC00"
+    },
+    "logName": "projects/phoneauth-d2c0e/logs/cloudfunctions.googleapis.com%2Fcloud-functions",
+    "trace": "projects/phoneauth-d2c0e/traces/f2c41786409ff82d9206f421429ad6a7",
+    "receiveTimestamp": "2025-10-31T06:07:10.771685678Z"
+  },
+  {
+    "textPayload": "      '  <a href=//www.google.com/><span id=logo aria-label=Google></span></a>\\n' +",
+    "insertId": "6904520e000986a9911afb00",
+    "resource": {
+      "type": "cloud_function",
+      "labels": {
+        "region": "us-central1",
+        "function_name": "notifyNearbyDrivers",
+        "project_id": "phoneauth-d2c0e"
+      }
+    },
+    "timestamp": "2025-10-31T06:07:10.624297Z",
+    "labels": {
+      "execution_id": "ze9qhc63uljo",
+      "instance_id": "001477829655018ac6747a20128aa43418e276678bcb8df8bb6523a149805768738b38ed4e68df1d64f257952094ce92a59c9de4f0a31792c3d95f883013f4c84834124b0749000b6168f6f372d4",
+      "runtime_version": "nodejs20_20251026_20_19_5_RC00"
+    },
+    "logName": "projects/phoneauth-d2c0e/logs/cloudfunctions.googleapis.com%2Fcloud-functions",
+    "trace": "projects/phoneauth-d2c0e/traces/f2c41786409ff82d9206f421429ad6a7",
+    "receiveTimestamp": "2025-10-31T06:07:10.771685678Z"
+  },
+  {
+    "textPayload": "      '  <p><b>404.</b> <ins>That’s an error.</ins>\\n' +",
+    "insertId": "6904520e000986ac2e815db4",
+    "resource": {
+      "type": "cloud_function",
+      "labels": {
+        "region": "us-central1",
+        "project_id": "phoneauth-d2c0e",
+        "function_name": "notifyNearbyDrivers"
+      }
+    },
+    "timestamp": "2025-10-31T06:07:10.624300Z",
+    "labels": {
+      "execution_id": "ze9qhc63uljo",
+      "runtime_version": "nodejs20_20251026_20_19_5_RC00",
+      "instance_id": "001477829655018ac6747a20128aa43418e276678bcb8df8bb6523a149805768738b38ed4e68df1d64f257952094ce92a59c9de4f0a31792c3d95f883013f4c84834124b0749000b6168f6f372d4"
+    },
+    "logName": "projects/phoneauth-d2c0e/logs/cloudfunctions.googleapis.com%2Fcloud-functions",
+    "trace": "projects/phoneauth-d2c0e/traces/f2c41786409ff82d9206f421429ad6a7",
+    "receiveTimestamp": "2025-10-31T06:07:10.771685678Z"
+  },
+  {
+    "textPayload": "      '  <p>The requested URL <code>/batch</code> was not found on this server.  <ins>That’s all we know.</ins>\\n' +",
+    "insertId": "6904520e000986afa5f8c75c",
+    "resource": {
+      "type": "cloud_function",
+      "labels": {
+        "region": "us-central1",
+        "function_name": "notifyNearbyDrivers",
+        "project_id": "phoneauth-d2c0e"
+      }
+    },
+    "timestamp": "2025-10-31T06:07:10.624303Z",
+    "labels": {
+      "instance_id": "001477829655018ac6747a20128aa43418e276678bcb8df8bb6523a149805768738b38ed4e68df1d64f257952094ce92a59c9de4f0a31792c3d95f883013f4c84834124b0749000b6168f6f372d4",
+      "runtime_version": "nodejs20_20251026_20_19_5_RC00",
+      "execution_id": "ze9qhc63uljo"
+    },
+    "logName": "projects/phoneauth-d2c0e/logs/cloudfunctions.googleapis.com%2Fcloud-functions",
+    "trace": "projects/phoneauth-d2c0e/traces/f2c41786409ff82d9206f421429ad6a7",
+    "receiveTimestamp": "2025-10-31T06:07:10.771685678Z"
+  },
+  {
+    "textPayload": "      '\". Status code: 404.'",
+    "insertId": "6904520e000986b3f36cb197",
+    "resource": {
+      "type": "cloud_function",
+      "labels": {
+        "function_name": "notifyNearbyDrivers",
+        "region": "us-central1",
+        "project_id": "phoneauth-d2c0e"
+      }
+    },
+    "timestamp": "2025-10-31T06:07:10.624307Z",
+    "labels": {
+      "instance_id": "001477829655018ac6747a20128aa43418e276678bcb8df8bb6523a149805768738b38ed4e68df1d64f257952094ce92a59c9de4f0a31792c3d95f883013f4c84834124b0749000b6168f6f372d4",
+      "execution_id": "ze9qhc63uljo",
+      "runtime_version": "nodejs20_20251026_20_19_5_RC00"
+    },
+    "logName": "projects/phoneauth-d2c0e/logs/cloudfunctions.googleapis.com%2Fcloud-functions",
+    "trace": "projects/phoneauth-d2c0e/traces/f2c41786409ff82d9206f421429ad6a7",
+    "receiveTimestamp": "2025-10-31T06:07:10.771685678Z"
+  },
+  {
+    "textPayload": "  },",
+    "insertId": "6904520e000986b6e7281b1d",
+    "resource": {
+      "type": "cloud_function",
+      "labels": {
+        "project_id": "phoneauth-d2c0e",
+        "function_name": "notifyNearbyDrivers",
+        "region": "us-central1"
+      }
+    },
+    "timestamp": "2025-10-31T06:07:10.624310Z",
+    "labels": {
+      "runtime_version": "nodejs20_20251026_20_19_5_RC00",
+      "instance_id": "001477829655018ac6747a20128aa43418e276678bcb8df8bb6523a149805768738b38ed4e68df1d64f257952094ce92a59c9de4f0a31792c3d95f883013f4c84834124b0749000b6168f6f372d4",
+      "execution_id": "ze9qhc63uljo"
+    },
+    "logName": "projects/phoneauth-d2c0e/logs/cloudfunctions.googleapis.com%2Fcloud-functions",
+    "trace": "projects/phoneauth-d2c0e/traces/f2c41786409ff82d9206f421429ad6a7",
+    "receiveTimestamp": "2025-10-31T06:07:10.771685678Z"
+  },
+  {
+    "textPayload": "  codePrefix: 'messaging'",
+    "insertId": "6904520e000986b936a8313f",
+    "resource": {
+      "type": "cloud_function",
+      "labels": {
+        "region": "us-central1",
+        "project_id": "phoneauth-d2c0e",
+        "function_name": "notifyNearbyDrivers"
+      }
+    },
+    "timestamp": "2025-10-31T06:07:10.624313Z",
+    "labels": {
+      "execution_id": "ze9qhc63uljo",
+      "runtime_version": "nodejs20_20251026_20_19_5_RC00",
+      "instance_id": "001477829655018ac6747a20128aa43418e276678bcb8df8bb6523a149805768738b38ed4e68df1d64f257952094ce92a59c9de4f0a31792c3d95f883013f4c84834124b0749000b6168f6f372d4"
+    },
+    "logName": "projects/phoneauth-d2c0e/logs/cloudfunctions.googleapis.com%2Fcloud-functions",
+    "trace": "projects/phoneauth-d2c0e/traces/f2c41786409ff82d9206f421429ad6a7",
+    "receiveTimestamp": "2025-10-31T06:07:10.771685678Z"
+  },
+  {
+    "textPayload": "}",
+    "insertId": "6904520e000986bde5125ce8",
+    "resource": {
+      "type": "cloud_function",
+      "labels": {
+        "region": "us-central1",
+        "function_name": "notifyNearbyDrivers",
+        "project_id": "phoneauth-d2c0e"
+      }
+    },
+    "timestamp": "2025-10-31T06:07:10.624317Z",
+    "labels": {
+      "instance_id": "001477829655018ac6747a20128aa43418e276678bcb8df8bb6523a149805768738b38ed4e68df1d64f257952094ce92a59c9de4f0a31792c3d95f883013f4c84834124b0749000b6168f6f372d4",
+      "execution_id": "ze9qhc63uljo",
+      "runtime_version": "nodejs20_20251026_20_19_5_RC00"
+    },
+    "logName": "projects/phoneauth-d2c0e/logs/cloudfunctions.googleapis.com%2Fcloud-functions",
+    "trace": "projects/phoneauth-d2c0e/traces/f2c41786409ff82d9206f421429ad6a7",
+    "receiveTimestamp": "2025-10-31T06:07:10.771685678Z"
+  },
+  {
+    "textPayload": "Function execution took 1858 ms, finished with status: 'ok'",
+    "insertId": "h80yh7f6sat4l",
+    "resource": {
+      "type": "cloud_function",
+      "labels": {
+        "region": "us-central1",
+        "project_id": "phoneauth-d2c0e",
+        "function_name": "notifyNearbyDrivers"
+      }
+    },
+    "timestamp": "2025-10-31T06:07:10.625742342Z",
+    "severity": "DEBUG",
+    "labels": {
+      "execution_id": "ze9qhc63uljo",
+      "runtime_version": "nodejs20_20251026_20_19_5_RC00"
+    },
+    "logName": "projects/phoneauth-d2c0e/logs/cloudfunctions.googleapis.com%2Fcloud-functions",
+    "trace": "projects/phoneauth-d2c0e/traces/f2c41786409ff82d9206f421429ad6a7",
+    "receiveTimestamp": "2025-10-31T06:07:10.771685678Z"
+  }
+]

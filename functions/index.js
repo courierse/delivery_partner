@@ -49,17 +49,29 @@ exports.notifyNearbyDrivers = functions.firestore
         );
 
         if (dist <= 5.0) {
+          const title = "New Delivery Request";
+          const body = `Pickup: ${order.pickupLocation || "Unknown"}\nDrop: ${order.dropLocation || "Unknown"}\n${dist.toFixed(1)} km`;
+
           messages.push({
             token: d.fcmToken,
+            // Keep data for app logic
             data: {
               orderId: snap.id,
-              title: "New Delivery Request",
-              body: `Pickup: ${order.pickupLocation || "Unknown"}\nDrop: ${order.dropLocation || "Unknown"}\n${dist.toFixed(1)} km`,
+              title,
+              body,
               pickupAddress: order.pickupLocation || "Unknown",
               dropAddress: order.dropLocation || "Unknown",
               distance: dist.toFixed(1),
               vehicleType: order.vehicleType || "Unknown",
               click_action: "FLUTTER_NOTIFICATION_CLICK"
+            },
+            // Add notification so Android shows tray when app is killed
+            notification: { title, body },
+            android: {
+              priority: "HIGH",
+              notification: {
+                channelId: "order_channel",
+              }
             }
           });
         }
@@ -70,15 +82,17 @@ exports.notifyNearbyDrivers = functions.firestore
         return null;
       }
 
-      const resp = await admin.messaging().sendAll(messages);
-      console.log(`Sent to ${resp.successCount} drivers`);
-
-      // Log failures
-      resp.responses.forEach((response, idx) => {
-        if (!response.success) {
-          console.error(`Failed for token ${messages[idx].token}:`, response.error);
+      // Send individually to avoid /batch endpoint issues
+      let successCount = 0;
+      for (const msg of messages) {
+        try {
+          await admin.messaging().send(msg);
+          successCount += 1;
+        } catch (err) {
+          console.error(`Failed for token ${msg.token}:`, err);
         }
-      });
+      }
+      console.log(`Sent to ${successCount} drivers`);
 
     } catch (e) {
       console.error("Error in notifyNearbyDrivers:", e);

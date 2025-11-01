@@ -10,10 +10,15 @@ import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:phone_authentication/bloc/profile_cubit.dart';
 import 'package:phone_authentication/services/service_locator.dart';
 import 'package:phone_authentication/services/notification_service.dart';
+import 'package:phone_authentication/services/app_check_service.dart';
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
   await Firebase.initializeApp(options: DefaultFirebaseOptions.currentPlatform);
+
+  // Initialize App Check (protects Firebase backend resources)
+  await AppCheckService().initialize();
+
   setupLocator();
 
   await NotificationService().initialize();
@@ -40,7 +45,8 @@ class MyApp extends StatelessWidget {
           providers: [
             BlocProvider(create: (context) => PhoneAuthCubit()),
             BlocProvider(
-              create: (context) => locator<LocationCubit>()..getCurrentLocation(),
+              create:
+                  (context) => locator<LocationCubit>()..getCurrentLocation(),
             ),
           ],
           child: MaterialApp.router(

@@ -12,7 +12,8 @@ class NotificationService {
   NotificationService._internal();
 
   final FirebaseMessaging _fcm = FirebaseMessaging.instance;
-  final FlutterLocalNotificationsPlugin _localNotifications = FlutterLocalNotificationsPlugin();
+  final FlutterLocalNotificationsPlugin _localNotifications =
+      FlutterLocalNotificationsPlugin();
 
   bool _isInitialized = false;
   String? _fcmToken;
@@ -40,7 +41,10 @@ class NotificationService {
         requestBadgePermission: true,
         requestSoundPermission: true,
       );
-      const initSettings = InitializationSettings(android: androidInit, iOS: iosInit);
+      const initSettings = InitializationSettings(
+        android: androidInit,
+        iOS: iosInit,
+      );
 
       await _localNotifications.initialize(
         initSettings,
@@ -63,7 +67,11 @@ class NotificationService {
         enableVibration: true,
       );
 
-      final androidPlugin = _localNotifications.resolvePlatformSpecificImplementation<AndroidFlutterLocalNotificationsPlugin>();
+      final androidPlugin =
+          _localNotifications
+              .resolvePlatformSpecificImplementation<
+                AndroidFlutterLocalNotificationsPlugin
+              >();
       await androidPlugin?.createNotificationChannel(channel);
 
       // Get FCM token and persist to driver profile if logged in
@@ -148,7 +156,10 @@ class NotificationService {
       presentSound: true,
     );
 
-    const details = NotificationDetails(android: androidDetails, iOS: iosDetails);
+    const details = NotificationDetails(
+      android: androidDetails,
+      iOS: iosDetails,
+    );
 
     await _localNotifications.show(
       orderId.hashCode,

@@ -8,12 +8,20 @@
   "client": [
     {
       "client_info": {
-        "mobilesdk_app_id": "1:479942711865:android:5e5621eb922efad03acbe8",
+        "mobilesdk_app_id": "1:479942711865:android:3af0f4508b0333f23acbe8",
         "android_client_info": {
-          "package_name": "com.example.company_order_app"
+          "package_name": "com.couriersepartner.avr"
         }
       },
       "oauth_client": [
+        {
+          "client_id": "479942711865-vii28mrlpq1in53oicilouo4uglnfcbi.apps.googleusercontent.com",
+          "client_type": 1,
+          "android_info": {
+            "package_name": "com.couriersepartner.avr",
+            "certificate_hash": "952d20f83ed7ed5af161c2901c93fdf063de1ab0"
+          }
+        },
         {
           "client_id": "479942711865-n3p5e09dlec0qctkb1p018o8n5bubb3r.apps.googleusercontent.com",
           "client_type": 3
@@ -21,7 +29,51 @@
       ],
       "api_key": [
         {
-          "current_key": "AIzaSyCw9vIYJcF4O4gTcmOxF-3p9OQD9ZgOafw"
+          "current_key": "AIzaSyDtc8HryfDwpHHgankk4Dc2syzSQXQzGFE"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": [
+            {
+              "client_id": "114691736681018960278",
+              "client_type": 3
+            },
+            {
+              "client_id": "479942711865-n45i7qt509mpcbcn8smsn2734scs38iq.apps.googleusercontent.com",
+              "client_type": 2,
+              "ios_info": {
+                "bundle_id": "com.example.phoneAuthentication"
+              }
+            }
+          ]
+        }
+      }
+    },
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:479942711865:android:5e5621eb922efad03acbe8",
+        "android_client_info": {
+          "package_name": "com.example.company_order_app"
+        }
+      },
+      "oauth_client": [
+        {
+          "client_id": "479942711865-9m0fb4o3p7j5k0vfttrcoga9o5d33iop.apps.googleusercontent.com",
+          "client_type": 1,
+          "android_info": {
+            "package_name": "com.example.company_order_app",
+            "certificate_hash": "952d20f83ed7ed5af161c2901c93fdf063de1ab0"
+          }
+        },
+        {
+          "client_id": "479942711865-n3p5e09dlec0qctkb1p018o8n5bubb3r.apps.googleusercontent.com",
+          "client_type": 3
+        }
+      ],
+      "api_key": [
+        {
+          "current_key": "AIzaSyDtc8HryfDwpHHgankk4Dc2syzSQXQzGFE"
         }
       ],
       "services": {
@@ -65,7 +117,7 @@
       ],
       "api_key": [
         {
-          "current_key": "AIzaSyCw9vIYJcF4O4gTcmOxF-3p9OQD9ZgOafw"
+          "current_key": "AIzaSyDtc8HryfDwpHHgankk4Dc2syzSQXQzGFE"
         }
       ],
       "services": {
@@ -109,7 +161,7 @@
       ],
       "api_key": [
         {
-          "current_key": "AIzaSyCw9vIYJcF4O4gTcmOxF-3p9OQD9ZgOafw"
+          "current_key": "AIzaSyDtc8HryfDwpHHgankk4Dc2syzSQXQzGFE"
         }
       ],
       "services": {

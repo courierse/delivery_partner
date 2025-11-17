@@ -1,4 +1,4 @@
-package com.example.deliveryapp
+package com.couriersepartner.avr
 
 import io.flutter.embedding.android.FlutterActivity
 

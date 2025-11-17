@@ -42,18 +42,18 @@ class DefaultFirebaseOptions {
 
   static const FirebaseOptions web = FirebaseOptions(
     apiKey: 'AIzaSyC7qvVi9FmfVjNkS-zbe3THMNMtLaZhWy8',
-    appId: '1:479942711865:web:767f8d805c3813d33acbe8',
+    appId: '1:479942711865:web:e10644c7bad50ef03acbe8',
     messagingSenderId: '479942711865',
     projectId: 'phoneauth-d2c0e',
     authDomain: 'phoneauth-d2c0e.firebaseapp.com',
     databaseURL: 'https://phoneauth-d2c0e-default-rtdb.firebaseio.com',
     storageBucket: 'phoneauth-d2c0e.firebasestorage.app',
-    measurementId: 'G-0CPC4KL6RM',
+    measurementId: 'G-RD6WXSB1YX',
   );
 
   static const FirebaseOptions android = FirebaseOptions(
-    apiKey: 'AIzaSyCw9vIYJcF4O4gTcmOxF-3p9OQD9ZgOafw',
-    appId: '1:479942711865:android:5eb0ee7736226d083acbe8',
+    apiKey: 'AIzaSyDtc8HryfDwpHHgankk4Dc2syzSQXQzGFE',
+    appId: '1:479942711865:android:3af0f4508b0333f23acbe8',
     messagingSenderId: '479942711865',
     projectId: 'phoneauth-d2c0e',
     databaseURL: 'https://phoneauth-d2c0e-default-rtdb.firebaseio.com',
@@ -62,36 +62,36 @@ class DefaultFirebaseOptions {
 
   static const FirebaseOptions ios = FirebaseOptions(
     apiKey: 'AIzaSyDEHho3sKgr-Mk2a9Dfc9HlA9OFSnIOEag',
-    appId: '1:479942711865:ios:0809263c22353aa03acbe8',
+    appId: '1:479942711865:ios:ec4462543a7219a23acbe8',
     messagingSenderId: '479942711865',
     projectId: 'phoneauth-d2c0e',
     databaseURL: 'https://phoneauth-d2c0e-default-rtdb.firebaseio.com',
     storageBucket: 'phoneauth-d2c0e.firebasestorage.app',
-    androidClientId: '479942711865-a7olfk4c15764pngcmpqd44969f7bfdl.apps.googleusercontent.com',
+    androidClientId: '479942711865-9m0fb4o3p7j5k0vfttrcoga9o5d33iop.apps.googleusercontent.com',
     iosClientId: '479942711865-n45i7qt509mpcbcn8smsn2734scs38iq.apps.googleusercontent.com',
     iosBundleId: 'com.example.phoneAuthentication',
   );
 
   static const FirebaseOptions macos = FirebaseOptions(
     apiKey: 'AIzaSyDEHho3sKgr-Mk2a9Dfc9HlA9OFSnIOEag',
-    appId: '1:479942711865:ios:0809263c22353aa03acbe8',
+    appId: '1:479942711865:ios:ec4462543a7219a23acbe8',
     messagingSenderId: '479942711865',
     projectId: 'phoneauth-d2c0e',
     databaseURL: 'https://phoneauth-d2c0e-default-rtdb.firebaseio.com',
     storageBucket: 'phoneauth-d2c0e.firebasestorage.app',
-    androidClientId: '479942711865-a7olfk4c15764pngcmpqd44969f7bfdl.apps.googleusercontent.com',
+    androidClientId: '479942711865-9m0fb4o3p7j5k0vfttrcoga9o5d33iop.apps.googleusercontent.com',
     iosClientId: '479942711865-n45i7qt509mpcbcn8smsn2734scs38iq.apps.googleusercontent.com',
     iosBundleId: 'com.example.phoneAuthentication',
   );
 
   static const FirebaseOptions windows = FirebaseOptions(
     apiKey: 'AIzaSyC7qvVi9FmfVjNkS-zbe3THMNMtLaZhWy8',
-    appId: '1:479942711865:web:6c95fdd8c9af22023acbe8',
+    appId: '1:479942711865:web:f0cec88adcca87dc3acbe8',
     messagingSenderId: '479942711865',
     projectId: 'phoneauth-d2c0e',
     authDomain: 'phoneauth-d2c0e.firebaseapp.com',
     databaseURL: 'https://phoneauth-d2c0e-default-rtdb.firebaseio.com',
     storageBucket: 'phoneauth-d2c0e.firebasestorage.app',
-    measurementId: 'G-QMKQBCHQWX',
+    measurementId: 'G-SPW7FHMEMW',
   );
 }

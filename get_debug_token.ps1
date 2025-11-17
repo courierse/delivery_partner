@@ -30,3 +30,12 @@ Write-Host "`nDone. Check the output above for your debug token." -ForegroundCol
 
 
 
+
+
+
+
+
+
+
+
+

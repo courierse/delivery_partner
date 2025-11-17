@@ -11,7 +11,7 @@ plugins {
 }
 
 android {
-    namespace = "com.example.deliveryapp"
+    namespace = "com.couriersepartner.avr"
     compileSdk = 35 // Set to 34 for compatibility with modern Android and Firebase
     ndkVersion = flutter.ndkVersion
 
@@ -27,8 +27,8 @@ android {
     }
 
     defaultConfig {
-        applicationId = "com.example.deliveryapp"
-        minSdk = 23 // Updated to 23 to meet firebase_auth requirements
+        applicationId = "com.couriersepartner.avr"
+        minSdk = flutter.minSdkVersion // Updated to 23 to meet firebase_auth requirements
         targetSdk = 34 // Set to 34 for modern Android compatibility
         versionCode = flutter.versionCode
         versionName = flutter.versionName

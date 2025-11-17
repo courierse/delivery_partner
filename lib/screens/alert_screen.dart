@@ -27,6 +27,9 @@ class _AlertScreenState extends State<AlertScreen> {
   final AudioPlayer _audioPlayer = AudioPlayer();
   StreamSubscription<QuerySnapshot>? _pendingOrdersSubscription;
   StreamSubscription<QuerySnapshot>? _acceptedCancelledOrdersSubscription;
+  StreamSubscription<Position>? _locationStreamSubscription;
+  Timer? _locationUpdateTimer;
+  Timer? _fcmTokenRefreshTimer;
   bool _hasPendingOrders = false;
   bool _isAudioPlayerInitialized = false;
   bool _isOnDuty = false;
@@ -45,6 +48,9 @@ class _AlertScreenState extends State<AlertScreen> {
     print('AlertScreen: dispose called');
     _pendingOrdersSubscription?.cancel();
     _acceptedCancelledOrdersSubscription?.cancel();
+    _locationStreamSubscription?.cancel();
+    _locationUpdateTimer?.cancel();
+    _fcmTokenRefreshTimer?.cancel();
     _waitingTimer?.cancel();
     if (_isAudioPlayerInitialized) {
       try {
@@ -128,6 +134,117 @@ class _AlertScreenState extends State<AlertScreen> {
     }
   }
 
+  // Start continuous location updates when on duty
+  Future<void> _startLocationUpdates() async {
+    final user = FirebaseAuth.instance.currentUser;
+    if (user == null) return;
+
+    // Stop any existing location updates
+    await _stopLocationUpdates();
+
+    try {
+      // Request location permissions
+      bool serviceEnabled = await Geolocator.isLocationServiceEnabled();
+      if (!serviceEnabled) {
+        print('Location services are disabled');
+        return;
+      }
+
+      LocationPermission permission = await Geolocator.checkPermission();
+      if (permission == LocationPermission.denied) {
+        permission = await Geolocator.requestPermission();
+        if (permission == LocationPermission.denied) {
+          print('Location permissions denied');
+          return;
+        }
+      }
+
+      if (permission == LocationPermission.deniedForever) {
+        print('Location permissions permanently denied');
+        return;
+      }
+
+      // Start location stream
+      _locationStreamSubscription = Geolocator.getPositionStream(
+        locationSettings: const LocationSettings(
+          accuracy: LocationAccuracy.high,
+          distanceFilter: 50, // Update every 50 meters
+        ),
+      ).listen((Position position) async {
+        if (!mounted || !_isOnDuty) return;
+        
+        try {
+          await _driversCollection.doc(user.uid).set({
+            'latitude': position.latitude,
+            'longitude': position.longitude,
+            'updatedAt': FieldValue.serverTimestamp(),
+          }, SetOptions(merge: true));
+          print('Updated driver location: Lat=${position.latitude}, Lng=${position.longitude}');
+        } catch (e) {
+          print('Error updating driver location: $e');
+        }
+      }, onError: (e) {
+        print('Location stream error: $e');
+      });
+
+      // Also update location periodically as a backup (every 30 seconds)
+      _locationUpdateTimer = Timer.periodic(const Duration(seconds: 30), (timer) async {
+        if (!mounted || !_isOnDuty) {
+          timer.cancel();
+          return;
+        }
+        try {
+          final position = await Geolocator.getCurrentPosition(
+            desiredAccuracy: LocationAccuracy.high,
+          );
+          await _driversCollection.doc(user.uid).set({
+            'latitude': position.latitude,
+            'longitude': position.longitude,
+            'updatedAt': FieldValue.serverTimestamp(),
+          }, SetOptions(merge: true));
+          print('Periodic location update: Lat=${position.latitude}, Lng=${position.longitude}');
+        } catch (e) {
+          print('Error in periodic location update: $e');
+        }
+      });
+
+      // Refresh FCM token periodically (every 5 minutes)
+      _fcmTokenRefreshTimer = Timer.periodic(const Duration(minutes: 5), (timer) async {
+        if (!mounted || !_isOnDuty) {
+          timer.cancel();
+          return;
+        }
+        try {
+          final fcmToken = await FirebaseMessaging.instance.getToken();
+          if (fcmToken != null) {
+            await _driversCollection.doc(user.uid).set({
+              'fcmToken': fcmToken,
+              'updatedAt': FieldValue.serverTimestamp(),
+            }, SetOptions(merge: true));
+            print('FCM token refreshed: $fcmToken');
+          }
+        } catch (e) {
+          print('Error refreshing FCM token: $e');
+        }
+      });
+
+      print('Started location updates for driver');
+    } catch (e) {
+      print('Error starting location updates: $e');
+    }
+  }
+
+  // Stop location updates
+  Future<void> _stopLocationUpdates() async {
+    _locationStreamSubscription?.cancel();
+    _locationStreamSubscription = null;
+    _locationUpdateTimer?.cancel();
+    _locationUpdateTimer = null;
+    _fcmTokenRefreshTimer?.cancel();
+    _fcmTokenRefreshTimer = null;
+    print('Stopped location updates');
+  }
+
   Future<void> _loadDutyStatus() async {
     final user = FirebaseAuth.instance.currentUser;
     if (user == null) return;
@@ -140,6 +257,7 @@ class _AlertScreenState extends State<AlertScreen> {
         });
         if (_isOnDuty) {
           _startListeningForOrders();
+          _startLocationUpdates(); // Start location updates if already on duty
         }
       }
     } catch (e) {
@@ -229,12 +347,14 @@ class _AlertScreenState extends State<AlertScreen> {
         });
         if (_isOnDuty) {
           _startListeningForOrders();
+          _startLocationUpdates(); // Start continuous location updates
           ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('You are now ON Duty')));
         } else {
           _pendingOrdersSubscription?.cancel();
           _acceptedCancelledOrdersSubscription?.cancel();
           _pendingOrdersSubscription = null;
           _acceptedCancelledOrdersSubscription = null;
+          await _stopLocationUpdates(); // Stop location updates
           await _safeStopAudio();
           await _stopWaitingTimer();
           ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('You are now OFF Duty')));

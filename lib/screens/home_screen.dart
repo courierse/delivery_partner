@@ -7,6 +7,7 @@ import 'package:phone_authentication/bloc/profile_cubit.dart';
 import 'package:phone_authentication/screens/history_screen.dart';
 import 'alert_screen.dart';
 import 'profile_screen.dart';
+import 'driver_earnings_screen.dart';
 
 class HomeScreen extends StatefulWidget {
   const HomeScreen({super.key});
@@ -46,6 +47,18 @@ class _HomeScreenState extends State<HomeScreen> {
         elevation: 0,
         actions: [
           IconButton(
+            icon: const Icon(Icons.account_balance_wallet),
+            onPressed: () {
+              Navigator.push(
+                context,
+                MaterialPageRoute(
+                  builder: (context) => const DriverEarningsScreen(),
+                ),
+              );
+            },
+            tooltip: 'Driver Earnings',
+          ),
+          IconButton(
             icon: const Icon(Icons.logout),
             onPressed: () async {
               await context.read<PhoneAuthCubit>().signOut();
@@ -58,18 +71,9 @@ class _HomeScreenState extends State<HomeScreen> {
       body: _screens[_selectedIndex],
       bottomNavigationBar: BottomNavigationBar(
         items: const <BottomNavigationBarItem>[
-          BottomNavigationBarItem(
-            icon: Icon(Icons.warning),
-            label: 'Alert',
-          ),
-          BottomNavigationBarItem(
-            icon: Icon(Icons.history),
-            label: 'History',
-          ),
-          BottomNavigationBarItem(
-            icon: Icon(Icons.person),
-            label: 'Profile',
-          ),
+          BottomNavigationBarItem(icon: Icon(Icons.warning), label: 'Alert'),
+          BottomNavigationBarItem(icon: Icon(Icons.history), label: 'History'),
+          BottomNavigationBarItem(icon: Icon(Icons.person), label: 'Profile'),
         ],
         currentIndex: _selectedIndex,
         selectedItemColor: AppColors.buttonColour,

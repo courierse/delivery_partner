@@ -2,7 +2,6 @@ import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_screenutil/flutter_screenutil.dart';
-import 'package:phone_authentication/constants/colors.dart';
 import 'package:phone_authentication/models/order_model.dart' as order_model;
 
 class DeliveryHistoryScreen extends StatefulWidget {
@@ -24,30 +23,50 @@ class _DeliveryHistoryScreenState extends State<DeliveryHistoryScreen> {
 
     switch (status) {
       case 'accepted':
-        statusColor = Colors.green.shade700;
+        statusColor = Colors.blue.shade700;
         statusText = 'Accepted Delivery';
-        displayTime = order.acceptedAt ?? order.createdAt ?? Timestamp.now();
+        displayTime = order.acceptedAt ?? order.createdAt;
+        break;
+      case 'driver_reached':
+        statusColor = Colors.orange.shade700;
+        statusText = 'Driver Reached';
+        displayTime = order.statusUpdatedAt ?? order.acceptedAt ?? order.createdAt;
+        break;
+      case 'order_picked':
+        statusColor = Colors.purple.shade700;
+        statusText = 'Order Picked';
+        displayTime = order.statusUpdatedAt ?? order.acceptedAt ?? order.createdAt;
+        break;
+      case 'on_the_way':
+        statusColor = Colors.indigo.shade700;
+        statusText = 'On The Way';
+        displayTime = order.statusUpdatedAt ?? order.acceptedAt ?? order.createdAt;
+        break;
+      case 'delivered':
+        statusColor = Colors.green.shade700;
+        statusText = 'Delivered';
+        displayTime = order.statusUpdatedAt ?? order.acceptedAt ?? order.createdAt;
         break;
       case 'completed':
         statusColor = Colors.green.shade700;
         statusText = 'Completed Delivery';
-        displayTime = order.completedAt ?? order.acceptedAt ?? order.createdAt ?? Timestamp.now();
+        displayTime = order.completedAt ?? order.statusUpdatedAt ?? order.acceptedAt ?? order.createdAt;
         break;
       case 'cancelled':
         statusColor = Colors.red.shade600;
         statusText =
             cancelledByUser == true ? 'Cancelled by User' : 'Cancelled by Driver';
-        displayTime = order.cancelledAt ?? order.createdAt ?? Timestamp.now();
+        displayTime = order.cancelledAt ?? order.createdAt;
         break;
       case 'rejected':
         statusColor = Colors.red.shade600;
         statusText = 'Rejected Delivery';
-        displayTime = customTime ?? order.createdAt ?? Timestamp.now();
+        displayTime = customTime ?? order.createdAt;
         break;
       default:
         statusColor = Colors.grey.shade700;
         statusText = 'Unknown Status';
-        displayTime = order.createdAt ?? Timestamp.now();
+        displayTime = order.createdAt;
     }
 
     return Card(
@@ -103,12 +122,12 @@ class _DeliveryHistoryScreenState extends State<DeliveryHistoryScreen> {
             _buildInfoRow(
                 Icons.monetization_on, 'Cost: ₹${order.deliveryCost.toStringAsFixed(2)}'),
             _buildInfoRow(
-              status == 'accepted' || status == 'rejected'
+              status == 'accepted' || status == 'rejected' || status == 'driver_reached' || status == 'order_picked' || status == 'on_the_way'
                   ? Icons.schedule
-                  : status == 'completed'
+                  : status == 'completed' || status == 'delivered'
                       ? Icons.check_circle
                       : Icons.cancel,
-              '${status == 'accepted' ? 'Accepted' : status == 'completed' ? 'Completed' : status == 'rejected' ? 'Rejected' : 'Cancelled'} At: ${displayTime.toDate().toString().substring(0, 16)}',
+              '${status == 'accepted' ? 'Accepted' : status == 'completed' ? 'Completed' : status == 'delivered' ? 'Delivered' : status == 'driver_reached' ? 'Driver Reached' : status == 'order_picked' ? 'Order Picked' : status == 'on_the_way' ? 'On The Way' : status == 'rejected' ? 'Rejected' : 'Cancelled'} At: ${displayTime.toDate().toString().substring(0, 16)}',
             ),
           ],
         ),
@@ -195,7 +214,7 @@ class _DeliveryHistoryScreenState extends State<DeliveryHistoryScreen> {
                     : StreamBuilder<QuerySnapshot>(
                         stream: _ordersCollection
                             .where('driverId', isEqualTo: user.uid)
-                            .where('status', whereIn: ['accepted', 'completed', 'cancelled'])
+                            .where('status', whereIn: ['accepted', 'driver_reached', 'order_picked', 'on_the_way', 'delivered', 'completed', 'cancelled'])
                             .snapshots(),
                         builder: (context, mainSnapshot) {
                           if (mainSnapshot.hasError) {
@@ -453,11 +472,15 @@ class _DeliveryHistoryScreenState extends State<DeliveryHistoryScreen> {
   Timestamp _getOrderTimestamp(order_model.Order order) {
     if (order.status == 'completed' && order.completedAt != null) {
       return order.completedAt!;
+    } else if (order.status == 'delivered' && order.statusUpdatedAt != null) {
+      return order.statusUpdatedAt!;
     } else if (order.status == 'cancelled' && order.cancelledAt != null) {
       return order.cancelledAt!;
     } else if (order.status == 'accepted' && order.acceptedAt != null) {
       return order.acceptedAt!;
+    } else if (order.statusUpdatedAt != null) {
+      return order.statusUpdatedAt!;
     }
-    return order.createdAt ?? Timestamp.now();
+    return order.createdAt;
   }
 }

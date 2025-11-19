@@ -812,9 +812,17 @@ class _AlertScreenState extends State<AlertScreen> {
                   ],
                 ),
                 SizedBox(height: 12.h),
-                _buildInfoRow(Icons.location_on, 'Pickup: ${order.pickupLocation}'),
+                _buildClickableInfoRow(
+                  Icons.location_on,
+                  'Pickup: ${order.pickupLocation}',
+                  () => _openGoogleMaps(driverLocation, pickupLocation, 'pickup'),
+                ),
                 _buildInfoRow(Icons.person, 'Contact: ${order.pickupName} - ${order.pickupPhone}'),
-                _buildInfoRow(Icons.local_shipping, 'Drop-off: ${order.dropLocation}'),
+                _buildClickableInfoRow(
+                  Icons.local_shipping,
+                  'Drop-off: ${order.dropLocation}',
+                  () => _openGoogleMaps(driverLocation, dropLocation, 'drop-off'),
+                ),
                 _buildInfoRow(Icons.person, 'Contact: ${order.dropName} - ${order.dropPhone}'),
                 _buildInfoRow(Icons.directions_car, 'Vehicle: ${order.vehicleType ?? 'N/A'}'),
                 _buildInfoRow(Icons.social_distance, 'Distance to Pickup: ${distanceToPickup.toStringAsFixed(2)} km'),
@@ -826,36 +834,6 @@ class _AlertScreenState extends State<AlertScreen> {
                     'Waiting Time Active',
                     'Fare updating every ${_waitingRules[order.vehicleType ?? 'Unknown']?['intervalMinutes']} minute(s)',
                   ),
-                SizedBox(height: 16.h),
-                Column(
-                  children: [
-                    ElevatedButton(
-                      onPressed: () => _openGoogleMaps(driverLocation, pickupLocation, 'pickup'),
-                      style: ElevatedButton.styleFrom(
-                        backgroundColor: Colors.blue.shade500,
-                        foregroundColor: Colors.white,
-                        padding: EdgeInsets.symmetric(vertical: 12.h),
-                        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12.r)),
-                        elevation: 2,
-                        minimumSize: Size(double.infinity, 48.h),
-                      ),
-                      child: Text('See Pickup on Google Maps', style: TextStyle(fontSize: 16.sp, fontWeight: FontWeight.w600)),
-                    ),
-                    SizedBox(height: 12.h),
-                    ElevatedButton(
-                      onPressed: () => _openGoogleMaps(driverLocation, dropLocation, 'drop-off'),
-                      style: ElevatedButton.styleFrom(
-                        backgroundColor: Colors.blue.shade600,
-                        foregroundColor: Colors.white,
-                        padding: EdgeInsets.symmetric(vertical: 12.h),
-                        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12.r)),
-                        elevation: 2,
-                        minimumSize: Size(double.infinity, 48.h),
-                      ),
-                      child: Text('See Drop-off on Google Maps', style: TextStyle(fontSize: 16.sp, fontWeight: FontWeight.w600)),
-                    ),
-                  ],
-                ),
                 SizedBox(height: 12.h),
                 if (isPending)
                   Row(
@@ -1041,6 +1019,34 @@ class _AlertScreenState extends State<AlertScreen> {
             ),
           ),
         ],
+      ),
+    );
+  }
+
+  Widget _buildClickableInfoRow(IconData icon, String text, VoidCallback onTap) {
+    return InkWell(
+      onTap: onTap,
+      borderRadius: BorderRadius.circular(8.r),
+      child: Padding(
+        padding: EdgeInsets.symmetric(vertical: 4.h, horizontal: 4.w),
+        child: Row(
+          children: [
+            Icon(icon, size: 20.sp, color: Colors.blue.shade700),
+            SizedBox(width: 8.w),
+            Expanded(
+              child: Text(
+                text,
+                style: TextStyle(
+                  fontSize: 14.sp,
+                  color: Colors.blue.shade700,
+                  fontWeight: FontWeight.w600,
+                  decoration: TextDecoration.underline,
+                ),
+              ),
+            ),
+            Icon(Icons.open_in_new, size: 16.sp, color: Colors.blue.shade700),
+          ],
+        ),
       ),
     );
   }

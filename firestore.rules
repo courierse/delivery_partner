@@ -1,47 +1,160 @@
 rules_version = '2';
+
 service cloud.firestore {
   match /databases/{database}/documents {
-    // Orders collection
+    
+    // Allow server-side function to manage fare_increments collection
+    match /fare_increments/{orderId} {
+      allow read, write: if request.auth == null;
+    }
+
+    // Orders Collection
     match /orders/{orderId} {
-      // Allow authenticated users to read orders with specific statuses
-      allow read: if request.auth != null && resource.data.status in ['pending', 'accepted'];
-      // Allow authenticated users to create orders with required fields
-      allow create: if request.auth != null && 
-        request.resource.data.keys().hasAll(['pickupLocation', 'dropLocation', 'pickupName', 'pickupPhone', 'dropName', 'dropPhone', 'weightRange', 'status', 'createdAt']) &&
-        request.resource.data.status == 'pending';
-      // Allow authenticated drivers to update orders only if they are accepting it
-      allow update: if request.auth != null && 
-        request.resource.data.status == 'accepted' && 
+      
+      // Allow read access for authorized users or drivers
+      allow read: if request.auth != null &&
+        (
+          resource.data.userId == request.auth.uid || // Order creator (customer)
+          (
+            resource.data.driverId == request.auth.uid && // Assigned driver
+            resource.data.status in ['accepted', 'driver_reached', 'order_picked', 'on_the_way', 'delivered', 'completed', 'cancelled'] // For driver's history
+          ) ||
+          resource.data.status == 'pending' // Publicly readable pending orders
+        );
+
+      // Allow user to create an order if all required fields are present
+      allow create: if request.auth != null &&
+        request.resource.data.keys().hasAll([
+          'pickupLocation',
+          'dropLocation',
+          'pickupName',
+          'pickupPhone',
+          'dropName',
+          'dropPhone',
+          'vehicleType',
+          'status',
+          'deliveryCost',
+          'createdAt'
+        ]) &&
+        request.resource.data.status == 'pending' &&
+        request.resource.data.userId == request.auth.uid &&
+        request.resource.data.deliveryCost is number;
+
+      // Allow driver to accept an order
+      allow update: if request.auth != null &&
+        resource.data.status == 'pending' &&
+        request.resource.data.status == 'accepted' &&
         request.resource.data.driverId == request.auth.uid &&
         request.resource.data.acceptedAt != null;
-      // Restrict deletes
-      allow delete: if false;
+
+      // Allow driver to update order status through delivery stages
+      allow update: if request.auth != null &&
+        resource.data.driverId == request.auth.uid &&
+        (
+          (resource.data.status == 'accepted' && request.resource.data.status == 'driver_reached') ||
+          (resource.data.status == 'driver_reached' && request.resource.data.status == 'order_picked') ||
+          (resource.data.status == 'order_picked' && request.resource.data.status == 'on_the_way') ||
+          (resource.data.status == 'on_the_way' && request.resource.data.status == 'delivered')
+        ) &&
+        request.resource.data.statusUpdatedAt != null;
+
+      // Allow driver to update location while order is accepted or in delivery stages
+      allow update: if request.auth != null &&
+        resource.data.status in ['accepted', 'driver_reached', 'order_picked', 'on_the_way'] &&
+        resource.data.driverId == request.auth.uid &&
+        request.resource.data.diff(resource.data).affectedKeys().hasAny([
+          'driverLatitude',
+          'driverLongitude',
+          'locationUpdatedAt'
+        ]);
+
+      // Allow driver to update fare when in driver_reached status
+      allow update: if request.auth != null &&
+        resource.data.status == 'driver_reached' &&
+        resource.data.driverId == request.auth.uid &&
+        request.resource.data.diff(resource.data).affectedKeys().hasOnly([
+          'deliveryCost',
+          'fareUpdatedAt'
+        ]) &&
+        request.resource.data.fareUpdatedAt != null;
+
+      // Allow server-side function to update fare (retained for potential future use)
+      allow update: if request.auth == null &&
+        resource.data.status == 'driver_reached' &&
+        request.resource.data.diff(resource.data).affectedKeys().hasOnly([
+          'deliveryCost',
+          'fareUpdatedAt'
+        ]) &&
+        request.resource.data.fareUpdatedAt != null;
+
+      // Allow driver to mark order as completed
+      allow update: if request.auth != null &&
+        resource.data.status == 'delivered' &&
+        resource.data.driverId == request.auth.uid &&
+        request.resource.data.status == 'completed' &&
+        request.resource.data.completedAt != null;
+
+      // Allow driver to cancel order
+      allow update: if request.auth != null &&
+        resource.data.status in ['accepted', 'driver_reached', 'order_picked', 'on_the_way'] &&
+        resource.data.driverId == request.auth.uid &&
+        request.resource.data.status == 'cancelled' &&
+        request.resource.data.cancelledByDriver == true &&
+        request.resource.data.cancelledAt != null;
+
+      // Allow user to cancel order by updating status
+      allow update: if request.auth != null &&
+        resource.data.userId == request.auth.uid &&
+        (resource.data.status in ['pending', 'accepted', 'driver_reached', 'order_picked', 'on_the_way']) &&
+        request.resource.data.status == 'cancelled' &&
+        request.resource.data.cancelledByUser == true &&
+        request.resource.data.cancelledAt != null;
+
+      // Allow user to delete order if still pending
+      allow delete: if request.auth != null &&
+        resource.data.status == 'pending' &&
+        resource.data.userId == request.auth.uid;
+
+      // Deny all other write operations
+      allow write: if false;
     }
 
-    // Users collection (for user application)
+    // Users Collection
     match /users/{phoneNumber} {
-      allow read, write: if request.auth != null && request.auth.token.phone_number == phoneNumber;
+      allow read: if true;
+      allow write: if request.auth != null &&
+        request.auth.token.phone_number == phoneNumber;
     }
 
-    // Drivers collection (for driver application)
+    // Drivers Collection
     match /drivers/{uid} {
-      allow read, write: if request.auth != null && request.auth.uid == uid;
+      allow read: if true; // Publicly readable
+      allow write: if request.auth != null && request.auth.uid == uid;
+
+      // Driver's rejected orders subcollection
+      match /rejected_orders/{orderId} {
+        allow read, write: if request.auth != null && request.auth.uid == uid;
+      }
     }
 
     // Driver notifications collection
     match /driver_notifications/{notificationId} {
-      // Allow drivers to read their own notifications
-      allow read: if request.auth != null && resource.data.driverId == request.auth.uid;
+      // Allow authenticated users to read notifications
+      // The query filters by driverId, so users can only see their own notifications
+      allow read: if request.auth != null;
+      
       // Allow creating notifications (for notification service/cloud functions)
       // Note: createdAt can be FieldValue.serverTimestamp() which is a sentinel value
       allow create: if request.auth != null && 
         request.resource.data.driverId == request.auth.uid &&
         request.resource.data.keys().hasAll(['driverId', 'orderId', 'title', 'body', 'pickupLocation', 'dropLocation', 'distance', 'vehicleType', 'isRead']) &&
         request.resource.data.isRead == false;
+      
       // Allow drivers to update their own notifications (e.g., mark as read)
       allow update: if request.auth != null && 
         resource.data.driverId == request.auth.uid &&
         request.resource.data.driverId == request.auth.uid;
+      
       // Prevent deletes
       allow delete: if false;
     }

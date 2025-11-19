@@ -1,1 +1,29 @@
-{"flutter":{"platforms":{"android":{"default":{"projectId":"phoneauth-d2c0e","appId":"1:479942711865:android:3af0f4508b0333f23acbe8","fileOutput":"android/app/google-services.json"}},"dart":{"lib/firebase_options.dart":{"projectId":"phoneauth-d2c0e","configurations":{"android":"1:479942711865:android:3af0f4508b0333f23acbe8","ios":"1:479942711865:ios:ec4462543a7219a23acbe8","macos":"1:479942711865:ios:ec4462543a7219a23acbe8","web":"1:479942711865:web:e10644c7bad50ef03acbe8","windows":"1:479942711865:web:f0cec88adcca87dc3acbe8"}}}}}}
+{
+  "firestore": {
+    "rules": "firestore.rules",
+    "indexes": "firestore.indexes.json"
+  },
+  "flutter": {
+    "platforms": {
+      "android": {
+        "default": {
+          "projectId": "phoneauth-d2c0e",
+          "appId": "1:479942711865:android:3af0f4508b0333f23acbe8",
+          "fileOutput": "android/app/google-services.json"
+        }
+      },
+      "dart": {
+        "lib/firebase_options.dart": {
+          "projectId": "phoneauth-d2c0e",
+          "configurations": {
+            "android": "1:479942711865:android:3af0f4508b0333f23acbe8",
+            "ios": "1:479942711865:ios:ec4462543a7219a23acbe8",
+            "macos": "1:479942711865:ios:ec4462543a7219a23acbe8",
+            "web": "1:479942711865:web:e10644c7bad50ef03acbe8",
+            "windows": "1:479942711865:web:f0cec88adcca87dc3acbe8"
+          }
+        }
+      }
+    }
+  }
+}

@@ -13,8 +13,8 @@ class DriverEarningsScreen extends StatefulWidget {
 }
 
 class _DriverEarningsScreenState extends State<DriverEarningsScreen> {
-  final CollectionReference _ordersCollection =
-      FirebaseFirestore.instance.collection('orders');
+  final CollectionReference _ordersCollection = FirebaseFirestore.instance
+      .collection('orders');
 
   double _calculateEarnings(double deliveryCost) {
     return deliveryCost * 0.8; // 80% of delivery cost
@@ -22,7 +22,8 @@ class _DriverEarningsScreenState extends State<DriverEarningsScreen> {
 
   Widget _buildEarningCard(order_model.Order order) {
     final earnings = _calculateEarnings(order.deliveryCost);
-    final completedDate = order.completedAt?.toDate() ?? order.createdAt.toDate();
+    final completedDate =
+        order.completedAt?.toDate() ?? order.createdAt.toDate();
 
     return Card(
       margin: EdgeInsets.symmetric(horizontal: 16.w, vertical: 8.h),
@@ -48,7 +49,10 @@ class _DriverEarningsScreenState extends State<DriverEarningsScreen> {
                   ),
                 ),
                 Container(
-                  padding: EdgeInsets.symmetric(horizontal: 12.w, vertical: 6.h),
+                  padding: EdgeInsets.symmetric(
+                    horizontal: 12.w,
+                    vertical: 6.h,
+                  ),
                   decoration: BoxDecoration(
                     color: Colors.green.shade700,
                     borderRadius: BorderRadius.circular(8.r),
@@ -66,15 +70,22 @@ class _DriverEarningsScreenState extends State<DriverEarningsScreen> {
             ),
             SizedBox(height: 12.h),
             _buildInfoRow(Icons.location_on, 'Pickup: ${order.pickupLocation}'),
-            _buildInfoRow(Icons.local_shipping, 'Drop-off: ${order.dropLocation}'),
             _buildInfoRow(
-                Icons.map, 'Distance: ${order.distance.toStringAsFixed(2)} km'),
+              Icons.local_shipping,
+              'Drop-off: ${order.dropLocation}',
+            ),
             _buildInfoRow(
-                Icons.monetization_on,
-                'Delivery Cost: ₹${order.deliveryCost.toStringAsFixed(2)}'),
+              Icons.map,
+              'Distance: ${order.distance.toStringAsFixed(2)} km',
+            ),
             _buildInfoRow(
-                Icons.account_balance_wallet,
-                'Your Earnings (80%): ₹${earnings.toStringAsFixed(2)}'),
+              Icons.monetization_on,
+              'Delivery Cost: ₹${order.deliveryCost.toStringAsFixed(2)}',
+            ),
+            _buildInfoRow(
+              Icons.account_balance_wallet,
+              'Your Earnings (80%): ₹${earnings.toStringAsFixed(2)}',
+            ),
             _buildInfoRow(
               Icons.check_circle,
               'Completed: ${completedDate.toString().substring(0, 16)}',
@@ -132,10 +143,11 @@ class _DriverEarningsScreenState extends State<DriverEarningsScreen> {
             children: [
               if (user != null)
                 StreamBuilder<QuerySnapshot>(
-                  stream: _ordersCollection
-                      .where('driverId', isEqualTo: user.uid)
-                      .where('status', isEqualTo: 'delivered')
-                      .snapshots(),
+                  stream:
+                      _ordersCollection
+                          .where('driverId', isEqualTo: user.uid)
+                          .where('status', isEqualTo: 'delivered')
+                          .snapshots(),
                   builder: (context, snapshot) {
                     if (snapshot.hasError) {
                       final error = snapshot.error.toString();
@@ -144,7 +156,8 @@ class _DriverEarningsScreenState extends State<DriverEarningsScreen> {
                           child: Card(
                             elevation: 12,
                             shape: RoundedRectangleBorder(
-                                borderRadius: BorderRadius.circular(16.r)),
+                              borderRadius: BorderRadius.circular(16.r),
+                            ),
                             child: Padding(
                               padding: EdgeInsets.all(24.w),
                               child: Column(
@@ -172,15 +185,22 @@ class _DriverEarningsScreenState extends State<DriverEarningsScreen> {
                                       backgroundColor: Colors.blue.shade700,
                                       foregroundColor: Colors.white,
                                       padding: EdgeInsets.symmetric(
-                                          horizontal: 32.w, vertical: 12.h),
+                                        horizontal: 32.w,
+                                        vertical: 12.h,
+                                      ),
                                       shape: RoundedRectangleBorder(
-                                          borderRadius: BorderRadius.circular(12.r)),
+                                        borderRadius: BorderRadius.circular(
+                                          12.r,
+                                        ),
+                                      ),
                                       elevation: 2,
                                     ),
                                     child: Text(
                                       'Retry',
                                       style: TextStyle(
-                                          fontSize: 16.sp, fontWeight: FontWeight.w600),
+                                        fontSize: 16.sp,
+                                        fontWeight: FontWeight.w600,
+                                      ),
                                     ),
                                   ),
                                 ],
@@ -194,28 +214,31 @@ class _DriverEarningsScreenState extends State<DriverEarningsScreen> {
                     if (!snapshot.hasData) {
                       return Expanded(
                         child: Center(
-                          child: CircularProgressIndicator(color: Colors.blue.shade700),
+                          child: CircularProgressIndicator(
+                            color: Colors.blue.shade700,
+                          ),
                         ),
                       );
                     }
 
-                    final orders = snapshot.data!.docs
-                        .map((doc) {
-                          try {
-                            return order_model.Order.fromSnapshot(doc);
-                          } catch (e) {
-                            print('Error parsing order ${doc.id}: $e');
-                            return null;
-                          }
-                        })
-                        .where((order) => order != null)
-                        .cast<order_model.Order>()
-                        .toList()
-                      ..sort((a, b) {
-                        final aTime = a.completedAt ?? a.createdAt;
-                        final bTime = b.completedAt ?? b.createdAt;
-                        return bTime.compareTo(aTime);
-                      });
+                    final orders =
+                        snapshot.data!.docs
+                            .map((doc) {
+                              try {
+                                return order_model.Order.fromSnapshot(doc);
+                              } catch (e) {
+                                print('Error parsing order ${doc.id}: $e');
+                                return null;
+                              }
+                            })
+                            .where((order) => order != null)
+                            .cast<order_model.Order>()
+                            .toList()
+                          ..sort((a, b) {
+                            final aTime = a.completedAt ?? a.createdAt;
+                            final bTime = b.completedAt ?? b.createdAt;
+                            return bTime.compareTo(aTime);
+                          });
 
                     double totalEarnings = 0.0;
                     for (var order in orders) {
@@ -228,7 +251,8 @@ class _DriverEarningsScreenState extends State<DriverEarningsScreen> {
                           child: Card(
                             elevation: 12,
                             shape: RoundedRectangleBorder(
-                                borderRadius: BorderRadius.circular(16.r)),
+                              borderRadius: BorderRadius.circular(16.r),
+                            ),
                             child: Padding(
                               padding: EdgeInsets.all(24.w),
                               child: Column(
@@ -326,7 +350,8 @@ class _DriverEarningsScreenState extends State<DriverEarningsScreen> {
                     child: Card(
                       elevation: 12,
                       shape: RoundedRectangleBorder(
-                          borderRadius: BorderRadius.circular(16.r)),
+                        borderRadius: BorderRadius.circular(16.r),
+                      ),
                       child: Padding(
                         padding: EdgeInsets.all(24.w),
                         child: Column(
@@ -360,4 +385,3 @@ class _DriverEarningsScreenState extends State<DriverEarningsScreen> {
     );
   }
 }
-

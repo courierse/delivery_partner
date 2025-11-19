@@ -28,19 +28,34 @@ class DeliveryNotification {
   });
 
   factory DeliveryNotification.fromSnapshot(DocumentSnapshot snapshot) {
-    final data = snapshot.data() as Map<String, dynamic>;
+    final data = snapshot.data();
+    if (data == null || data is! Map<String, dynamic>) {
+      throw Exception('Invalid notification data for document ${snapshot.id}');
+    }
+    
+    // Handle createdAt - it might be a Timestamp or null
+    Timestamp createdAtValue;
+    if (data['createdAt'] is Timestamp) {
+      createdAtValue = data['createdAt'] as Timestamp;
+    } else if (data['createdAt'] != null) {
+      // Try to convert if it's a different type
+      createdAtValue = Timestamp.now();
+    } else {
+      createdAtValue = Timestamp.now();
+    }
+    
     return DeliveryNotification(
       id: snapshot.id,
-      driverId: data['driverId'] ?? '',
-      orderId: data['orderId'] ?? '',
-      title: data['title'] ?? 'New Delivery Request',
-      body: data['body'] ?? '',
-      pickupLocation: data['pickupLocation'] ?? 'Unknown',
-      dropLocation: data['dropLocation'] ?? 'Unknown',
-      distance: data['distance'] ?? '0.0',
-      vehicleType: data['vehicleType'] ?? 'Unknown',
-      createdAt: data['createdAt'] ?? Timestamp.now(),
-      isRead: data['isRead'] ?? false,
+      driverId: data['driverId']?.toString() ?? '',
+      orderId: data['orderId']?.toString() ?? '',
+      title: data['title']?.toString() ?? 'New Delivery Request',
+      body: data['body']?.toString() ?? '',
+      pickupLocation: data['pickupLocation']?.toString() ?? 'Unknown',
+      dropLocation: data['dropLocation']?.toString() ?? 'Unknown',
+      distance: data['distance']?.toString() ?? '0.0',
+      vehicleType: data['vehicleType']?.toString() ?? 'Unknown',
+      createdAt: createdAtValue,
+      isRead: data['isRead'] == true,
     );
   }
 

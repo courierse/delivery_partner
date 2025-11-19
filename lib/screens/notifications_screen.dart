@@ -235,10 +235,11 @@ class _NotificationsScreenState extends State<NotificationsScreen> {
               ? StreamBuilder<QuerySnapshot>(
                   stream: _notificationsCollection
                       .where('driverId', isEqualTo: user.uid)
-                      .orderBy('createdAt', descending: true)
                       .snapshots(),
                   builder: (context, snapshot) {
                     if (snapshot.hasError) {
+                      final error = snapshot.error;
+                      print('Notification loading error: $error');
                       return Center(
                         child: Card(
                           elevation: 12,
@@ -263,6 +264,17 @@ class _NotificationsScreenState extends State<NotificationsScreen> {
                                     fontWeight: FontWeight.w600,
                                   ),
                                 ),
+                                SizedBox(height: 8.h),
+                                Text(
+                                  error.toString().contains('index')
+                                      ? 'Firestore index required. Please check console for link.'
+                                      : error.toString(),
+                                  style: TextStyle(
+                                    fontSize: 12.sp,
+                                    color: Colors.grey.shade600,
+                                  ),
+                                  textAlign: TextAlign.center,
+                                ),
                               ],
                             ),
                           ),
@@ -277,10 +289,18 @@ class _NotificationsScreenState extends State<NotificationsScreen> {
                       );
                     }
 
-                    final notifications = snapshot.data!.docs
-                        .map((doc) =>
-                            DeliveryNotification.fromSnapshot(doc))
-                        .toList();
+                    final notifications = <DeliveryNotification>[];
+                    for (var doc in snapshot.data!.docs) {
+                      try {
+                        notifications.add(DeliveryNotification.fromSnapshot(doc));
+                      } catch (e) {
+                        print('Error parsing notification ${doc.id}: $e');
+                        // Skip invalid notifications
+                      }
+                    }
+                    
+                    // Sort by createdAt in descending order (newest first)
+                    notifications.sort((a, b) => b.createdAt.compareTo(a.createdAt));
 
                     if (notifications.isEmpty) {
                       return Center(

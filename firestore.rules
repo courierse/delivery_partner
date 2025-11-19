@@ -27,5 +27,23 @@ service cloud.firestore {
     match /drivers/{uid} {
       allow read, write: if request.auth != null && request.auth.uid == uid;
     }
+
+    // Driver notifications collection
+    match /driver_notifications/{notificationId} {
+      // Allow drivers to read their own notifications
+      allow read: if request.auth != null && resource.data.driverId == request.auth.uid;
+      // Allow creating notifications (for notification service/cloud functions)
+      // Note: createdAt can be FieldValue.serverTimestamp() which is a sentinel value
+      allow create: if request.auth != null && 
+        request.resource.data.driverId == request.auth.uid &&
+        request.resource.data.keys().hasAll(['driverId', 'orderId', 'title', 'body', 'pickupLocation', 'dropLocation', 'distance', 'vehicleType', 'isRead']) &&
+        request.resource.data.isRead == false;
+      // Allow drivers to update their own notifications (e.g., mark as read)
+      allow update: if request.auth != null && 
+        resource.data.driverId == request.auth.uid &&
+        request.resource.data.driverId == request.auth.uid;
+      // Prevent deletes
+      allow delete: if false;
+    }
   }
 }

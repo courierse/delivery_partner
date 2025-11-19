@@ -134,7 +134,7 @@ class _DriverEarningsScreenState extends State<DriverEarningsScreen> {
                 StreamBuilder<QuerySnapshot>(
                   stream: _ordersCollection
                       .where('driverId', isEqualTo: user.uid)
-                      .where('status', isEqualTo: 'completed')
+                      .where('status', isEqualTo: 'delivered')
                       .snapshots(),
                   builder: (context, snapshot) {
                     if (snapshot.hasError) {

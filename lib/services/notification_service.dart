@@ -1,4 +1,3 @@
-import 'dart:math';
 import 'package:firebase_messaging/firebase_messaging.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
@@ -137,6 +136,17 @@ class NotificationService {
     required String distance,
     required String vehicleType,
   }) async {
+    // Save notification to Firestore
+    await _saveNotificationToFirestore(
+      orderId: orderId,
+      title: title,
+      body: body,
+      pickupLocation: pickupLocation,
+      dropLocation: dropLocation,
+      distance: distance,
+      vehicleType: vehicleType,
+    );
+
     const androidDetails = AndroidNotificationDetails(
       'order_channel',
       'Delivery Alerts',
@@ -168,6 +178,49 @@ class NotificationService {
       details,
       payload: orderId,
     );
+  }
+
+  Future<void> _saveNotificationToFirestore({
+    required String orderId,
+    required String title,
+    required String body,
+    required String pickupLocation,
+    required String dropLocation,
+    required String distance,
+    required String vehicleType,
+  }) async {
+    try {
+      final user = FirebaseAuth.instance.currentUser;
+      if (user == null) return;
+
+      final notificationsCollection =
+          FirebaseFirestore.instance.collection('driver_notifications');
+
+      // Check if notification already exists for this order and driver
+      final existingNotifications = await notificationsCollection
+          .where('driverId', isEqualTo: user.uid)
+          .where('orderId', isEqualTo: orderId)
+          .get();
+
+      // Only save if it doesn't already exist
+      if (existingNotifications.docs.isEmpty) {
+        await notificationsCollection.add({
+          'driverId': user.uid,
+          'orderId': orderId,
+          'title': title,
+          'body': body,
+          'pickupLocation': pickupLocation,
+          'dropLocation': dropLocation,
+          'distance': distance,
+          'vehicleType': vehicleType,
+          'createdAt': FieldValue.serverTimestamp(),
+          'isRead': false,
+        });
+      }
+    } catch (e) {
+      print('Error saving notification to Firestore: $e');
+      // Don't throw - we still want to show the notification even if saving fails
+    }
   }
 
   String? get fcmToken => _fcmToken;

@@ -22,8 +22,10 @@ class AlertScreen extends StatefulWidget {
 }
 
 class _AlertScreenState extends State<AlertScreen> {
-  final CollectionReference _ordersCollection = FirebaseFirestore.instance.collection('orders');
-  final CollectionReference _driversCollection = FirebaseFirestore.instance.collection('drivers');
+  final CollectionReference _ordersCollection = FirebaseFirestore.instance
+      .collection('orders');
+  final CollectionReference _driversCollection = FirebaseFirestore.instance
+      .collection('drivers');
   final AudioPlayer _audioPlayer = AudioPlayer();
   StreamSubscription<QuerySnapshot>? _pendingOrdersSubscription;
   StreamSubscription<QuerySnapshot>? _acceptedCancelledOrdersSubscription;
@@ -84,7 +86,11 @@ class _AlertScreenState extends State<AlertScreen> {
     '17 Feet': {'intervalMinutes': 300, 'fareIncrement': 7.0},
   };
 
-  Future<void> _startWaitingTimer(String orderId, String vehicleType, double initialFare) async {
+  Future<void> _startWaitingTimer(
+    String orderId,
+    String vehicleType,
+    double initialFare,
+  ) async {
     if (_waitingTimer != null) {
       _waitingTimer!.cancel();
     }
@@ -95,7 +101,9 @@ class _AlertScreenState extends State<AlertScreen> {
     }
     final intervalSeconds = rule['intervalMinutes'] * 60;
     final fareIncrement = rule['fareIncrement'] as double;
-    _waitingTimer = Timer.periodic(Duration(seconds: intervalSeconds), (timer) async {
+    _waitingTimer = Timer.periodic(Duration(seconds: intervalSeconds), (
+      timer,
+    ) async {
       if (!mounted) {
         timer.cancel();
         return;
@@ -170,25 +178,32 @@ class _AlertScreenState extends State<AlertScreen> {
           accuracy: LocationAccuracy.high,
           distanceFilter: 50, // Update every 50 meters
         ),
-      ).listen((Position position) async {
-        if (!mounted || !_isOnDuty) return;
-        
-        try {
-          await _driversCollection.doc(user.uid).set({
-            'latitude': position.latitude,
-            'longitude': position.longitude,
-            'updatedAt': FieldValue.serverTimestamp(),
-          }, SetOptions(merge: true));
-          print('Updated driver location: Lat=${position.latitude}, Lng=${position.longitude}');
-        } catch (e) {
-          print('Error updating driver location: $e');
-        }
-      }, onError: (e) {
-        print('Location stream error: $e');
-      });
+      ).listen(
+        (Position position) async {
+          if (!mounted || !_isOnDuty) return;
+
+          try {
+            await _driversCollection.doc(user.uid).set({
+              'latitude': position.latitude,
+              'longitude': position.longitude,
+              'updatedAt': FieldValue.serverTimestamp(),
+            }, SetOptions(merge: true));
+            print(
+              'Updated driver location: Lat=${position.latitude}, Lng=${position.longitude}',
+            );
+          } catch (e) {
+            print('Error updating driver location: $e');
+          }
+        },
+        onError: (e) {
+          print('Location stream error: $e');
+        },
+      );
 
       // Also update location periodically as a backup (every 30 seconds)
-      _locationUpdateTimer = Timer.periodic(const Duration(seconds: 30), (timer) async {
+      _locationUpdateTimer = Timer.periodic(const Duration(seconds: 30), (
+        timer,
+      ) async {
         if (!mounted || !_isOnDuty) {
           timer.cancel();
           return;
@@ -202,14 +217,18 @@ class _AlertScreenState extends State<AlertScreen> {
             'longitude': position.longitude,
             'updatedAt': FieldValue.serverTimestamp(),
           }, SetOptions(merge: true));
-          print('Periodic location update: Lat=${position.latitude}, Lng=${position.longitude}');
+          print(
+            'Periodic location update: Lat=${position.latitude}, Lng=${position.longitude}',
+          );
         } catch (e) {
           print('Error in periodic location update: $e');
         }
       });
 
       // Refresh FCM token periodically (every 5 minutes)
-      _fcmTokenRefreshTimer = Timer.periodic(const Duration(minutes: 5), (timer) async {
+      _fcmTokenRefreshTimer = Timer.periodic(const Duration(minutes: 5), (
+        timer,
+      ) async {
         if (!mounted || !_isOnDuty) {
           timer.cancel();
           return;
@@ -269,29 +288,50 @@ class _AlertScreenState extends State<AlertScreen> {
     final user = FirebaseAuth.instance.currentUser;
     if (user == null) return false;
     try {
-      final pendingSnapshot = await _ordersCollection
-          .where('status', isEqualTo: 'pending')
-          .where('createdAt', isGreaterThanOrEqualTo: Timestamp.fromDate(DateTime.now().subtract(const Duration(hours: 1))))
-          .get();
+      final pendingSnapshot =
+          await _ordersCollection
+              .where('status', isEqualTo: 'pending')
+              .where(
+                'createdAt',
+                isGreaterThanOrEqualTo: Timestamp.fromDate(
+                  DateTime.now().subtract(const Duration(hours: 1)),
+                ),
+              )
+              .get();
       final locationState = context.read<LocationCubit>().state;
       if (locationState is! CurrentLocationUpdated) return false;
-      final driverLocation = LatLng(locationState.latitude, locationState.longitude);
+      final driverLocation = LatLng(
+        locationState.latitude,
+        locationState.longitude,
+      );
       final driverSnapshot = await _driversCollection.doc(user.uid).get();
       final driverData = driverSnapshot.data() as Map<String, dynamic>?;
-      final vehicleTypes = (driverData?['vehicleTypes'] as String?)?.split(', ')?.toList() ?? [];
+      final vehicleTypes =
+          (driverData?['vehicleTypes'] as String?)?.split(', ')?.toList() ?? [];
       final hasPendingOrders = pendingSnapshot.docs.any((doc) {
         final order = order_model.Order.fromSnapshot(doc);
-        if (order.vehicleType == null || order.vehicleType!.isEmpty || !vehicleTypes.contains(order.vehicleType))
+        if (order.vehicleType == null ||
+            order.vehicleType!.isEmpty ||
+            !vehicleTypes.contains(order.vehicleType))
           return false;
         if (order.pickupLat == null || order.pickupLng == null) return false;
         final pickupLoc = LatLng(order.pickupLat!, order.pickupLng!);
         final distance = _calculateDistance(driverLocation, pickupLoc);
         return distance <= 5.0;
       });
-      final activeSnapshot = await _ordersCollection
-          .where('driverId', isEqualTo: user.uid)
-          .where('status', whereIn: ['accepted', 'driver_reached', 'order_picked', 'on_the_way'])
-          .get();
+      final activeSnapshot =
+          await _ordersCollection
+              .where('driverId', isEqualTo: user.uid)
+              .where(
+                'status',
+                whereIn: [
+                  'accepted',
+                  'driver_reached',
+                  'order_picked',
+                  'on_the_way',
+                ],
+              )
+              .get();
       return !hasPendingOrders && activeSnapshot.docs.isEmpty;
     } catch (e) {
       print('Error checking off-duty eligibility: $e');
@@ -315,7 +355,11 @@ class _AlertScreenState extends State<AlertScreen> {
       if (!canGoOffDuty) {
         if (mounted) {
           ScaffoldMessenger.of(context).showSnackBar(
-            const SnackBar(content: Text('Cannot go OFF Duty while there are pending or active orders')),
+            const SnackBar(
+              content: Text(
+                'Cannot go OFF Duty while there are pending or active orders',
+              ),
+            ),
           );
         }
         return;
@@ -348,7 +392,9 @@ class _AlertScreenState extends State<AlertScreen> {
         if (_isOnDuty) {
           _startListeningForOrders();
           _startLocationUpdates(); // Start continuous location updates
-          ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('You are now ON Duty')));
+          ScaffoldMessenger.of(
+            context,
+          ).showSnackBar(const SnackBar(content: Text('You are now ON Duty')));
         } else {
           _pendingOrdersSubscription?.cancel();
           _acceptedCancelledOrdersSubscription?.cancel();
@@ -357,12 +403,16 @@ class _AlertScreenState extends State<AlertScreen> {
           await _stopLocationUpdates(); // Stop location updates
           await _safeStopAudio();
           await _stopWaitingTimer();
-          ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('You are now OFF Duty')));
+          ScaffoldMessenger.of(
+            context,
+          ).showSnackBar(const SnackBar(content: Text('You are now OFF Duty')));
         }
       }
     } catch (e) {
       if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('Failed to update duty status: $e')));
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('Failed to update duty status: $e')),
+        );
       }
     }
   }
@@ -398,67 +448,110 @@ class _AlertScreenState extends State<AlertScreen> {
   void _startListeningForOrders() {
     final user = FirebaseAuth.instance.currentUser;
     if (user == null) return;
-    if (_pendingOrdersSubscription != null || _acceptedCancelledOrdersSubscription != null) {
+    if (_pendingOrdersSubscription != null ||
+        _acceptedCancelledOrdersSubscription != null) {
       print('AlertScreen: Already listening for orders');
       return;
     }
     _pendingOrdersSubscription = _ordersCollection
         .where('status', isEqualTo: 'pending')
-        .where('createdAt', isGreaterThanOrEqualTo: Timestamp.fromDate(DateTime.now().subtract(const Duration(hours: 1))))
+        .where(
+          'createdAt',
+          isGreaterThanOrEqualTo: Timestamp.fromDate(
+            DateTime.now().subtract(const Duration(hours: 1)),
+          ),
+        )
         .snapshots()
-        .listen((snapshot) async {
-      if (!mounted) return;
-      final locationState = context.read<LocationCubit>().state;
-      if (locationState is! CurrentLocationUpdated) return;
-      final driverLocation = LatLng(locationState.latitude, locationState.longitude);
-      final driverSnapshot = await _driversCollection.doc(user.uid).get();
-      final driverData = driverSnapshot.data() as Map<String, dynamic>?;
-      final vehicleTypes = (driverData?['vehicleTypes'] as String?)?.split(', ')?.toList() ?? [];
-      final newPendingOrders = snapshot.docs.where((doc) {
-        final order = order_model.Order.fromSnapshot(doc);
-        if (order.vehicleType == null || order.vehicleType!.isEmpty || !vehicleTypes.contains(order.vehicleType))
-          return false;
-        if (order.pickupLat == null || order.pickupLng == null) return false;
-        final pickupLoc = LatLng(order.pickupLat!, order.pickupLng!);
-        final distance = _calculateDistance(driverLocation, pickupLoc);
-        return distance <= 5.0;
-      }).toList();
-      final hasPendingOrders = newPendingOrders.isNotEmpty;
-      if (hasPendingOrders != _hasPendingOrders && mounted) {
-        setState(() {
-          _hasPendingOrders = hasPendingOrders;
-        });
-        if (hasPendingOrders) {
-          await _safePlayAudio();
-          // FCM will deliver notifications; avoid duplicate local notifications here.
-        } else {
-          await _safeStopAudio();
-        }
-      }
-    }, onError: (error) {
-      print('Error listening to pending orders: $error');
-    });
+        .listen(
+          (snapshot) async {
+            if (!mounted) return;
+            final locationState = context.read<LocationCubit>().state;
+            if (locationState is! CurrentLocationUpdated) return;
+            final driverLocation = LatLng(
+              locationState.latitude,
+              locationState.longitude,
+            );
+            final driverSnapshot = await _driversCollection.doc(user.uid).get();
+            final driverData = driverSnapshot.data() as Map<String, dynamic>?;
+            final vehicleTypes =
+                (driverData?['vehicleTypes'] as String?)
+                    ?.split(', ')
+                    ?.toList() ??
+                [];
+            final newPendingOrders =
+                snapshot.docs.where((doc) {
+                  final order = order_model.Order.fromSnapshot(doc);
+                  if (order.vehicleType == null ||
+                      order.vehicleType!.isEmpty ||
+                      !vehicleTypes.contains(order.vehicleType))
+                    return false;
+                  if (order.pickupLat == null || order.pickupLng == null)
+                    return false;
+                  final pickupLoc = LatLng(order.pickupLat!, order.pickupLng!);
+                  final distance = _calculateDistance(
+                    driverLocation,
+                    pickupLoc,
+                  );
+                  return distance <= 5.0;
+                }).toList();
+            final hasPendingOrders = newPendingOrders.isNotEmpty;
+            if (hasPendingOrders != _hasPendingOrders && mounted) {
+              setState(() {
+                _hasPendingOrders = hasPendingOrders;
+              });
+              if (hasPendingOrders) {
+                await _safePlayAudio();
+                // FCM will deliver notifications; avoid duplicate local notifications here.
+              } else {
+                await _safeStopAudio();
+              }
+            }
+          },
+          onError: (error) {
+            print('Error listening to pending orders: $error');
+          },
+        );
     _acceptedCancelledOrdersSubscription = _ordersCollection
         .where('driverId', isEqualTo: user.uid)
-        .where('status', whereIn: ['accepted', 'driver_reached', 'order_picked', 'on_the_way', 'delivered', 'cancelled'])
+        .where(
+          'status',
+          whereIn: [
+            'accepted',
+            'driver_reached',
+            'order_picked',
+            'on_the_way',
+            'delivered',
+            'cancelled',
+          ],
+        )
         .snapshots()
-        .listen((snapshot) async {
-      if (!mounted) return;
-      for (var doc in snapshot.docChanges) {
-        final order = order_model.Order.fromSnapshot(doc.doc);
-        if (order.status == 'cancelled' && order.cancelledByUser == true && mounted) {
-          ScaffoldMessenger.of(context).showSnackBar(
-            SnackBar(content: Text('Order ${order.id} has been cancelled by the user.'), duration: const Duration(seconds: 5)),
-          );
-          await _safeStopAudio();
-          await _stopWaitingTimer();
-        } else if (order.status != 'driver_reached') {
-          await _stopWaitingTimer();
-        }
-      }
-    }, onError: (error) {
-      print('Error listening to cancellations: $error');
-    });
+        .listen(
+          (snapshot) async {
+            if (!mounted) return;
+            for (var doc in snapshot.docChanges) {
+              final order = order_model.Order.fromSnapshot(doc.doc);
+              if (order.status == 'cancelled' &&
+                  order.cancelledByUser == true &&
+                  mounted) {
+                ScaffoldMessenger.of(context).showSnackBar(
+                  SnackBar(
+                    content: Text(
+                      'Order ${order.id} has been cancelled by the user.',
+                    ),
+                    duration: const Duration(seconds: 5),
+                  ),
+                );
+                await _safeStopAudio();
+                await _stopWaitingTimer();
+              } else if (order.status != 'driver_reached') {
+                await _stopWaitingTimer();
+              }
+            }
+          },
+          onError: (error) {
+            print('Error listening to cancellations: $error');
+          },
+        );
   }
 
   double _calculateDistance(LatLng start, LatLng end) {
@@ -469,37 +562,43 @@ class _AlertScreenState extends State<AlertScreen> {
     final double lon2 = end.longitude * pi / 180;
     final double dLat = lat2 - lat1;
     final double dLon = lon2 - lon1;
-    final double a = sin(dLat / 2) * sin(dLat / 2) + cos(lat1) * cos(lat2) * sin(dLon / 2) * sin(dLon / 2);
+    final double a =
+        sin(dLat / 2) * sin(dLat / 2) +
+        cos(lat1) * cos(lat2) * sin(dLon / 2) * sin(dLon / 2);
     final double c = 2 * atan2(sqrt(a), sqrt(1 - a));
     return earthRadius * c;
   }
 
   // UPDATED: Now includes title & body
-  Future<void> _sendOrderNotification(Map<String, dynamic> orderData, LatLng driverLocation) async {
-  try {
-    final order = order_model.Order.fromFirestore(orderData);
-    if (order.pickupLat == null || order.pickupLng == null) {
-      print('Order has no pickup location, skipping notification');
-      return;
-    }
-    final pickupLocation = LatLng(order.pickupLat!, order.pickupLng!);
-    final distance = _calculateDistance(driverLocation, pickupLocation);
-    final distanceStr = distance.toStringAsFixed(2);
+  Future<void> _sendOrderNotification(
+    Map<String, dynamic> orderData,
+    LatLng driverLocation,
+  ) async {
+    try {
+      final order = order_model.Order.fromFirestore(orderData);
+      if (order.pickupLat == null || order.pickupLng == null) {
+        print('Order has no pickup location, skipping notification');
+        return;
+      }
+      final pickupLocation = LatLng(order.pickupLat!, order.pickupLng!);
+      final distance = _calculateDistance(driverLocation, pickupLocation);
+      final distanceStr = distance.toStringAsFixed(2);
 
-    await NotificationService().showOrderNotification(
-      orderId: order.id,
-      title: 'New Delivery Request',
-      body: 'Pickup: ${order.pickupLocation ?? "—"}\nDrop: ${order.dropLocation ?? "—"}\n$distanceStr km',
-      pickupLocation: order.pickupLocation ?? 'Unknown',
-      dropLocation: order.dropLocation ?? 'Unknown',
-      distance: distanceStr,
-      vehicleType: order.vehicleType ?? 'Unknown',
-    );
-    print('Notification sent for order ${order.id}');
-  } catch (e) {
-    print('Error sending notification: $e');
+      await NotificationService().showOrderNotification(
+        orderId: order.id,
+        title: 'New Delivery Request',
+        body:
+            'Pickup: ${order.pickupLocation ?? "—"}\nDrop: ${order.dropLocation ?? "—"}\n$distanceStr km',
+        pickupLocation: order.pickupLocation ?? 'Unknown',
+        dropLocation: order.dropLocation ?? 'Unknown',
+        distance: distanceStr,
+        vehicleType: order.vehicleType ?? 'Unknown',
+      );
+      print('Notification sent for order ${order.id}');
+    } catch (e) {
+      print('Error sending notification: $e');
+    }
   }
-}
 
   Future<void> _acceptOrder(String orderId) async {
     final user = FirebaseAuth.instance.currentUser;
@@ -532,7 +631,8 @@ class _AlertScreenState extends State<AlertScreen> {
         if (!snapshot.exists) throw Exception('Order does not exist');
         final data = snapshot.data() as Map<String, dynamic>?;
         if (data == null) throw Exception('Order data is null');
-        if (data['status'] != 'pending') throw Exception('Order is not pending');
+        if (data['status'] != 'pending')
+          throw Exception('Order is not pending');
         final driverRef = _driversCollection.doc(user.uid);
         final driverSnap = await transaction.get(driverRef);
         if (!driverSnap.exists) throw Exception('Driver data not found');
@@ -555,12 +655,16 @@ class _AlertScreenState extends State<AlertScreen> {
         }, SetOptions(merge: true));
       });
       if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Order accepted!')));
+        ScaffoldMessenger.of(
+          context,
+        ).showSnackBar(const SnackBar(content: Text('Order accepted!')));
         setState(() {});
       }
     } catch (e) {
       if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('Failed to accept order: $e')));
+        ScaffoldMessenger.of(
+          context,
+        ).showSnackBar(SnackBar(content: Text('Failed to accept order: $e')));
       }
     }
   }
@@ -582,8 +686,10 @@ class _AlertScreenState extends State<AlertScreen> {
         if (!snapshot.exists) throw Exception('Order does not exist');
         final data = snapshot.data() as Map<String, dynamic>?;
         if (data == null) throw Exception('Order data is null');
-        if (data['driverId'] != user.uid) throw Exception('Order not assigned to this driver');
-        if (!_isValidStatusTransition(data['status'], newStatus)) throw Exception('Invalid status transition');
+        if (data['driverId'] != user.uid)
+          throw Exception('Order not assigned to this driver');
+        if (!_isValidStatusTransition(data['status'], newStatus))
+          throw Exception('Invalid status transition');
         transaction.update(docRef, {
           'status': newStatus,
           'statusUpdatedAt': FieldValue.serverTimestamp(),
@@ -601,12 +707,16 @@ class _AlertScreenState extends State<AlertScreen> {
         await _stopWaitingTimer();
       }
       if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('Order status updated to $newStatus')));
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('Order status updated to $newStatus')),
+        );
         setState(() {});
       }
     } catch (e) {
       if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('Failed to update order status: $e')));
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('Failed to update order status: $e')),
+        );
       }
     }
   }
@@ -634,17 +744,25 @@ class _AlertScreenState extends State<AlertScreen> {
     }
     try {
       await _safeStopAudio();
-      await _driversCollection.doc(user.uid).collection('rejected_orders').doc(orderId).set({
-        'orderId': orderId,
-        'rejectedAt': FieldValue.serverTimestamp(),
-      });
+      await _driversCollection
+          .doc(user.uid)
+          .collection('rejected_orders')
+          .doc(orderId)
+          .set({
+            'orderId': orderId,
+            'rejectedAt': FieldValue.serverTimestamp(),
+          });
       if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Order rejected.')));
+        ScaffoldMessenger.of(
+          context,
+        ).showSnackBar(const SnackBar(content: Text('Order rejected.')));
         setState(() {});
       }
     } catch (e) {
       if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('Failed to reject order: $e')));
+        ScaffoldMessenger.of(
+          context,
+        ).showSnackBar(SnackBar(content: Text('Failed to reject order: $e')));
       }
     }
   }
@@ -666,7 +784,13 @@ class _AlertScreenState extends State<AlertScreen> {
         if (!snapshot.exists) throw Exception('Order does not exist');
         final data = snapshot.data() as Map<String, dynamic>?;
         if (data == null) throw Exception('Order data is null');
-        if (!['accepted', 'driver_reached', 'order_picked', 'on_the_way'].contains(data['status']) || data['driverId'] != user.uid) {
+        if (![
+              'accepted',
+              'driver_reached',
+              'order_picked',
+              'on_the_way',
+            ].contains(data['status']) ||
+            data['driverId'] != user.uid) {
           throw Exception('Order cannot be cancelled by driver');
         }
         transaction.update(docRef, {
@@ -679,12 +803,16 @@ class _AlertScreenState extends State<AlertScreen> {
       await _safeStopAudio();
       await _stopWaitingTimer();
       if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Order cancelled by driver!')));
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('Order cancelled by driver!')),
+        );
         setState(() {});
       }
     } catch (e) {
       if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('Failed to cancel order: $e')));
+        ScaffoldMessenger.of(
+          context,
+        ).showSnackBar(SnackBar(content: Text('Failed to cancel order: $e')));
       }
     }
   }
@@ -716,11 +844,19 @@ class _AlertScreenState extends State<AlertScreen> {
     );
   }
 
-  Future<void> _openGoogleMaps(LatLng driverLocation, LatLng destination, String locationType) async {
+  Future<void> _openGoogleMaps(
+    LatLng driverLocation,
+    LatLng destination,
+    String locationType,
+  ) async {
     try {
       if (destination.latitude == 0.0 || destination.longitude == 0.0) {
         if (mounted) {
-          ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('Invalid $locationType location coordinates')));
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(
+              content: Text('Invalid $locationType location coordinates'),
+            ),
+          );
         }
         return;
       }
@@ -731,20 +867,36 @@ class _AlertScreenState extends State<AlertScreen> {
         await launchUrl(url, mode: LaunchMode.externalApplication);
       } else {
         if (mounted) {
-          ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Could not open Google Maps')));
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(content: Text('Could not open Google Maps')),
+          );
         }
       }
     } catch (e) {
       print('Error launching Google Maps for $locationType: $e');
       if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('Error opening Google Maps for $locationType: $e')));
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('Error opening Google Maps for $locationType: $e'),
+          ),
+        );
       }
     }
   }
 
-  Widget _buildOrderCard(order_model.Order order, bool isPending, LatLng driverLocation) {
-    final distanceToPickup = _calculateDistance(driverLocation, LatLng(order.pickupLat ?? 0.0, order.pickupLng ?? 0.0));
-    final pickupLocation = LatLng(order.pickupLat ?? 0.0, order.pickupLng ?? 0.0);
+  Widget _buildOrderCard(
+    order_model.Order order,
+    bool isPending,
+    LatLng driverLocation,
+  ) {
+    final distanceToPickup = _calculateDistance(
+      driverLocation,
+      LatLng(order.pickupLat ?? 0.0, order.pickupLng ?? 0.0),
+    );
+    final pickupLocation = LatLng(
+      order.pickupLat ?? 0.0,
+      order.pickupLng ?? 0.0,
+    );
     final dropLocation = LatLng(order.dropLat ?? 0.0, order.dropLng ?? 0.0);
     final isWaiting = order.status == 'driver_reached';
     return StreamBuilder<DocumentSnapshot>(
@@ -753,25 +905,68 @@ class _AlertScreenState extends State<AlertScreen> {
         double currentFare = order.deliveryCost;
         if (snapshot.hasData && snapshot.data!.exists) {
           final data = snapshot.data!.data() as Map<String, dynamic>?;
-          currentFare = (data?['deliveryCost'] as double?) ?? order.deliveryCost;
+          currentFare =
+              (data?['deliveryCost'] as double?) ?? order.deliveryCost;
           print('Order ${order.id} fare updated to: $currentFare');
         }
         if (order.status == 'cancelled' && order.cancelledByUser == true) {
-          return Card(
+          return Container(
             margin: EdgeInsets.symmetric(horizontal: 16.w, vertical: 8.h),
-            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16.r)),
-            elevation: 8,
-            shadowColor: Colors.black.withOpacity(0.2),
+            decoration: BoxDecoration(
+              borderRadius: BorderRadius.circular(20.r),
+              gradient: LinearGradient(
+                colors: [Colors.red.shade50, Colors.red.shade100],
+                begin: Alignment.topLeft,
+                end: Alignment.bottomRight,
+              ),
+              boxShadow: [
+                BoxShadow(
+                  color: Colors.red.withOpacity(0.3),
+                  blurRadius: 12,
+                  offset: Offset(0, 4),
+                ),
+              ],
+            ),
             child: Padding(
-              padding: EdgeInsets.all(20.w),
+              padding: EdgeInsets.all(24.w),
               child: Row(
                 children: [
-                  Icon(Icons.cancel, color: Colors.red, size: 30.sp),
-                  SizedBox(width: 12.w),
+                  Container(
+                    padding: EdgeInsets.all(12.w),
+                    decoration: BoxDecoration(
+                      color: Colors.red.shade100,
+                      shape: BoxShape.circle,
+                    ),
+                    child: Icon(
+                      Icons.cancel_outlined,
+                      color: Colors.red.shade700,
+                      size: 28.sp,
+                    ),
+                  ),
+                  SizedBox(width: 16.w),
                   Expanded(
-                    child: Text(
-                      'The Delivery has been cancelled by user',
-                      style: TextStyle(fontSize: 16.sp, fontWeight: FontWeight.bold, color: Colors.red),
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text(
+                          'Order Cancelled',
+                          style: TextStyle(
+                            fontSize: 18.sp,
+                            fontWeight: FontWeight.bold,
+                            color: Colors.red.shade900,
+                            letterSpacing: 0.5,
+                          ),
+                        ),
+                        SizedBox(height: 4.h),
+                        Text(
+                          'The delivery has been cancelled by user',
+                          style: TextStyle(
+                            fontSize: 14.sp,
+                            color: Colors.red.shade700,
+                            fontWeight: FontWeight.w500,
+                          ),
+                        ),
+                      ],
                     ),
                   ),
                 ],
@@ -779,184 +974,638 @@ class _AlertScreenState extends State<AlertScreen> {
             ),
           );
         }
-        return Card(
+        return Container(
           margin: EdgeInsets.symmetric(horizontal: 16.w, vertical: 8.h),
-          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16.r)),
-          elevation: 8,
-          shadowColor: Colors.black.withOpacity(0.2),
-          child: Padding(
-            padding: EdgeInsets.all(20.w),
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Row(
+          decoration: BoxDecoration(
+            borderRadius: BorderRadius.circular(24.r),
+            color: Colors.white,
+            boxShadow: [
+              BoxShadow(
+                color:
+                    isPending
+                        ? Colors.blue.withOpacity(0.15)
+                        : Colors.grey.withOpacity(0.2),
+                blurRadius: 20,
+                offset: Offset(0, 8),
+                spreadRadius: 2,
+              ),
+            ],
+          ),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              // Header Section with Gradient
+              Container(
+                padding: EdgeInsets.symmetric(horizontal: 16.w, vertical: 12.h),
+                decoration: BoxDecoration(
+                  borderRadius: BorderRadius.only(
+                    topLeft: Radius.circular(24.r),
+                    topRight: Radius.circular(24.r),
+                  ),
+                  gradient: LinearGradient(
+                    colors:
+                        isPending
+                            ? [Colors.blue.shade600, Colors.blue.shade400]
+                            : [Colors.green.shade600, Colors.green.shade400],
+                    begin: Alignment.topLeft,
+                    end: Alignment.bottomRight,
+                  ),
+                ),
+                child: Row(
                   mainAxisAlignment: MainAxisAlignment.spaceBetween,
                   children: [
-                    Text(
-                      isPending ? 'New Delivery Request' : _getStatusTitle(order.status),
-                      style: TextStyle(
-                        fontSize: 18.sp,
-                        fontWeight: FontWeight.bold,
-                        color: isPending ? Colors.blue.shade900 : Colors.green.shade700,
+                    Expanded(
+                      child: Row(
+                        children: [
+                          Container(
+                            padding: EdgeInsets.all(8.w),
+                            decoration: BoxDecoration(
+                              color: Colors.white.withOpacity(0.2),
+                              borderRadius: BorderRadius.circular(10.r),
+                            ),
+                            child: Icon(
+                              isPending
+                                  ? Icons.notifications_active
+                                  : Icons.local_shipping,
+                              color: Colors.white,
+                              size: 20.sp,
+                            ),
+                          ),
+                          SizedBox(width: 10.w),
+                          Expanded(
+                            child: Text(
+                              isPending
+                                  ? 'New Delivery Request'
+                                  : _getStatusTitle(order.status),
+                              style: TextStyle(
+                                fontSize: 16.sp,
+                                fontWeight: FontWeight.bold,
+                                color: Colors.white,
+                                letterSpacing: 0.3,
+                              ),
+                            ),
+                          ),
+                        ],
                       ),
                     ),
                     if (isPending)
                       Container(
-                        padding: EdgeInsets.symmetric(horizontal: 8.w, vertical: 4.h),
-                        decoration: BoxDecoration(color: Colors.blue.shade100, borderRadius: BorderRadius.circular(8.r)),
-                        child: Text(
-                          'New',
-                          style: TextStyle(fontSize: 12.sp, fontWeight: FontWeight.w600, color: Colors.blue.shade900),
+                        padding: EdgeInsets.symmetric(
+                          horizontal: 10.w,
+                          vertical: 4.h,
+                        ),
+                        decoration: BoxDecoration(
+                          color: Colors.white,
+                          borderRadius: BorderRadius.circular(16.r),
+                        ),
+                        child: Row(
+                          mainAxisSize: MainAxisSize.min,
+                          children: [
+                            Container(
+                              width: 6.w,
+                              height: 6.w,
+                              decoration: BoxDecoration(
+                                color: Colors.orange,
+                                shape: BoxShape.circle,
+                              ),
+                            ),
+                            SizedBox(width: 4.w),
+                            Text(
+                              'NEW',
+                              style: TextStyle(
+                                fontSize: 10.sp,
+                                fontWeight: FontWeight.bold,
+                                color: Colors.blue.shade900,
+                                letterSpacing: 1.0,
+                              ),
+                            ),
+                          ],
                         ),
                       ),
                   ],
                 ),
-                SizedBox(height: 12.h),
-                _buildClickableInfoRow(
-                  Icons.location_on,
-                  'Pickup: ${order.pickupLocation}',
-                  () => _openGoogleMaps(driverLocation, pickupLocation, 'pickup'),
-                ),
-                _buildInfoRow(Icons.person, 'Contact: ${order.pickupName} - ${order.pickupPhone}'),
-                _buildClickableInfoRow(
-                  Icons.local_shipping,
-                  'Drop-off: ${order.dropLocation}',
-                  () => _openGoogleMaps(driverLocation, dropLocation, 'drop-off'),
-                ),
-                _buildInfoRow(Icons.person, 'Contact: ${order.dropName} - ${order.dropPhone}'),
-                _buildInfoRow(Icons.directions_car, 'Vehicle: ${order.vehicleType ?? 'N/A'}'),
-                _buildInfoRow(Icons.social_distance, 'Distance to Pickup: ${distanceToPickup.toStringAsFixed(2)} km'),
-                _buildInfoRow(Icons.map, 'Total Distance: ${order.distance.toStringAsFixed(2)} km'),
-                _buildInfoRow(Icons.monetization_on, 'Cost: ₹${currentFare.toStringAsFixed(2)}'),
-                if (isWaiting)
-                  _buildInfoRow(
-                    Icons.timer,
-                    'Waiting Time Active',
-                    'Fare updating every ${_waitingRules[order.vehicleType ?? 'Unknown']?['intervalMinutes']} minute(s)',
-                  ),
-                SizedBox(height: 12.h),
-                if (isPending)
-                  Row(
-                    mainAxisAlignment: MainAxisAlignment.spaceEvenly,
-                    children: [
-                      Expanded(
-                        child: ElevatedButton(
-                          onPressed: () => _acceptOrder(order.id),
-                          style: ElevatedButton.styleFrom(
-                            backgroundColor: Colors.blue.shade700,
-                            foregroundColor: Colors.white,
-                            padding: EdgeInsets.symmetric(vertical: 12.h),
-                            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12.r)),
-                            elevation: 2,
-                          ),
-                          child: Text('Accept', style: TextStyle(fontSize: 16.sp, fontWeight: FontWeight.w600)),
-                        ),
-                      ),
-                      SizedBox(width: 12.w),
-                      Expanded(
-                        child: ElevatedButton(
-                          onPressed: () => _rejectOrder(order.id),
-                          style: ElevatedButton.styleFrom(
-                            backgroundColor: Colors.grey.shade200,
-                            foregroundColor: Colors.grey.shade800,
-                            padding: EdgeInsets.symmetric(vertical: 12.h),
-                            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12.r)),
-                            elevation: 2,
-                          ),
-                          child: Text('Reject', style: TextStyle(fontSize: 16.sp, fontWeight: FontWeight.w600)),
-                        ),
-                      ),
-                    ],
-                  )
-                else
-                  Column(
-                    children: [
-                      Container(
-                        padding: EdgeInsets.symmetric(vertical: 8.h, horizontal: 12.w),
-                        decoration: BoxDecoration(
-                          color: _getStatusColor(order.status).withOpacity(0.1),
-                          borderRadius: BorderRadius.circular(8.r),
-                        ),
-                        child: Text(
-                          _getStatusDisplayText(order.status),
-                          style: TextStyle(fontSize: 14.sp, fontWeight: FontWeight.w600, color: _getStatusColor(order.status)),
-                        ),
-                      ),
-                      SizedBox(height: 12.h),
-                      if (order.status == 'accepted')
-                        ElevatedButton(
-                          onPressed: () => _updateOrderStatus(order.id, 'driver_reached'),
-                          style: ElevatedButton.styleFrom(
-                            backgroundColor: Colors.green.shade600,
-                            foregroundColor: Colors.white,
-                            padding: EdgeInsets.symmetric(vertical: 12.h),
-                            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12.r)),
-                            elevation: 2,
-                            minimumSize: Size(double.infinity, 48.h),
-                          ),
-                          child: Text('Driver Reached', style: TextStyle(fontSize: 16.sp, fontWeight: FontWeight.w600)),
-                        ),
-                      if (order.status == 'driver_reached')
-                        ElevatedButton(
-                          onPressed: () => _updateOrderStatus(order.id, 'order_picked'),
-                          style: ElevatedButton.styleFrom(
-                            backgroundColor: Colors.green.shade600,
-                            foregroundColor: Colors.white,
-                            padding: EdgeInsets.symmetric(vertical: 12.h),
-                            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12.r)),
-                            elevation: 2,
-                            minimumSize: Size(double.infinity, 48.h),
-                          ),
-                          child: Text('Order Picked', style: TextStyle(fontSize: 16.sp, fontWeight: FontWeight.w600)),
-                        ),
-                      if (order.status == 'order_picked')
-                        ElevatedButton(
-                          onPressed: () => _updateOrderStatus(order.id, 'on_the_way'),
-                          style: ElevatedButton.styleFrom(
-                            backgroundColor: Colors.green.shade600,
-                            foregroundColor: Colors.white,
-                            padding: EdgeInsets.symmetric(vertical: 12.h),
-                            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12.r)),
-                            elevation: 2,
-                            minimumSize: Size(double.infinity, 48.h),
-                          ),
-                          child: Text('On The Way', style: TextStyle(fontSize: 16.sp, fontWeight: FontWeight.w600)),
-                        ),
-                      if (order.status == 'on_the_way')
-                        ElevatedButton(
-                          onPressed: () => _updateOrderStatus(order.id, 'delivered'),
-                          style: ElevatedButton.styleFrom(
-                            backgroundColor: Colors.green.shade600,
-                            foregroundColor: Colors.white,
-                            padding: EdgeInsets.symmetric(vertical: 12.h),
-                            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12.r)),
-                            elevation: 2,
-                            minimumSize: Size(double.infinity, 48.h),
-                          ),
-                          child: Text('Order Delivered', style: TextStyle(fontSize: 16.sp, fontWeight: FontWeight.w600)),
-                        ),
-                      if (order.status != 'delivered' && order.status != 'completed')
-                        Column(
-                          children: [
-                            SizedBox(height: 12.h),
-                            ElevatedButton(
-                              onPressed: () => _showCancelConfirmation(order.id),
-                              style: ElevatedButton.styleFrom(
-                                backgroundColor: Colors.red,
-                                foregroundColor: Colors.white,
-                                padding: EdgeInsets.symmetric(vertical: 12.h),
-                                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12.r)),
-                                elevation: 2,
-                                minimumSize: Size(double.infinity, 48.h),
+              ),
+              // Content Section - Compact Layout
+              Padding(
+                padding: EdgeInsets.all(16.w),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    // Compact Location Info - Side by Side
+                    Row(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        // Pickup Column
+                        Expanded(
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              Row(
+                                children: [
+                                  Icon(
+                                    Icons.location_on,
+                                    size: 16.sp,
+                                    color: Colors.blue.shade700,
+                                  ),
+                                  SizedBox(width: 4.w),
+                                  Text(
+                                    'Pickup',
+                                    style: TextStyle(
+                                      fontSize: 12.sp,
+                                      fontWeight: FontWeight.bold,
+                                      color: Colors.blue.shade700,
+                                    ),
+                                  ),
+                                ],
                               ),
-                              child: Text('Cancel Delivery', style: TextStyle(fontSize: 16.sp, fontWeight: FontWeight.w600)),
+                              SizedBox(height: 4.h),
+                              GestureDetector(
+                                onTap:
+                                    () => _openGoogleMaps(
+                                      driverLocation,
+                                      pickupLocation,
+                                      'pickup',
+                                    ),
+                                child: Text(
+                                  order.pickupLocation ?? 'N/A',
+                                  style: TextStyle(
+                                    fontSize: 13.sp,
+                                    color: Colors.blue.shade700,
+                                    fontWeight: FontWeight.w600,
+                                    decoration: TextDecoration.underline,
+                                  ),
+                                  maxLines: 2,
+                                  overflow: TextOverflow.ellipsis,
+                                ),
+                              ),
+                              SizedBox(height: 6.h),
+                              Row(
+                                children: [
+                                  Icon(
+                                    Icons.person_outline,
+                                    size: 14.sp,
+                                    color: Colors.grey.shade700,
+                                  ),
+                                  SizedBox(width: 4.w),
+                                  Expanded(
+                                    child: Text(
+                                      '${order.pickupName ?? 'N/A'}',
+                                      style: TextStyle(
+                                        fontSize: 12.sp,
+                                        color: Colors.grey.shade800,
+                                        fontWeight: FontWeight.w600,
+                                      ),
+                                      maxLines: 1,
+                                      overflow: TextOverflow.ellipsis,
+                                    ),
+                                  ),
+                                ],
+                              ),
+                              SizedBox(height: 4.h),
+                              GestureDetector(
+                                onTap: () async {
+                                  final phone = order.pickupPhone ?? '';
+                                  if (phone.isNotEmpty) {
+                                    final uri = Uri.parse('tel:$phone');
+                                    if (await canLaunchUrl(uri)) {
+                                      await launchUrl(uri);
+                                    }
+                                  }
+                                },
+                                child: Container(
+                                  padding: EdgeInsets.symmetric(
+                                    horizontal: 8.w,
+                                    vertical: 4.h,
+                                  ),
+                                  decoration: BoxDecoration(
+                                    color: Colors.blue.shade50,
+                                    borderRadius: BorderRadius.circular(8.r),
+                                    border: Border.all(
+                                      color: Colors.blue.shade200,
+                                      width: 1,
+                                    ),
+                                  ),
+                                  child: Row(
+                                    mainAxisSize: MainAxisSize.min,
+                                    children: [
+                                      Icon(
+                                        Icons.phone,
+                                        size: 14.sp,
+                                        color: Colors.blue.shade700,
+                                      ),
+                                      SizedBox(width: 4.w),
+                                      Text(
+                                        order.pickupPhone ?? 'N/A',
+                                        style: TextStyle(
+                                          fontSize: 12.sp,
+                                          color: Colors.blue.shade700,
+                                          fontWeight: FontWeight.bold,
+                                        ),
+                                      ),
+                                    ],
+                                  ),
+                                ),
+                              ),
+                            ],
+                          ),
+                        ),
+                        SizedBox(width: 12.w),
+                        // Drop-off Column
+                        Expanded(
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              Row(
+                                children: [
+                                  Icon(
+                                    Icons.local_shipping,
+                                    size: 16.sp,
+                                    color: Colors.green.shade700,
+                                  ),
+                                  SizedBox(width: 4.w),
+                                  Text(
+                                    'Drop-off',
+                                    style: TextStyle(
+                                      fontSize: 12.sp,
+                                      fontWeight: FontWeight.bold,
+                                      color: Colors.green.shade700,
+                                    ),
+                                  ),
+                                ],
+                              ),
+                              SizedBox(height: 4.h),
+                              GestureDetector(
+                                onTap:
+                                    () => _openGoogleMaps(
+                                      driverLocation,
+                                      dropLocation,
+                                      'drop-off',
+                                    ),
+                                child: Text(
+                                  order.dropLocation ?? 'N/A',
+                                  style: TextStyle(
+                                    fontSize: 13.sp,
+                                    color: Colors.green.shade700,
+                                    fontWeight: FontWeight.w600,
+                                    decoration: TextDecoration.underline,
+                                  ),
+                                  maxLines: 2,
+                                  overflow: TextOverflow.ellipsis,
+                                ),
+                              ),
+                              SizedBox(height: 6.h),
+                              Row(
+                                children: [
+                                  Icon(
+                                    Icons.person_outline,
+                                    size: 14.sp,
+                                    color: Colors.grey.shade700,
+                                  ),
+                                  SizedBox(width: 4.w),
+                                  Expanded(
+                                    child: Text(
+                                      '${order.dropName ?? 'N/A'}',
+                                      style: TextStyle(
+                                        fontSize: 12.sp,
+                                        color: Colors.grey.shade800,
+                                        fontWeight: FontWeight.w600,
+                                      ),
+                                      maxLines: 1,
+                                      overflow: TextOverflow.ellipsis,
+                                    ),
+                                  ),
+                                ],
+                              ),
+                              SizedBox(height: 4.h),
+                              GestureDetector(
+                                onTap: () async {
+                                  final phone = order.dropPhone ?? '';
+                                  if (phone.isNotEmpty) {
+                                    final uri = Uri.parse('tel:$phone');
+                                    if (await canLaunchUrl(uri)) {
+                                      await launchUrl(uri);
+                                    }
+                                  }
+                                },
+                                child: Container(
+                                  padding: EdgeInsets.symmetric(
+                                    horizontal: 8.w,
+                                    vertical: 4.h,
+                                  ),
+                                  decoration: BoxDecoration(
+                                    color: Colors.green.shade50,
+                                    borderRadius: BorderRadius.circular(8.r),
+                                    border: Border.all(
+                                      color: Colors.green.shade200,
+                                      width: 1,
+                                    ),
+                                  ),
+                                  child: Row(
+                                    mainAxisSize: MainAxisSize.min,
+                                    children: [
+                                      Icon(
+                                        Icons.phone,
+                                        size: 14.sp,
+                                        color: Colors.green.shade700,
+                                      ),
+                                      SizedBox(width: 4.w),
+                                      Text(
+                                        order.dropPhone ?? 'N/A',
+                                        style: TextStyle(
+                                          fontSize: 12.sp,
+                                          color: Colors.green.shade700,
+                                          fontWeight: FontWeight.bold,
+                                        ),
+                                      ),
+                                    ],
+                                  ),
+                                ),
+                              ),
+                            ],
+                          ),
+                        ),
+                      ],
+                    ),
+                    SizedBox(height: 12.h),
+                    // Compact Details Row
+                    Container(
+                      padding: EdgeInsets.all(10.w),
+                      decoration: BoxDecoration(
+                        color: Colors.grey.shade50,
+                        borderRadius: BorderRadius.circular(12.r),
+                        border: Border.all(
+                          color: Colors.grey.shade200,
+                          width: 1,
+                        ),
+                      ),
+                      child: Row(
+                        mainAxisAlignment: MainAxisAlignment.spaceAround,
+                        children: [
+                          _buildCompactDetail(
+                            Icons.directions_car,
+                            order.vehicleType ?? 'N/A',
+                            Colors.purple.shade700,
+                          ),
+                          Container(
+                            width: 1,
+                            height: 30.h,
+                            color: Colors.grey.shade300,
+                          ),
+                          _buildCompactDetail(
+                            Icons.social_distance,
+                            '${distanceToPickup.toStringAsFixed(1)} km',
+                            Colors.blue.shade700,
+                          ),
+                          Container(
+                            width: 1,
+                            height: 30.h,
+                            color: Colors.grey.shade300,
+                          ),
+                          _buildCompactDetail(
+                            Icons.monetization_on,
+                            '₹${currentFare.toStringAsFixed(0)}',
+                            Colors.amber.shade700,
+                          ),
+                        ],
+                      ),
+                    ),
+                    if (isWaiting) ...[
+                      SizedBox(height: 8.h),
+                      Container(
+                        padding: EdgeInsets.symmetric(
+                          horizontal: 10.w,
+                          vertical: 6.h,
+                        ),
+                        decoration: BoxDecoration(
+                          color: Colors.orange.shade50,
+                          borderRadius: BorderRadius.circular(8.r),
+                          border: Border.all(
+                            color: Colors.orange.shade200,
+                            width: 1,
+                          ),
+                        ),
+                        child: Row(
+                          children: [
+                            Icon(
+                              Icons.timer_outlined,
+                              color: Colors.orange.shade700,
+                              size: 16.sp,
+                            ),
+                            SizedBox(width: 6.w),
+                            Expanded(
+                              child: Text(
+                                'Waiting: +₹${_waitingRules[order.vehicleType ?? 'Unknown']?['fareIncrement']} every ${_waitingRules[order.vehicleType ?? 'Unknown']?['intervalMinutes']} min',
+                                style: TextStyle(
+                                  fontSize: 11.sp,
+                                  color: Colors.orange.shade700,
+                                  fontWeight: FontWeight.w600,
+                                ),
+                              ),
                             ),
                           ],
                         ),
+                      ),
                     ],
-                  ),
-              ],
-            ),
+                    SizedBox(height: 12.h),
+                    // Action Buttons
+                    if (isPending)
+                      Row(
+                        children: [
+                          Expanded(
+                            child: Container(
+                              height: 46.h,
+                              decoration: BoxDecoration(
+                                borderRadius: BorderRadius.circular(12.r),
+                                gradient: LinearGradient(
+                                  colors: [
+                                    Colors.blue.shade600,
+                                    Colors.blue.shade700,
+                                  ],
+                                  begin: Alignment.topLeft,
+                                  end: Alignment.bottomRight,
+                                ),
+                                boxShadow: [
+                                  BoxShadow(
+                                    color: Colors.blue.withOpacity(0.4),
+                                    blurRadius: 8,
+                                    offset: Offset(0, 4),
+                                  ),
+                                ],
+                              ),
+                              child: ElevatedButton(
+                                onPressed: () => _acceptOrder(order.id),
+                                style: ElevatedButton.styleFrom(
+                                  backgroundColor: Colors.transparent,
+                                  shadowColor: Colors.transparent,
+                                  shape: RoundedRectangleBorder(
+                                    borderRadius: BorderRadius.circular(12.r),
+                                  ),
+                                ),
+                                child: Row(
+                                  mainAxisAlignment: MainAxisAlignment.center,
+                                  children: [
+                                    Icon(
+                                      Icons.check_circle_outline,
+                                      color: Colors.white,
+                                      size: 20.sp,
+                                    ),
+                                    SizedBox(width: 6.w),
+                                    Text(
+                                      'Accept',
+                                      style: TextStyle(
+                                        fontSize: 15.sp,
+                                        fontWeight: FontWeight.bold,
+                                        color: Colors.white,
+                                        letterSpacing: 0.5,
+                                      ),
+                                    ),
+                                  ],
+                                ),
+                              ),
+                            ),
+                          ),
+                          SizedBox(width: 12.w),
+                          Expanded(
+                            child: Container(
+                              height: 46.h,
+                              decoration: BoxDecoration(
+                                borderRadius: BorderRadius.circular(12.r),
+                                color: Colors.grey.shade100,
+                                border: Border.all(
+                                  color: Colors.grey.shade300,
+                                  width: 1.5,
+                                ),
+                              ),
+                              child: ElevatedButton(
+                                onPressed: () => _rejectOrder(order.id),
+                                style: ElevatedButton.styleFrom(
+                                  backgroundColor: Colors.transparent,
+                                  shadowColor: Colors.transparent,
+                                  shape: RoundedRectangleBorder(
+                                    borderRadius: BorderRadius.circular(12.r),
+                                  ),
+                                ),
+                                child: Row(
+                                  mainAxisAlignment: MainAxisAlignment.center,
+                                  children: [
+                                    Icon(
+                                      Icons.close,
+                                      color: Colors.grey.shade700,
+                                      size: 20.sp,
+                                    ),
+                                    SizedBox(width: 6.w),
+                                    Text(
+                                      'Reject',
+                                      style: TextStyle(
+                                        fontSize: 15.sp,
+                                        fontWeight: FontWeight.bold,
+                                        color: Colors.grey.shade800,
+                                        letterSpacing: 0.5,
+                                      ),
+                                    ),
+                                  ],
+                                ),
+                              ),
+                            ),
+                          ),
+                        ],
+                      )
+                    else
+                      Column(
+                        children: [
+                          Container(
+                            padding: EdgeInsets.symmetric(
+                              vertical: 8.h,
+                              horizontal: 12.w,
+                            ),
+                            decoration: BoxDecoration(
+                              color: _getStatusColor(
+                                order.status,
+                              ).withOpacity(0.1),
+                              borderRadius: BorderRadius.circular(10.r),
+                              border: Border.all(
+                                color: _getStatusColor(
+                                  order.status,
+                                ).withOpacity(0.3),
+                                width: 1.5,
+                              ),
+                            ),
+                            child: Row(
+                              mainAxisAlignment: MainAxisAlignment.center,
+                              children: [
+                                Container(
+                                  width: 8.w,
+                                  height: 8.w,
+                                  decoration: BoxDecoration(
+                                    color: _getStatusColor(order.status),
+                                    shape: BoxShape.circle,
+                                  ),
+                                ),
+                                SizedBox(width: 6.w),
+                                Text(
+                                  _getStatusDisplayText(
+                                    order.status,
+                                  ).toUpperCase(),
+                                  style: TextStyle(
+                                    fontSize: 12.sp,
+                                    fontWeight: FontWeight.bold,
+                                    color: _getStatusColor(order.status),
+                                    letterSpacing: 1.0,
+                                  ),
+                                ),
+                              ],
+                            ),
+                          ),
+                          SizedBox(height: 12.h),
+                          if (order.status == 'accepted')
+                            _buildActionButton(
+                              'Driver Reached',
+                              Icons.location_on,
+                              Colors.green.shade600,
+                              () => _updateOrderStatus(
+                                order.id,
+                                'driver_reached',
+                              ),
+                            ),
+                          if (order.status == 'driver_reached')
+                            _buildActionButton(
+                              'Order Picked',
+                              Icons.check_circle,
+                              Colors.green.shade600,
+                              () =>
+                                  _updateOrderStatus(order.id, 'order_picked'),
+                            ),
+                          if (order.status == 'order_picked')
+                            _buildActionButton(
+                              'On The Way',
+                              Icons.directions,
+                              Colors.green.shade600,
+                              () => _updateOrderStatus(order.id, 'on_the_way'),
+                            ),
+                          if (order.status == 'on_the_way')
+                            _buildActionButton(
+                              'Order Delivered',
+                              Icons.done_all,
+                              Colors.green.shade600,
+                              () => _updateOrderStatus(order.id, 'delivered'),
+                            ),
+                          if (order.status != 'delivered' &&
+                              order.status != 'completed') ...[
+                            SizedBox(height: 10.h),
+                            _buildActionButton(
+                              'Cancel Delivery',
+                              Icons.cancel_outlined,
+                              Colors.red.shade600,
+                              () => _showCancelConfirmation(order.id),
+                              isDestructive: true,
+                            ),
+                          ],
+                        ],
+                      ),
+                  ],
+                ),
+              ),
+            ],
           ),
         );
       },
@@ -965,25 +1614,39 @@ class _AlertScreenState extends State<AlertScreen> {
 
   String _getStatusTitle(String status) {
     switch (status) {
-      case 'accepted': return 'Accepted Delivery';
-      case 'driver_reached': return 'Reached Pickup Location';
-      case 'order_picked': return 'Order Picked Up';
-      case 'on_the_way': return 'Driver is on the way to deliver the order';
-      case 'delivered': return 'Order Delivered';
-      case 'completed': return 'Delivery Completed';
-      default: return 'Delivery Status';
+      case 'accepted':
+        return 'Accepted Delivery';
+      case 'driver_reached':
+        return 'Reached Pickup Location';
+      case 'order_picked':
+        return 'Order Picked Up';
+      case 'on_the_way':
+        return 'Driver is on the way to deliver the order';
+      case 'delivered':
+        return 'Order Delivered';
+      case 'completed':
+        return 'Delivery Completed';
+      default:
+        return 'Delivery Status';
     }
   }
 
   String _getStatusDisplayText(String status) {
     switch (status) {
-      case 'accepted': return 'Accepted';
-      case 'driver_reached': return 'Driver Reached';
-      case 'order_picked': return 'Order Picked Up';
-      case 'on_the_way': return 'On The Way';
-      case 'delivered': return 'Delivered';
-      case 'completed': return 'Completed';
-      default: return status.capitalize();
+      case 'accepted':
+        return 'Accepted';
+      case 'driver_reached':
+        return 'Driver Reached';
+      case 'order_picked':
+        return 'Order Picked Up';
+      case 'on_the_way':
+        return 'On The Way';
+      case 'delivered':
+        return 'Delivered';
+      case 'completed':
+        return 'Completed';
+      default:
+        return status.capitalize();
     }
   }
 
@@ -1001,20 +1664,204 @@ class _AlertScreenState extends State<AlertScreen> {
     }
   }
 
-  Widget _buildInfoRow(IconData icon, String text, [String? subText]) {
-    return Padding(
-      padding: EdgeInsets.symmetric(vertical: 4.h),
-      child: Row(
+  Widget _buildSectionHeader(String title, IconData icon, Color color) {
+    return Row(
+      children: [
+        Container(
+          padding: EdgeInsets.all(8.w),
+          decoration: BoxDecoration(
+            color: color.withOpacity(0.1),
+            borderRadius: BorderRadius.circular(10.r),
+          ),
+          child: Icon(icon, size: 18.sp, color: color),
+        ),
+        SizedBox(width: 10.w),
+        Text(
+          title,
+          style: TextStyle(
+            fontSize: 16.sp,
+            fontWeight: FontWeight.bold,
+            color: color,
+            letterSpacing: 0.3,
+          ),
+        ),
+      ],
+    );
+  }
+
+  Widget _buildCompactDetail(IconData icon, String value, Color color) {
+    return Expanded(
+      child: Column(
+        mainAxisSize: MainAxisSize.min,
         children: [
-          Icon(icon, size: 20.sp, color: Colors.blue.shade700),
-          SizedBox(width: 8.w),
+          Icon(icon, size: 18.sp, color: color),
+          SizedBox(height: 4.h),
+          Text(
+            value,
+            style: TextStyle(
+              fontSize: 12.sp,
+              fontWeight: FontWeight.bold,
+              color: color,
+            ),
+            textAlign: TextAlign.center,
+            maxLines: 1,
+            overflow: TextOverflow.ellipsis,
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildDetailCard(
+    IconData icon,
+    String label,
+    String value,
+    Color bgColor,
+    Color iconColor,
+  ) {
+    return Container(
+      padding: EdgeInsets.all(14.w),
+      decoration: BoxDecoration(
+        color: bgColor,
+        borderRadius: BorderRadius.circular(14.r),
+        border: Border.all(color: iconColor.withOpacity(0.2), width: 1),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            children: [
+              Icon(icon, size: 18.sp, color: iconColor),
+              SizedBox(width: 6.w),
+              Text(
+                label,
+                style: TextStyle(
+                  fontSize: 11.sp,
+                  color: iconColor.withOpacity(0.8),
+                  fontWeight: FontWeight.w600,
+                  letterSpacing: 0.3,
+                ),
+              ),
+            ],
+          ),
+          SizedBox(height: 6.h),
+          Text(
+            value,
+            style: TextStyle(
+              fontSize: 16.sp,
+              fontWeight: FontWeight.bold,
+              color: iconColor,
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildActionButton(
+    String text,
+    IconData icon,
+    Color color,
+    VoidCallback onPressed, {
+    bool isDestructive = false,
+  }) {
+    return Container(
+      height: 46.h,
+      decoration: BoxDecoration(
+        borderRadius: BorderRadius.circular(12.r),
+        gradient:
+            isDestructive
+                ? LinearGradient(
+                  colors: [Colors.red.shade600, Colors.red.shade700],
+                  begin: Alignment.topLeft,
+                  end: Alignment.bottomRight,
+                )
+                : LinearGradient(
+                  colors: [color, color.withOpacity(0.8)],
+                  begin: Alignment.topLeft,
+                  end: Alignment.bottomRight,
+                ),
+        boxShadow: [
+          BoxShadow(
+            color: (isDestructive ? Colors.red : color).withOpacity(0.4),
+            blurRadius: 8,
+            offset: Offset(0, 4),
+          ),
+        ],
+      ),
+      child: ElevatedButton(
+        onPressed: onPressed,
+        style: ElevatedButton.styleFrom(
+          backgroundColor: Colors.transparent,
+          shadowColor: Colors.transparent,
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(12.r),
+          ),
+        ),
+        child: Row(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            Icon(icon, color: Colors.white, size: 20.sp),
+            SizedBox(width: 6.w),
+            Text(
+              text,
+              style: TextStyle(
+                fontSize: 15.sp,
+                fontWeight: FontWeight.bold,
+                color: Colors.white,
+                letterSpacing: 0.5,
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _buildInfoRow(
+    IconData icon,
+    String text, [
+    String? subText,
+    Color? iconColor,
+  ]) {
+    final color = iconColor ?? Colors.grey.shade700;
+    return Padding(
+      padding: EdgeInsets.symmetric(vertical: 6.h),
+      child: Row(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Container(
+            padding: EdgeInsets.all(6.w),
+            decoration: BoxDecoration(
+              color: color.withOpacity(0.1),
+              borderRadius: BorderRadius.circular(8.r),
+            ),
+            child: Icon(icon, size: 18.sp, color: color),
+          ),
+          SizedBox(width: 12.w),
           Expanded(
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                Text(text, style: TextStyle(fontSize: 14.sp, color: Colors.grey.shade800)),
-                if (subText != null)
-                  Text(subText, style: TextStyle(fontSize: 12.sp, color: Colors.grey.shade600)),
+                Text(
+                  text,
+                  style: TextStyle(
+                    fontSize: 14.sp,
+                    color: Colors.grey.shade800,
+                    fontWeight: FontWeight.w600,
+                  ),
+                ),
+                if (subText != null) ...[
+                  SizedBox(height: 2.h),
+                  Text(
+                    subText,
+                    style: TextStyle(
+                      fontSize: 13.sp,
+                      color: Colors.grey.shade600,
+                      fontWeight: FontWeight.w500,
+                    ),
+                  ),
+                ],
               ],
             ),
           ),
@@ -1023,28 +1870,44 @@ class _AlertScreenState extends State<AlertScreen> {
     );
   }
 
-  Widget _buildClickableInfoRow(IconData icon, String text, VoidCallback onTap) {
+  Widget _buildClickableInfoRow(
+    IconData icon,
+    String text,
+    VoidCallback onTap,
+    Color color,
+  ) {
     return InkWell(
       onTap: onTap,
-      borderRadius: BorderRadius.circular(8.r),
-      child: Padding(
-        padding: EdgeInsets.symmetric(vertical: 4.h, horizontal: 4.w),
+      borderRadius: BorderRadius.circular(12.r),
+      child: Container(
+        padding: EdgeInsets.symmetric(vertical: 10.h, horizontal: 12.w),
+        decoration: BoxDecoration(
+          color: color.withOpacity(0.05),
+          borderRadius: BorderRadius.circular(12.r),
+          border: Border.all(color: color.withOpacity(0.2), width: 1),
+        ),
         child: Row(
           children: [
-            Icon(icon, size: 20.sp, color: Colors.blue.shade700),
-            SizedBox(width: 8.w),
+            Container(
+              padding: EdgeInsets.all(6.w),
+              decoration: BoxDecoration(
+                color: color.withOpacity(0.1),
+                borderRadius: BorderRadius.circular(8.r),
+              ),
+              child: Icon(icon, size: 18.sp, color: color),
+            ),
+            SizedBox(width: 12.w),
             Expanded(
               child: Text(
                 text,
                 style: TextStyle(
                   fontSize: 14.sp,
-                  color: Colors.blue.shade700,
+                  color: color,
                   fontWeight: FontWeight.w600,
-                  decoration: TextDecoration.underline,
                 ),
               ),
             ),
-            Icon(Icons.open_in_new, size: 16.sp, color: Colors.blue.shade700),
+            Icon(Icons.arrow_forward_ios, size: 14.sp, color: color),
           ],
         ),
       ),
@@ -1073,15 +1936,26 @@ class _AlertScreenState extends State<AlertScreen> {
                     ElevatedButton(
                       onPressed: () => _toggleDutyStatus(!_isOnDuty),
                       style: ElevatedButton.styleFrom(
-                        backgroundColor: _isOnDuty ? Colors.red.shade600 : Colors.green.shade600,
+                        backgroundColor:
+                            _isOnDuty
+                                ? Colors.red.shade600
+                                : Colors.green.shade600,
                         foregroundColor: Colors.white,
-                        padding: EdgeInsets.symmetric(horizontal: 16.w, vertical: 12.h),
-                        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12.r)),
+                        padding: EdgeInsets.symmetric(
+                          horizontal: 16.w,
+                          vertical: 12.h,
+                        ),
+                        shape: RoundedRectangleBorder(
+                          borderRadius: BorderRadius.circular(12.r),
+                        ),
                         elevation: 2,
                       ),
                       child: Text(
                         _isOnDuty ? 'OFF Duty' : 'ON Duty',
-                        style: TextStyle(fontSize: 16.sp, fontWeight: FontWeight.w600),
+                        style: TextStyle(
+                          fontSize: 16.sp,
+                          fontWeight: FontWeight.w600,
+                        ),
                       ),
                     ),
                   ],
@@ -1092,17 +1966,27 @@ class _AlertScreenState extends State<AlertScreen> {
                   padding: EdgeInsets.all(24.w),
                   child: Card(
                     elevation: 12,
-                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16.r)),
+                    shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(16.r),
+                    ),
                     child: Padding(
                       padding: EdgeInsets.all(24.w),
                       child: Column(
                         mainAxisSize: MainAxisSize.min,
                         children: [
-                          Icon(Icons.info_outline, size: 48.sp, color: Colors.blue.shade700),
+                          Icon(
+                            Icons.info_outline,
+                            size: 48.sp,
+                            color: Colors.blue.shade700,
+                          ),
                           SizedBox(height: 16.h),
                           Text(
                             'You are OFF Duty. Turn ON Duty to receive delivery alerts.',
-                            style: TextStyle(fontSize: 16.sp, color: Colors.grey.shade800, fontWeight: FontWeight.w600),
+                            style: TextStyle(
+                              fontSize: 16.sp,
+                              color: Colors.grey.shade800,
+                              fontWeight: FontWeight.w600,
+                            ),
                             textAlign: TextAlign.center,
                           ),
                         ],
@@ -1120,38 +2004,66 @@ class _AlertScreenState extends State<AlertScreen> {
                             padding: EdgeInsets.all(24.w),
                             child: Card(
                               elevation: 12,
-                              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16.r)),
+                              shape: RoundedRectangleBorder(
+                                borderRadius: BorderRadius.circular(16.r),
+                              ),
                               child: Padding(
                                 padding: EdgeInsets.all(24.w),
                                 child: Column(
                                   mainAxisSize: MainAxisSize.min,
                                   children: [
-                                    Icon(Icons.error_outline, size: 48.sp, color: Colors.red.shade600),
+                                    Icon(
+                                      Icons.error_outline,
+                                      size: 48.sp,
+                                      color: Colors.red.shade600,
+                                    ),
                                     SizedBox(height: 16.h),
                                     Text(
                                       'Location Error: ${locationState.message}',
-                                      style: TextStyle(fontSize: 16.sp, color: Colors.grey.shade800, fontWeight: FontWeight.w600),
+                                      style: TextStyle(
+                                        fontSize: 16.sp,
+                                        color: Colors.grey.shade800,
+                                        fontWeight: FontWeight.w600,
+                                      ),
                                       textAlign: TextAlign.center,
                                     ),
                                     SizedBox(height: 16.h),
                                     ElevatedButton(
                                       onPressed: () async {
-                                        if (locationState.message.contains('permanently denied')) {
+                                        if (locationState.message.contains(
+                                          'permanently denied',
+                                        )) {
                                           await Geolocator.openAppSettings();
                                         } else {
-                                          context.read<LocationCubit>().getCurrentLocation();
+                                          context
+                                              .read<LocationCubit>()
+                                              .getCurrentLocation();
                                         }
                                       },
                                       style: ElevatedButton.styleFrom(
                                         backgroundColor: Colors.blue.shade700,
                                         foregroundColor: Colors.white,
-                                        padding: EdgeInsets.symmetric(horizontal: 32.w, vertical: 12.h),
-                                        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12.r)),
+                                        padding: EdgeInsets.symmetric(
+                                          horizontal: 32.w,
+                                          vertical: 12.h,
+                                        ),
+                                        shape: RoundedRectangleBorder(
+                                          borderRadius: BorderRadius.circular(
+                                            12.r,
+                                          ),
+                                        ),
                                         elevation: 2,
                                       ),
                                       child: Text(
-                                        locationState.message.contains('permanently denied') ? 'Open Settings' : 'Retry',
-                                        style: TextStyle(fontSize: 16.sp, fontWeight: FontWeight.w600),
+                                        locationState.message.contains(
+                                              'permanently denied',
+                                            )
+                                            ? 'Open Settings'
+                                            : 'Retry',
+                                        style: TextStyle(
+                                          fontSize: 16.sp,
+                                          fontWeight: FontWeight.w600,
+                                        ),
                                       ),
                                     ),
                                   ],
@@ -1161,10 +2073,19 @@ class _AlertScreenState extends State<AlertScreen> {
                           ),
                         );
                       } else if (locationState is! CurrentLocationUpdated) {
-                        return Center(child: CircularProgressIndicator(color: Colors.blue.shade700));
+                        return Center(
+                          child: CircularProgressIndicator(
+                            color: Colors.blue.shade700,
+                          ),
+                        );
                       }
-                      final driverLocation = LatLng(locationState.latitude, locationState.longitude);
-                      final recentThreshold = Timestamp.fromDate(DateTime.now().subtract(const Duration(hours: 1)));
+                      final driverLocation = LatLng(
+                        locationState.latitude,
+                        locationState.longitude,
+                      );
+                      final recentThreshold = Timestamp.fromDate(
+                        DateTime.now().subtract(const Duration(hours: 1)),
+                      );
                       final user = FirebaseAuth.instance.currentUser;
                       if (user == null) {
                         return Center(
@@ -1172,17 +2093,27 @@ class _AlertScreenState extends State<AlertScreen> {
                             padding: EdgeInsets.all(24.w),
                             child: Card(
                               elevation: 12,
-                              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16.r)),
+                              shape: RoundedRectangleBorder(
+                                borderRadius: BorderRadius.circular(16.r),
+                              ),
                               child: Padding(
                                 padding: EdgeInsets.all(24.w),
                                 child: Column(
                                   mainAxisSize: MainAxisSize.min,
                                   children: [
-                                    Icon(Icons.lock_outline, size: 48.sp, color: Colors.red.shade600),
+                                    Icon(
+                                      Icons.lock_outline,
+                                      size: 48.sp,
+                                      color: Colors.red.shade600,
+                                    ),
                                     SizedBox(height: 16.h),
                                     Text(
                                       'Please log in to view deliveries',
-                                      style: TextStyle(fontSize: 16.sp, color: Colors.grey.shade800, fontWeight: FontWeight.w600),
+                                      style: TextStyle(
+                                        fontSize: 16.sp,
+                                        color: Colors.grey.shade800,
+                                        fontWeight: FontWeight.w600,
+                                      ),
                                       textAlign: TextAlign.center,
                                     ),
                                   ],
@@ -1193,27 +2124,41 @@ class _AlertScreenState extends State<AlertScreen> {
                         );
                       }
                       return StreamBuilder<QuerySnapshot>(
-                        stream: FirebaseFirestore.instance
-                            .collection('orders')
-                            .where('status', isEqualTo: 'pending')
-                            .where('createdAt', isGreaterThanOrEqualTo: recentThreshold)
-                            .snapshots(),
+                        stream:
+                            FirebaseFirestore.instance
+                                .collection('orders')
+                                .where('status', isEqualTo: 'pending')
+                                .where(
+                                  'createdAt',
+                                  isGreaterThanOrEqualTo: recentThreshold,
+                                )
+                                .snapshots(),
                         builder: (context, snapshot) {
                           if (snapshot.hasError) {
                             return Center(
                               child: Card(
                                 elevation: 12,
-                                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16.r)),
+                                shape: RoundedRectangleBorder(
+                                  borderRadius: BorderRadius.circular(16.r),
+                                ),
                                 child: Padding(
                                   padding: EdgeInsets.all(24.w),
                                   child: Column(
                                     mainAxisSize: MainAxisSize.min,
                                     children: [
-                                      Icon(Icons.error_outline, size: 48.sp, color: Colors.red.shade600),
+                                      Icon(
+                                        Icons.error_outline,
+                                        size: 48.sp,
+                                        color: Colors.red.shade600,
+                                      ),
                                       SizedBox(height: 16.h),
                                       Text(
                                         'Error loading pending orders: ${snapshot.error}',
-                                        style: TextStyle(fontSize: 16.sp, color: Colors.grey.shade800, fontWeight: FontWeight.w600),
+                                        style: TextStyle(
+                                          fontSize: 16.sp,
+                                          color: Colors.grey.shade800,
+                                          fontWeight: FontWeight.w600,
+                                        ),
                                         textAlign: TextAlign.center,
                                       ),
                                     ],
@@ -1223,34 +2168,68 @@ class _AlertScreenState extends State<AlertScreen> {
                             );
                           }
                           if (!snapshot.hasData) {
-                            return Center(child: CircularProgressIndicator(color: Colors.blue.shade700));
+                            return Center(
+                              child: CircularProgressIndicator(
+                                color: Colors.blue.shade700,
+                              ),
+                            );
                           }
                           final pendingDocs = snapshot.data!.docs;
-                          final acceptedSnapshot = FirebaseFirestore.instance
-                              .collection('orders')
-                              .where('status', whereIn: ['accepted', 'driver_reached', 'order_picked', 'on_the_way', 'delivered'])
-                              .where('driverId', isEqualTo: user.uid)
-                              .where('createdAt', isGreaterThanOrEqualTo: recentThreshold)
-                              .get();
-                          final rejectedSnapshot = _driversCollection.doc(user.uid).collection('rejected_orders').get();
+                          final acceptedSnapshot =
+                              FirebaseFirestore.instance
+                                  .collection('orders')
+                                  .where(
+                                    'status',
+                                    whereIn: [
+                                      'accepted',
+                                      'driver_reached',
+                                      'order_picked',
+                                      'on_the_way',
+                                      'delivered',
+                                    ],
+                                  )
+                                  .where('driverId', isEqualTo: user.uid)
+                                  .where(
+                                    'createdAt',
+                                    isGreaterThanOrEqualTo: recentThreshold,
+                                  )
+                                  .get();
+                          final rejectedSnapshot =
+                              _driversCollection
+                                  .doc(user.uid)
+                                  .collection('rejected_orders')
+                                  .get();
                           return FutureBuilder<List<dynamic>>(
-                            future: Future.wait([acceptedSnapshot, rejectedSnapshot]),
+                            future: Future.wait([
+                              acceptedSnapshot,
+                              rejectedSnapshot,
+                            ]),
                             builder: (context, combinedSnapshot) {
                               if (combinedSnapshot.hasError) {
                                 return Center(
                                   child: Card(
                                     elevation: 12,
-                                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16.r)),
+                                    shape: RoundedRectangleBorder(
+                                      borderRadius: BorderRadius.circular(16.r),
+                                    ),
                                     child: Padding(
                                       padding: EdgeInsets.all(24.w),
                                       child: Column(
                                         mainAxisSize: MainAxisSize.min,
                                         children: [
-                                          Icon(Icons.error_outline, size: 48.sp, color: Colors.red.shade600),
+                                          Icon(
+                                            Icons.error_outline,
+                                            size: 48.sp,
+                                            color: Colors.red.shade600,
+                                          ),
                                           SizedBox(height: 16.h),
                                           Text(
                                             'Error loading orders: ${combinedSnapshot.error}',
-                                            style: TextStyle(fontSize: 16.sp, color: Colors.grey.shade800, fontWeight: FontWeight.w600),
+                                            style: TextStyle(
+                                              fontSize: 16.sp,
+                                              color: Colors.grey.shade800,
+                                              fontWeight: FontWeight.w600,
+                                            ),
                                             textAlign: TextAlign.center,
                                           ),
                                         ],
@@ -1260,12 +2239,22 @@ class _AlertScreenState extends State<AlertScreen> {
                                 );
                               }
                               if (!combinedSnapshot.hasData) {
-                                return Center(child: CircularProgressIndicator(color: Colors.blue.shade700));
+                                return Center(
+                                  child: CircularProgressIndicator(
+                                    color: Colors.blue.shade700,
+                                  ),
+                                );
                               }
-                              final acceptedDocs = combinedSnapshot.data![0] as QuerySnapshot;
-                              final rejectedDocs = combinedSnapshot.data![1] as QuerySnapshot;
-                              final rejectedOrderIds = rejectedDocs.docs.map((doc) => doc['orderId'] as String).toSet();
-                              final driverSnapshot = _driversCollection.doc(user.uid).get();
+                              final acceptedDocs =
+                                  combinedSnapshot.data![0] as QuerySnapshot;
+                              final rejectedDocs =
+                                  combinedSnapshot.data![1] as QuerySnapshot;
+                              final rejectedOrderIds =
+                                  rejectedDocs.docs
+                                      .map((doc) => doc['orderId'] as String)
+                                      .toSet();
+                              final driverSnapshot =
+                                  _driversCollection.doc(user.uid).get();
                               return FutureBuilder<DocumentSnapshot>(
                                 future: driverSnapshot,
                                 builder: (context, driverSnapshot) {
@@ -1273,17 +2262,29 @@ class _AlertScreenState extends State<AlertScreen> {
                                     return Center(
                                       child: Card(
                                         elevation: 12,
-                                        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16.r)),
+                                        shape: RoundedRectangleBorder(
+                                          borderRadius: BorderRadius.circular(
+                                            16.r,
+                                          ),
+                                        ),
                                         child: Padding(
                                           padding: EdgeInsets.all(24.w),
                                           child: Column(
                                             mainAxisSize: MainAxisSize.min,
                                             children: [
-                                              Icon(Icons.error_outline, size: 48.sp, color: Colors.red.shade600),
+                                              Icon(
+                                                Icons.error_outline,
+                                                size: 48.sp,
+                                                color: Colors.red.shade600,
+                                              ),
                                               SizedBox(height: 16.h),
                                               Text(
                                                 'Error loading driver data: ${driverSnapshot.error}',
-                                                style: TextStyle(fontSize: 16.sp, color: Colors.grey.shade800, fontWeight: FontWeight.w600),
+                                                style: TextStyle(
+                                                  fontSize: 16.sp,
+                                                  color: Colors.grey.shade800,
+                                                  fontWeight: FontWeight.w600,
+                                                ),
                                                 textAlign: TextAlign.center,
                                               ),
                                             ],
@@ -1292,21 +2293,34 @@ class _AlertScreenState extends State<AlertScreen> {
                                       ),
                                     );
                                   }
-                                  if (!driverSnapshot.hasData || !driverSnapshot.data!.exists) {
+                                  if (!driverSnapshot.hasData ||
+                                      !driverSnapshot.data!.exists) {
                                     return Center(
                                       child: Card(
-                                        elevation:  12,
-                                        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16.r)),
+                                        elevation: 12,
+                                        shape: RoundedRectangleBorder(
+                                          borderRadius: BorderRadius.circular(
+                                            16.r,
+                                          ),
+                                        ),
                                         child: Padding(
                                           padding: EdgeInsets.all(24.w),
                                           child: Column(
                                             mainAxisSize: MainAxisSize.min,
                                             children: [
-                                              Icon(Icons.error_outline, size: 48.sp, color: Colors.red.shade600),
+                                              Icon(
+                                                Icons.error_outline,
+                                                size: 48.sp,
+                                                color: Colors.red.shade600,
+                                              ),
                                               SizedBox(height: 16.h),
                                               Text(
                                                 'Driver profile not found',
-                                                style: TextStyle(fontSize: 16.sp, color: Colors.grey.shade800, fontWeight: FontWeight.w600),
+                                                style: TextStyle(
+                                                  fontSize: 16.sp,
+                                                  color: Colors.grey.shade800,
+                                                  fontWeight: FontWeight.w600,
+                                                ),
                                                 textAlign: TextAlign.center,
                                               ),
                                             ],
@@ -1315,35 +2329,112 @@ class _AlertScreenState extends State<AlertScreen> {
                                       ),
                                     );
                                   }
-                                  final driverData = driverSnapshot.data!.data() as Map<String, dynamic>?;
-                                  final vehicleTypes = (driverData?['vehicleTypes'] as String?)?.split(', ')?.toList() ?? [];
-                                  final orders = [
-                                    ...pendingDocs.map((doc) => order_model.Order.fromSnapshot(doc)),
-                                    ...acceptedDocs.docs.map((doc) => order_model.Order.fromSnapshot(doc)),
-                                  ].where((order) {
-                                    if (order.status == 'accepted' && order.driverId == user.uid) return true;
-                                    if (order.status == 'driver_reached' && order.driverId == user.uid) return true;
-                                    if (order.status == 'order_picked' && order.driverId == user.uid) return true;
-                                    if (order.status == 'on_the_way' && order.driverId == user.uid) return true;
-                                    if (order.status == 'delivered' && order.driverId == user.uid) return true;
-                                    if (order.status != 'pending') return false;
-                                    if (order.vehicleType == null || order.vehicleType!.isEmpty || !vehicleTypes.contains(order.vehicleType)) return false;
-                                    if (order.pickupLat == null || order.pickupLng == null) return false;
-                                    final pickupLoc = LatLng(order.pickupLat!, order.pickupLng!);
-                                    final distance = _calculateDistance(driverLocation, pickupLoc);
-                                    return distance <= 5.0 && !rejectedOrderIds.contains(order.id);
-                                  }).toList();
-                                  final pendingOrders = orders.where((order) => order.status == 'pending').toList();
-                                  final acceptedOrders = orders.where((order) => ['accepted', 'driver_reached', 'order_picked', 'on_the_way', 'delivered'].contains(order.status) && order.driverId == user.uid).toList();
-                                  final cancelledOrders = orders.where((order) => order.status == 'cancelled' && order.cancelledByUser == true && order.driverId == user.uid).toList();
+                                  final driverData =
+                                      driverSnapshot.data!.data()
+                                          as Map<String, dynamic>?;
+                                  final vehicleTypes =
+                                      (driverData?['vehicleTypes'] as String?)
+                                          ?.split(', ')
+                                          ?.toList() ??
+                                      [];
+                                  final orders =
+                                      [
+                                        ...pendingDocs.map(
+                                          (doc) => order_model
+                                              .Order.fromSnapshot(doc),
+                                        ),
+                                        ...acceptedDocs.docs.map(
+                                          (doc) => order_model
+                                              .Order.fromSnapshot(doc),
+                                        ),
+                                      ].where((order) {
+                                        if (order.status == 'accepted' &&
+                                            order.driverId == user.uid)
+                                          return true;
+                                        if (order.status == 'driver_reached' &&
+                                            order.driverId == user.uid)
+                                          return true;
+                                        if (order.status == 'order_picked' &&
+                                            order.driverId == user.uid)
+                                          return true;
+                                        if (order.status == 'on_the_way' &&
+                                            order.driverId == user.uid)
+                                          return true;
+                                        if (order.status == 'delivered' &&
+                                            order.driverId == user.uid)
+                                          return true;
+                                        if (order.status != 'pending')
+                                          return false;
+                                        if (order.vehicleType == null ||
+                                            order.vehicleType!.isEmpty ||
+                                            !vehicleTypes.contains(
+                                              order.vehicleType,
+                                            ))
+                                          return false;
+                                        if (order.pickupLat == null ||
+                                            order.pickupLng == null)
+                                          return false;
+                                        final pickupLoc = LatLng(
+                                          order.pickupLat!,
+                                          order.pickupLng!,
+                                        );
+                                        final distance = _calculateDistance(
+                                          driverLocation,
+                                          pickupLoc,
+                                        );
+                                        return distance <= 5.0 &&
+                                            !rejectedOrderIds.contains(
+                                              order.id,
+                                            );
+                                      }).toList();
+                                  final pendingOrders =
+                                      orders
+                                          .where(
+                                            (order) =>
+                                                order.status == 'pending',
+                                          )
+                                          .toList();
+                                  final acceptedOrders =
+                                      orders
+                                          .where(
+                                            (order) =>
+                                                [
+                                                  'accepted',
+                                                  'driver_reached',
+                                                  'order_picked',
+                                                  'on_the_way',
+                                                  'delivered',
+                                                ].contains(order.status) &&
+                                                order.driverId == user.uid,
+                                          )
+                                          .toList();
+                                  final cancelledOrders =
+                                      orders
+                                          .where(
+                                            (order) =>
+                                                order.status == 'cancelled' &&
+                                                order.cancelledByUser == true &&
+                                                order.driverId == user.uid,
+                                          )
+                                          .toList();
                                   order_model.Order? latestAcceptedOrder;
                                   if (acceptedOrders.isNotEmpty) {
-                                    acceptedOrders.sort((a, b) => (b.statusUpdatedAt ?? b.acceptedAt ?? Timestamp.now()).compareTo(a.statusUpdatedAt ?? a.acceptedAt ?? Timestamp.now()));
+                                    acceptedOrders.sort(
+                                      (a, b) => (b.statusUpdatedAt ??
+                                              b.acceptedAt ??
+                                              Timestamp.now())
+                                          .compareTo(
+                                            a.statusUpdatedAt ??
+                                                a.acceptedAt ??
+                                                Timestamp.now(),
+                                          ),
+                                    );
                                     latestAcceptedOrder = acceptedOrders.first;
                                   }
                                   final finalOrders = [
                                     ...pendingOrders,
-                                    if (latestAcceptedOrder != null) latestAcceptedOrder,
+                                    if (latestAcceptedOrder != null)
+                                      latestAcceptedOrder,
                                     ...cancelledOrders,
                                   ];
                                   if (finalOrders.isEmpty) {
@@ -1351,17 +2442,29 @@ class _AlertScreenState extends State<AlertScreen> {
                                     return Center(
                                       child: Card(
                                         elevation: 12,
-                                        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16.r)),
+                                        shape: RoundedRectangleBorder(
+                                          borderRadius: BorderRadius.circular(
+                                            16.r,
+                                          ),
+                                        ),
                                         child: Padding(
                                           padding: EdgeInsets.all(24.w),
                                           child: Column(
                                             mainAxisSize: MainAxisSize.min,
                                             children: [
-                                              Icon(Icons.info_outline, size: 48.sp, color: Colors.blue.shade700),
+                                              Icon(
+                                                Icons.info_outline,
+                                                size: 48.sp,
+                                                color: Colors.blue.shade700,
+                                              ),
                                               SizedBox(height: 16.h),
                                               Text(
                                                 'No matching delivery requests within 5km.',
-                                                style: TextStyle(fontSize: 16.sp, color: Colors.grey.shade800, fontWeight: FontWeight.w600),
+                                                style: TextStyle(
+                                                  fontSize: 16.sp,
+                                                  color: Colors.grey.shade800,
+                                                  fontWeight: FontWeight.w600,
+                                                ),
                                                 textAlign: TextAlign.center,
                                               ),
                                             ],
@@ -1371,19 +2474,40 @@ class _AlertScreenState extends State<AlertScreen> {
                                     );
                                   }
                                   finalOrders.sort((a, b) {
-                                    if (a.status == 'pending' && !['pending', 'cancelled'].contains(b.status)) return -1;
-                                    if (!['pending', 'cancelled'].contains(a.status) && b.status == 'pending') return 1;
-                                    if (a.status == 'cancelled' && b.status != 'cancelled') return 1;
-                                    if (a.status != 'cancelled' && b.status == 'cancelled') return -1;
+                                    if (a.status == 'pending' &&
+                                        ![
+                                          'pending',
+                                          'cancelled',
+                                        ].contains(b.status))
+                                      return -1;
+                                    if (![
+                                          'pending',
+                                          'cancelled',
+                                        ].contains(a.status) &&
+                                        b.status == 'pending')
+                                      return 1;
+                                    if (a.status == 'cancelled' &&
+                                        b.status != 'cancelled')
+                                      return 1;
+                                    if (a.status != 'cancelled' &&
+                                        b.status == 'cancelled')
+                                      return -1;
                                     return 0;
                                   });
                                   return ListView.builder(
-                                    padding: EdgeInsets.symmetric(vertical: 8.h),
+                                    padding: EdgeInsets.symmetric(
+                                      vertical: 8.h,
+                                    ),
                                     itemCount: finalOrders.length,
                                     itemBuilder: (context, index) {
                                       final order = finalOrders[index];
-                                      final isPending = order.status == 'pending';
-                                      return _buildOrderCard(order, isPending, driverLocation);
+                                      final isPending =
+                                          order.status == 'pending';
+                                      return _buildOrderCard(
+                                        order,
+                                        isPending,
+                                        driverLocation,
+                                      );
                                     },
                                   );
                                 },

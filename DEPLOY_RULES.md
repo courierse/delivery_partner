@@ -35,3 +35,4 @@ The Firestore rules were blocking queries because they checked `resource.data.dr
 
 After deploying, restart your app and the notification screen should work!
 
+

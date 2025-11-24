@@ -1042,18 +1042,30 @@ class _AlertScreenState extends State<AlertScreen> {
       order.pickupLng ?? 0.0,
     );
     final dropLocation = LatLng(order.dropLat ?? 0.0, order.dropLng ?? 0.0);
-    final isWaiting = order.status == 'driver_reached';
     return StreamBuilder<DocumentSnapshot>(
       stream: _ordersCollection.doc(order.id).snapshots(),
       builder: (context, snapshot) {
         double currentFare = order.deliveryCost;
         if (snapshot.hasData && snapshot.data!.exists) {
           final data = snapshot.data!.data() as Map<String, dynamic>?;
-          currentFare =
-              (data?['deliveryCost'] as double?) ?? order.deliveryCost;
+          final updatedFare = data?['deliveryCost'];
+          if (updatedFare is num) {
+            currentFare = updatedFare.toDouble();
+          } else {
+            currentFare =
+                (data?['deliveryCost'] as double?) ?? order.deliveryCost;
+          }
           print('Order ${order.id} fare updated to: $currentFare');
+          try {
+            order = order_model.Order.fromSnapshot(snapshot.data!);
+          } catch (e) {
+            print('Error parsing live order ${order.id}: $e');
+          }
         }
-        if (order.status == 'cancelled' && order.cancelledByUser == true) {
+        final isWaiting = order.status == 'driver_reached';
+        final bool isCancelledByUser =
+            order.status == 'cancelled' && order.cancelledByUser == true;
+        if (isCancelledByUser) {
           return Container(
             margin: EdgeInsets.symmetric(horizontal: 16.w, vertical: 8.h),
             decoration: BoxDecoration(

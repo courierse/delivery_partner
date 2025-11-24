@@ -142,6 +142,51 @@ class _DeliveryHistoryScreenState extends State<DeliveryHistoryScreen> {
                   ),
                 ],
               ),
+              if (status == 'cancelled') ...[
+                SizedBox(height: 12.h),
+                Container(
+                  padding: EdgeInsets.all(12.w),
+                  decoration: BoxDecoration(
+                    color: Colors.red.shade50,
+                    borderRadius: BorderRadius.circular(12.r),
+                    border: Border.all(
+                      color: Colors.red.shade200,
+                      width: 1,
+                    ),
+                  ),
+                  child: Row(
+                    children: [
+                      Container(
+                        padding: EdgeInsets.all(8.w),
+                        decoration: BoxDecoration(
+                          color: Colors.red.shade100,
+                          shape: BoxShape.circle,
+                        ),
+                        child: Icon(
+                          cancelledByUser == true
+                              ? Icons.person_off_outlined
+                              : Icons.cancel_outlined,
+                          color: Colors.red.shade700,
+                          size: 20.sp,
+                        ),
+                      ),
+                      SizedBox(width: 12.w),
+                      Expanded(
+                        child: Text(
+                          cancelledByUser == true
+                              ? 'This order was cancelled by the customer.'
+                              : 'This order was cancelled by the driver.',
+                          style: TextStyle(
+                            fontSize: 13.sp,
+                            fontWeight: FontWeight.w600,
+                            color: Colors.red.shade700,
+                          ),
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+              ],
               SizedBox(height: 16.h),
 
               // Pickup Location

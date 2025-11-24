@@ -17,6 +17,8 @@ import 'package:url_launcher/url_launcher.dart';
 import 'package:phone_authentication/services/notification_service.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
+enum _AudioAlertType { none, pending, cancellation }
+
 class AlertScreen extends StatefulWidget {
   const AlertScreen({super.key});
   @override
@@ -29,6 +31,15 @@ class _AlertScreenState extends State<AlertScreen> {
   final CollectionReference _driversCollection = FirebaseFirestore.instance
       .collection('drivers');
   final AudioPlayer _audioPlayer = AudioPlayer();
+  _AudioAlertType _activeAudioAlert = _AudioAlertType.none;
+  String? _activeCancellationOrderId;
+  final Set<String> _alertedPendingOrderIds = <String>{};
+  final Set<String> _unacknowledgedCancellations = <String>{};
+  final Map<String, order_model.Order> _unacknowledgedOrderDetails = {};
+  final Set<String> _dismissedCancellationOrderIds = <String>{};
+  bool _hasReceivedPendingSnapshot = false;
+  static const String _unacknowledgedPrefsKey = 'unacknowledged_cancellations';
+  static const String _dismissedPrefsKey = 'dismissed_cancellations';
   StreamSubscription<QuerySnapshot>? _pendingOrdersSubscription;
   StreamSubscription<QuerySnapshot>? _acceptedCancelledOrdersSubscription;
   StreamSubscription<Position>? _locationStreamSubscription;
@@ -46,6 +57,7 @@ class _AlertScreenState extends State<AlertScreen> {
     print('AlertScreen: initState called');
     _audioPlayer.setReleaseMode(ReleaseMode.loop);
     _loadDutyStatus();
+    _loadUnacknowledgedCancellations();
   }
 
   @override
@@ -286,6 +298,89 @@ class _AlertScreenState extends State<AlertScreen> {
       await _loadSavedAcceptedOrder();
     } catch (e) {
       print('Error loading duty status: $e');
+    }
+  }
+
+  Future<void> _loadUnacknowledgedCancellations() async {
+    try {
+      final prefs = await SharedPreferences.getInstance();
+      final dismissedIds =
+          prefs.getStringList(_dismissedPrefsKey) ?? <String>[];
+      if (mounted) {
+        setState(() {
+          _dismissedCancellationOrderIds
+            ..clear()
+            ..addAll(dismissedIds);
+        });
+      }
+      final storedOrderIds =
+          prefs.getStringList(_unacknowledgedPrefsKey) ?? <String>[];
+      if (!mounted || storedOrderIds.isEmpty) return;
+
+      final List<order_model.Order> validOrders = [];
+      for (final orderId in storedOrderIds) {
+        try {
+          final doc = await _ordersCollection.doc(orderId).get();
+          if (!doc.exists) continue;
+          final data = doc.data() as Map<String, dynamic>?;
+          final status = data?['status'] as String?;
+          final cancelledByUser = data?['cancelledByUser'] as bool?;
+          if (status == 'cancelled' && cancelledByUser == true) {
+            validOrders.add(order_model.Order.fromSnapshot(doc));
+          }
+        } catch (e) {
+          print('Error validating stored cancellation $orderId: $e');
+        }
+      }
+
+      if (!mounted) return;
+
+      if (validOrders.isEmpty) {
+        await prefs.remove(_unacknowledgedPrefsKey);
+        return;
+      }
+
+      setState(() {
+        final filteredOrders =
+            validOrders
+                .where(
+                  (order) => !_dismissedCancellationOrderIds.contains(order.id),
+                )
+                .toList();
+        if (filteredOrders.isEmpty) {
+          _unacknowledgedCancellations.clear();
+          _unacknowledgedOrderDetails.clear();
+          _activeCancellationOrderId = null;
+          return;
+        }
+        _unacknowledgedCancellations
+          ..clear()
+          ..addAll(filteredOrders.map((order) => order.id));
+        _unacknowledgedOrderDetails..clear();
+        for (final order in filteredOrders) {
+          _unacknowledgedOrderDetails[order.id] = order;
+        }
+        _activeCancellationOrderId = _unacknowledgedCancellations.first;
+      });
+      await _playAlertSound(_AudioAlertType.cancellation);
+    } catch (e) {
+      print('Error loading unacknowledged cancellations: $e');
+    }
+  }
+
+  Future<void> _persistUnacknowledgedCancellations() async {
+    try {
+      final prefs = await SharedPreferences.getInstance();
+      await prefs.setStringList(
+        _unacknowledgedPrefsKey,
+        _unacknowledgedCancellations.toList(),
+      );
+      await prefs.setStringList(
+        _dismissedPrefsKey,
+        _dismissedCancellationOrderIds.toList(),
+      );
+    } catch (e) {
+      print('Error saving unacknowledged cancellations: $e');
     }
   }
 
@@ -532,17 +627,34 @@ class _AlertScreenState extends State<AlertScreen> {
     }
   }
 
-  Future<void> _safePlayAudio() async {
-    if (!_isAudioPlayerInitialized) {
-      try {
-        print('Attempting to play audio for pending orders');
-        await _audioPlayer.play(AssetSource('sounds/alert.mp3'));
-        _isAudioPlayerInitialized = true;
-        print('Audio played successfully');
-      } catch (e) {
-        print('Error playing audio: $e');
-        _isAudioPlayerInitialized = false;
+  Future<void> _playAlertSound(_AudioAlertType type) async {
+    if (_activeAudioAlert == _AudioAlertType.cancellation &&
+        type != _AudioAlertType.cancellation) {
+      // Do not override cancellation alert until acknowledged.
+      return;
+    }
+    if (_activeAudioAlert == type && _isAudioPlayerInitialized) {
+      return;
+    }
+
+    final assetPath =
+        type == _AudioAlertType.cancellation
+            ? 'sounds/cancel-alert.mp3'
+            : 'sounds/alert.mp3';
+
+    try {
+      if (_isAudioPlayerInitialized) {
+        await _audioPlayer.stop();
       }
+      print('Attempting to play $type audio from $assetPath');
+      await _audioPlayer.play(AssetSource(assetPath));
+      _isAudioPlayerInitialized = true;
+      _activeAudioAlert = type;
+      print('$type audio started');
+    } catch (e) {
+      print('Error playing $type audio: $e');
+      _isAudioPlayerInitialized = false;
+      _activeAudioAlert = _AudioAlertType.none;
     }
   }
 
@@ -557,6 +669,78 @@ class _AlertScreenState extends State<AlertScreen> {
         print('Error stopping audio: $e');
         _isAudioPlayerInitialized = false;
       }
+    }
+    _activeAudioAlert = _AudioAlertType.none;
+  }
+
+  Future<void> _handleCancellationAlert(order_model.Order order) async {
+    if (!mounted) return;
+    if (_dismissedCancellationOrderIds.contains(order.id)) {
+      return;
+    }
+    final bool alreadyPending = _unacknowledgedCancellations.contains(order.id);
+    setState(() {
+      _activeCancellationOrderId = order.id;
+      _unacknowledgedCancellations.add(order.id);
+      _unacknowledgedOrderDetails[order.id] = order;
+    });
+    await _persistUnacknowledgedCancellations();
+    if (!alreadyPending) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text('Order ${order.id} has been cancelled by the user.'),
+          duration: const Duration(seconds: 5),
+        ),
+      );
+      await _showCancellationNotification(order);
+    }
+    await _stopWaitingTimer();
+    await _playAlertSound(_AudioAlertType.cancellation);
+  }
+
+  Future<void> _acknowledgeCancellation(String orderId) async {
+    if (!mounted) return;
+    setState(() {
+      _unacknowledgedCancellations.remove(orderId);
+      _unacknowledgedOrderDetails.remove(orderId);
+      _dismissedCancellationOrderIds.add(orderId);
+      if (_unacknowledgedCancellations.isEmpty) {
+        _activeCancellationOrderId = null;
+      } else if (_activeCancellationOrderId == orderId) {
+        _activeCancellationOrderId = _unacknowledgedCancellations.first;
+      }
+    });
+    await _persistUnacknowledgedCancellations();
+    if (_unacknowledgedCancellations.isEmpty) {
+      await _safeStopAudio();
+      await _resumePendingAlertIfNeeded();
+    } else {
+      await _playAlertSound(_AudioAlertType.cancellation);
+    }
+  }
+
+  Future<void> _resumePendingAlertIfNeeded() async {
+    if (_hasPendingOrders) {
+      await _playAlertSound(_AudioAlertType.pending);
+    }
+  }
+
+  Future<void> _showCancellationNotification(order_model.Order order) async {
+    try {
+      final notificationService = NotificationService();
+      await notificationService.initialize();
+      await notificationService.showOrderNotification(
+        orderId: order.id,
+        title: 'Order Cancelled',
+        body:
+            'Customer cancelled delivery from ${order.pickupLocation} to ${order.dropLocation}.',
+        pickupLocation: order.pickupLocation,
+        dropLocation: order.dropLocation,
+        distance: order.distance.toStringAsFixed(1),
+        vehicleType: order.vehicleType ?? 'Unknown',
+      );
+    } catch (e) {
+      print('Error showing cancellation notification: $e');
     }
   }
 
@@ -609,15 +793,35 @@ class _AlertScreenState extends State<AlertScreen> {
                   );
                   return distance <= 5.0;
                 }).toList();
-            final hasPendingOrders = newPendingOrders.isNotEmpty;
-            if (hasPendingOrders != _hasPendingOrders && mounted) {
+            final newPendingOrderIds =
+                newPendingOrders.map((doc) => doc.id).toSet();
+            final hasPendingOrders = newPendingOrderIds.isNotEmpty;
+            final hasFreshOrders =
+                _hasReceivedPendingSnapshot &&
+                newPendingOrderIds.any(
+                  (orderId) => !_alertedPendingOrderIds.contains(orderId),
+                );
+
+            if (!_hasReceivedPendingSnapshot) {
+              _alertedPendingOrderIds
+                ..clear()
+                ..addAll(newPendingOrderIds);
+              _hasReceivedPendingSnapshot = true;
+            } else if (hasFreshOrders) {
+              _alertedPendingOrderIds.addAll(newPendingOrderIds);
+              await _playAlertSound(_AudioAlertType.pending);
+              // FCM will deliver notifications; avoid duplicate local notifications here.
+            }
+
+            if (mounted) {
               setState(() {
                 _hasPendingOrders = hasPendingOrders;
               });
-              if (hasPendingOrders) {
-                await _safePlayAudio();
-                // FCM will deliver notifications; avoid duplicate local notifications here.
-              } else {
+            }
+
+            if (!hasPendingOrders) {
+              _alertedPendingOrderIds.clear();
+              if (_unacknowledgedCancellations.isEmpty) {
                 await _safeStopAudio();
               }
             }
@@ -648,16 +852,7 @@ class _AlertScreenState extends State<AlertScreen> {
               if (order.status == 'cancelled' &&
                   order.cancelledByUser == true &&
                   mounted) {
-                ScaffoldMessenger.of(context).showSnackBar(
-                  SnackBar(
-                    content: Text(
-                      'Order ${order.id} has been cancelled by the user.',
-                    ),
-                    duration: const Duration(seconds: 5),
-                  ),
-                );
-                await _safeStopAudio();
-                await _stopWaitingTimer();
+                await _handleCancellationAlert(order);
               } else if (order.status != 'driver_reached') {
                 await _stopWaitingTimer();
               }
@@ -1028,44 +1223,155 @@ class _AlertScreenState extends State<AlertScreen> {
     }
   }
 
+  Widget _buildCancellationBanner() {
+    final orderId = _activeCancellationOrderId;
+    if (orderId == null) return const SizedBox.shrink();
+    final order = _unacknowledgedOrderDetails[orderId];
+    return Padding(
+      padding: EdgeInsets.symmetric(horizontal: 16.w, vertical: 8.h),
+      child: Container(
+        padding: EdgeInsets.all(16.w),
+        decoration: BoxDecoration(
+          color: Colors.red.shade50,
+          borderRadius: BorderRadius.circular(18.r),
+          border: Border.all(color: Colors.red.shade200),
+          boxShadow: [
+            BoxShadow(
+              color: Colors.red.withOpacity(0.2),
+              blurRadius: 12,
+              offset: const Offset(0, 6),
+            ),
+          ],
+        ),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Row(
+              children: [
+                Container(
+                  padding: EdgeInsets.all(10.w),
+                  decoration: BoxDecoration(
+                    color: Colors.red.shade100,
+                    shape: BoxShape.circle,
+                  ),
+                  child: Icon(
+                    Icons.warning_amber_rounded,
+                    color: Colors.red.shade800,
+                    size: 22.sp,
+                  ),
+                ),
+                SizedBox(width: 12.w),
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        'Delivery Cancelled',
+                        style: TextStyle(
+                          fontSize: 16.sp,
+                          fontWeight: FontWeight.w700,
+                          color: Colors.red.shade800,
+                        ),
+                      ),
+                      SizedBox(height: 4.h),
+                      Text(
+                        'Customer cancelled order $orderId. Please acknowledge to stop the alert.',
+                        style: TextStyle(
+                          fontSize: 12.sp,
+                          color: Colors.red.shade600,
+                          fontWeight: FontWeight.w500,
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+              ],
+            ),
+            if (order != null) ...[
+              SizedBox(height: 12.h),
+              Text(
+                'Pickup: ${order.pickupLocation}',
+                style: TextStyle(
+                  fontSize: 12.sp,
+                  fontWeight: FontWeight.w600,
+                  color: Colors.red.shade700,
+                ),
+              ),
+              SizedBox(height: 4.h),
+              Text(
+                'Drop: ${order.dropLocation}',
+                style: TextStyle(
+                  fontSize: 12.sp,
+                  fontWeight: FontWeight.w600,
+                  color: Colors.red.shade700,
+                ),
+              ),
+            ],
+            SizedBox(height: 12.h),
+            Align(
+              alignment: Alignment.centerRight,
+              child: ElevatedButton(
+                onPressed: () => _acknowledgeCancellation(orderId),
+                style: ElevatedButton.styleFrom(
+                  backgroundColor: Colors.red.shade600,
+                  foregroundColor: Colors.white,
+                  padding: EdgeInsets.symmetric(
+                    horizontal: 20.w,
+                    vertical: 8.h,
+                  ),
+                  shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(12.r),
+                  ),
+                ),
+                child: const Text('OK'),
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
   Widget _buildOrderCard(
     order_model.Order order,
     bool isPending,
     LatLng driverLocation,
   ) {
-    final distanceToPickup = _calculateDistance(
-      driverLocation,
-      LatLng(order.pickupLat ?? 0.0, order.pickupLng ?? 0.0),
-    );
-    final pickupLocation = LatLng(
-      order.pickupLat ?? 0.0,
-      order.pickupLng ?? 0.0,
-    );
-    final dropLocation = LatLng(order.dropLat ?? 0.0, order.dropLng ?? 0.0);
     return StreamBuilder<DocumentSnapshot>(
       stream: _ordersCollection.doc(order.id).snapshots(),
       builder: (context, snapshot) {
+        final pickupLocation = LatLng(
+          order.pickupLat ?? 0.0,
+          order.pickupLng ?? 0.0,
+        );
+        final dropLocation = LatLng(order.dropLat ?? 0.0, order.dropLng ?? 0.0);
+        final distanceToPickup = _calculateDistance(
+          driverLocation,
+          pickupLocation,
+        );
+        Map<String, dynamic>? liveData;
         double currentFare = order.deliveryCost;
         if (snapshot.hasData && snapshot.data!.exists) {
-          final data = snapshot.data!.data() as Map<String, dynamic>?;
-          final updatedFare = data?['deliveryCost'];
+          liveData = snapshot.data!.data() as Map<String, dynamic>?;
+          final updatedFare = liveData?['deliveryCost'];
           if (updatedFare is num) {
             currentFare = updatedFare.toDouble();
           } else {
             currentFare =
-                (data?['deliveryCost'] as double?) ?? order.deliveryCost;
+                (liveData?['deliveryCost'] as double?) ?? order.deliveryCost;
           }
           print('Order ${order.id} fare updated to: $currentFare');
-          try {
-            order = order_model.Order.fromSnapshot(snapshot.data!);
-          } catch (e) {
-            print('Error parsing live order ${order.id}: $e');
-          }
         }
-        final isWaiting = order.status == 'driver_reached';
-        final bool isCancelledByUser =
-            order.status == 'cancelled' && order.cancelledByUser == true;
-        if (isCancelledByUser) {
+        final statusValue = (liveData?['status'] as String?) ?? order.status;
+        final cancelledByUserFlag =
+            (liveData?['cancelledByUser'] as bool?) ?? order.cancelledByUser;
+        final bool isOrderCancelledByUser =
+            statusValue == 'cancelled' && cancelledByUserFlag == true;
+        final bool showCancellationAction =
+            isOrderCancelledByUser &&
+            _unacknowledgedCancellations.contains(order.id);
+        final bool isWaiting = statusValue == 'driver_reached';
+        if (isOrderCancelledByUser) {
           return Container(
             margin: EdgeInsets.symmetric(horizontal: 16.w, vertical: 8.h),
             decoration: BoxDecoration(
@@ -1104,6 +1410,26 @@ class _AlertScreenState extends State<AlertScreen> {
                     child: Column(
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
+                        Container(
+                          padding: EdgeInsets.symmetric(
+                            horizontal: 10.w,
+                            vertical: 4.h,
+                          ),
+                          decoration: BoxDecoration(
+                            color: Colors.red.shade100,
+                            borderRadius: BorderRadius.circular(20.r),
+                          ),
+                          child: Text(
+                            'Cancelled by user',
+                            style: TextStyle(
+                              fontSize: 11.sp,
+                              fontWeight: FontWeight.w700,
+                              color: Colors.red.shade800,
+                              letterSpacing: 0.4,
+                            ),
+                          ),
+                        ),
+                        SizedBox(height: 8.h),
                         Text(
                           'Order Cancelled',
                           style: TextStyle(
@@ -1121,6 +1447,39 @@ class _AlertScreenState extends State<AlertScreen> {
                             color: Colors.red.shade700,
                             fontWeight: FontWeight.w500,
                           ),
+                        ),
+                        SizedBox(height: 12.h),
+                        Align(
+                          alignment: Alignment.centerRight,
+                          child:
+                              showCancellationAction
+                                  ? ElevatedButton(
+                                    onPressed:
+                                        () =>
+                                            _acknowledgeCancellation(order.id),
+                                    style: ElevatedButton.styleFrom(
+                                      backgroundColor: Colors.red.shade600,
+                                      foregroundColor: Colors.white,
+                                      padding: EdgeInsets.symmetric(
+                                        horizontal: 20.w,
+                                        vertical: 8.h,
+                                      ),
+                                      shape: RoundedRectangleBorder(
+                                        borderRadius: BorderRadius.circular(
+                                          12.r,
+                                        ),
+                                      ),
+                                    ),
+                                    child: const Text('OK'),
+                                  )
+                                  : Text(
+                                    'Acknowledged',
+                                    style: TextStyle(
+                                      fontSize: 12.sp,
+                                      fontWeight: FontWeight.w600,
+                                      color: Colors.red.shade400,
+                                    ),
+                                  ),
                         ),
                       ],
                     ),
@@ -2117,6 +2476,8 @@ class _AlertScreenState extends State<AlertScreen> {
                   ],
                 ),
               ),
+              if (_unacknowledgedCancellations.isNotEmpty)
+                _buildCancellationBanner(),
               if (!_isOnDuty)
                 Padding(
                   padding: EdgeInsets.all(24.w),

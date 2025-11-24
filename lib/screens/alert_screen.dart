@@ -1,4 +1,5 @@
 import 'dart:async';
+import 'dart:convert';
 import 'dart:math';
 import 'package:audioplayers/audioplayers.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
@@ -14,6 +15,7 @@ import 'package:geolocator/geolocator.dart';
 import 'package:phone_authentication/models/order_model.dart' as order_model;
 import 'package:url_launcher/url_launcher.dart';
 import 'package:phone_authentication/services/notification_service.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 
 class AlertScreen extends StatefulWidget {
   const AlertScreen({super.key});
@@ -36,6 +38,7 @@ class _AlertScreenState extends State<AlertScreen> {
   bool _isAudioPlayerInitialized = false;
   bool _isOnDuty = false;
   Timer? _waitingTimer;
+  order_model.Order? _savedAcceptedOrder;
 
   @override
   void initState() {
@@ -279,8 +282,120 @@ class _AlertScreenState extends State<AlertScreen> {
           _startLocationUpdates(); // Start location updates if already on duty
         }
       }
+      // Load saved accepted order
+      await _loadSavedAcceptedOrder();
     } catch (e) {
       print('Error loading duty status: $e');
+    }
+  }
+
+  // Save accepted order to local storage
+  Future<void> _saveAcceptedOrder(order_model.Order order) async {
+    try {
+      final prefs = await SharedPreferences.getInstance();
+      final orderData = {
+        'id': order.id,
+        'pickupLocation': order.pickupLocation,
+        'pickupLat': order.pickupLat,
+        'pickupLng': order.pickupLng,
+        'dropLocation': order.dropLocation,
+        'dropLat': order.dropLat,
+        'dropLng': order.dropLng,
+        'pickupName': order.pickupName,
+        'pickupPhone': order.pickupPhone,
+        'dropName': order.dropName,
+        'dropPhone': order.dropPhone,
+        'weightRange': order.weightRange,
+        'userId': order.userId,
+        'status': order.status,
+        'distance': order.distance,
+        'deliveryCost': order.deliveryCost,
+        'createdAt': order.createdAt.millisecondsSinceEpoch,
+        'driverId': order.driverId,
+        'acceptedAt': order.acceptedAt?.millisecondsSinceEpoch,
+        'completedAt': order.completedAt?.millisecondsSinceEpoch,
+        'cancelledAt': order.cancelledAt?.millisecondsSinceEpoch,
+        'vehicleType': order.vehicleType,
+        'cancelledByUser': order.cancelledByUser,
+        'statusUpdatedAt': order.statusUpdatedAt?.millisecondsSinceEpoch,
+      };
+      await prefs.setString('last_accepted_order', jsonEncode(orderData));
+      print('Saved accepted order to local storage: ${order.id}');
+    } catch (e) {
+      print('Error saving accepted order: $e');
+    }
+  }
+
+  // Load saved accepted order from local storage
+  Future<void> _loadSavedAcceptedOrder() async {
+    try {
+      final user = FirebaseAuth.instance.currentUser;
+      if (user == null) return;
+
+      final prefs = await SharedPreferences.getInstance();
+      final orderJson = prefs.getString('last_accepted_order');
+      if (orderJson != null) {
+        final orderData = jsonDecode(orderJson) as Map<String, dynamic>;
+        // Check if the order still exists in Firestore and is still active
+        final orderId = orderData['id'] as String;
+        final orderDoc = await _ordersCollection.doc(orderId).get();
+        if (orderDoc.exists) {
+          final firestoreData = orderDoc.data() as Map<String, dynamic>?;
+          final status = firestoreData?['status'] as String?;
+          final driverId = firestoreData?['driverId'] as String?;
+          // Only load if order is still in an active state and assigned to this driver
+          if (status != null &&
+              driverId == user.uid &&
+              [
+                'accepted',
+                'driver_reached',
+                'order_picked',
+                'on_the_way',
+              ].contains(status)) {
+            final order = order_model.Order.fromSnapshot(orderDoc);
+            if (mounted) {
+              setState(() {
+                _savedAcceptedOrder = order;
+              });
+              print('Loaded saved accepted order: ${order.id}');
+            }
+          } else {
+            // Order is no longer active or not assigned to this driver, clear saved order
+            await prefs.remove('last_accepted_order');
+            if (mounted) {
+              setState(() {
+                _savedAcceptedOrder = null;
+              });
+            }
+          }
+        } else {
+          // Order doesn't exist in Firestore, clear saved order
+          await prefs.remove('last_accepted_order');
+          if (mounted) {
+            setState(() {
+              _savedAcceptedOrder = null;
+            });
+          }
+        }
+      }
+    } catch (e) {
+      print('Error loading saved accepted order: $e');
+    }
+  }
+
+  // Clear saved accepted order
+  Future<void> _clearSavedAcceptedOrder() async {
+    try {
+      final prefs = await SharedPreferences.getInstance();
+      await prefs.remove('last_accepted_order');
+      if (mounted) {
+        setState(() {
+          _savedAcceptedOrder = null;
+        });
+      }
+      print('Cleared saved accepted order');
+    } catch (e) {
+      print('Error clearing saved accepted order: $e');
     }
   }
 
@@ -654,6 +769,12 @@ class _AlertScreenState extends State<AlertScreen> {
           'updatedAt': FieldValue.serverTimestamp(),
         }, SetOptions(merge: true));
       });
+      // Fetch the accepted order and save it to local storage
+      final acceptedOrderDoc = await _ordersCollection.doc(orderId).get();
+      if (acceptedOrderDoc.exists) {
+        final acceptedOrder = order_model.Order.fromSnapshot(acceptedOrderDoc);
+        await _saveAcceptedOrder(acceptedOrder);
+      }
       if (mounted) {
         ScaffoldMessenger.of(
           context,
@@ -705,6 +826,25 @@ class _AlertScreenState extends State<AlertScreen> {
         }
       } else if (newStatus != 'driver_reached') {
         await _stopWaitingTimer();
+      }
+      // Update or clear saved order based on new status
+      if (newStatus == 'delivered' || newStatus == 'cancelled') {
+        // Clear saved order if delivered or cancelled
+        if (_savedAcceptedOrder?.id == orderId) {
+          await _clearSavedAcceptedOrder();
+        }
+      } else if ([
+        'accepted',
+        'driver_reached',
+        'order_picked',
+        'on_the_way',
+      ].contains(newStatus)) {
+        // Update saved order if still active
+        final updatedOrderDoc = await _ordersCollection.doc(orderId).get();
+        if (updatedOrderDoc.exists && _savedAcceptedOrder?.id == orderId) {
+          final updatedOrder = order_model.Order.fromSnapshot(updatedOrderDoc);
+          await _saveAcceptedOrder(updatedOrder);
+        }
       }
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
@@ -802,6 +942,10 @@ class _AlertScreenState extends State<AlertScreen> {
       });
       await _safeStopAudio();
       await _stopWaitingTimer();
+      // Clear saved order if this is the saved one
+      if (_savedAcceptedOrder?.id == orderId) {
+        await _clearSavedAcceptedOrder();
+      }
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
           const SnackBar(content: Text('Order cancelled by driver!')),
@@ -2430,6 +2574,48 @@ class _AlertScreenState extends State<AlertScreen> {
                                           ),
                                     );
                                     latestAcceptedOrder = acceptedOrders.first;
+                                  }
+                                  // Include saved accepted order if it exists and is not already in the list
+                                  if (_savedAcceptedOrder != null) {
+                                    final savedOrderInList = acceptedOrders.any(
+                                      (order) =>
+                                          order.id == _savedAcceptedOrder!.id,
+                                    );
+                                    // If saved order is not in the list and is still active, use it
+                                    if (!savedOrderInList &&
+                                        [
+                                          'accepted',
+                                          'driver_reached',
+                                          'order_picked',
+                                          'on_the_way',
+                                        ].contains(
+                                          _savedAcceptedOrder!.status,
+                                        )) {
+                                      // If no latest accepted order from Firestore, use saved one
+                                      if (latestAcceptedOrder == null) {
+                                        latestAcceptedOrder =
+                                            _savedAcceptedOrder;
+                                      } else {
+                                        // Compare timestamps - use the more recent one
+                                        final savedTimestamp =
+                                            _savedAcceptedOrder!
+                                                .statusUpdatedAt ??
+                                            _savedAcceptedOrder!.acceptedAt ??
+                                            Timestamp.now();
+                                        final latestTimestamp =
+                                            latestAcceptedOrder!
+                                                .statusUpdatedAt ??
+                                            latestAcceptedOrder!.acceptedAt ??
+                                            Timestamp.now();
+                                        if (savedTimestamp.compareTo(
+                                              latestTimestamp,
+                                            ) >
+                                            0) {
+                                          latestAcceptedOrder =
+                                              _savedAcceptedOrder;
+                                        }
+                                      }
+                                    }
                                   }
                                   final finalOrders = [
                                     ...pendingOrders,
